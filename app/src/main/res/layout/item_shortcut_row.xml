@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 快捷方式行: [名称]  [Switch 启用]  [Spinner 行为] -->
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="12dp"
+    android:layout_marginVertical="4dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="1dp"
+    app:cardBackgroundColor="?attr/colorSurfaceContainerLow">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="8dp"
+        android:minHeight="56dp">
+
+        <!-- 名称 + 描述 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:text="Win + D" />
+
+            <TextView
+                android:id="@+id/tv_desc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:text="描述文字" />
+
+        </LinearLayout>
+
+        <!-- Switch -->
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/sw_enabled"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp" />
+
+        <!-- Action Spinner — Material 3 ExposedDropdownMenu（宽度由代码统一固定）-->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/til_action"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            app:boxBackgroundColor="?attr/colorSurfaceContainerHighest"
+            app:hintEnabled="false"
+            app:endIconMode="dropdown_menu">
+
+        <com.google.android.material.textfield.MaterialAutoCompleteTextView
+            android:id="@+id/sp_action"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="none"
+            android:focusable="true"
+            android:focusableInTouchMode="true"
+            android:clickable="true"
+            android:paddingVertical="6dp"
+            android:text="DEFAULT"
+            android:textAppearance="?attr/textAppearanceBodySmall" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- 右箭头 — 仅 Tap 型卡片显示 -->
+        <TextView
+            android:id="@+id/iv_chevron"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="›"
+            android:textSize="24sp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:layout_marginStart="4dp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

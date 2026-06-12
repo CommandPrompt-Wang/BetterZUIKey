@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        app:navigationIcon="?attr/homeAsUpIndicator"
+        app:title="外观设置" />
+
+    <LinearLayout
+        android:id="@+id/row_night_mode"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingVertical="12dp"
+        android:paddingHorizontal="4dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="夜间模式"
+            android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            android:layout_width="wrap_content"
+            android:minWidth="150dp"
+            android:layout_height="wrap_content"
+            app:boxBackgroundColor="?attr/colorSurfaceContainerHighest"
+            app:hintEnabled="false"
+            app:endIconMode="dropdown_menu">
+
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                android:id="@+id/sp_night_mode"
+                android:dropDownWidth="wrap_content"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none"
+                android:focusable="true"
+                android:clickable="true"
+                android:text="自动" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/row_dynamic_color"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingVertical="4dp"
+        android:paddingHorizontal="4dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="跟随系统动态色板 (Material You)"
+            android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/sw_dynamic_color"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+    </LinearLayout>
+
+</LinearLayout>

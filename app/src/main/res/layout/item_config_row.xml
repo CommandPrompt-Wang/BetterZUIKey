@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 复用行: QLabel | QPushButton + QComboBox
+     每个配置项 = 左侧标签 + 右侧(按钮 + 下拉框) -->
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginVertical="6dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="1dp"
+        app:cardBackgroundColor="?attr/colorSurfaceContainerLow">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="16dp">
+
+            <!-- QLabel 左侧 -->
+            <TextView
+                android:id="@+id/tv_label"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Label"
+                android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+            <!-- QPushButton + QComboBox 右侧 -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <Button
+                    android:id="@+id/btn_action"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:minWidth="48dp"
+                    android:paddingHorizontal="12dp"
+                    android:text="Btn"
+                    style="?attr/materialButtonOutlinedStyle" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="wrap_content"
+                    android:minWidth="150dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    app:boxBackgroundColor="?attr/colorSurfaceContainerHighest"
+                    app:hintEnabled="false"
+                    app:endIconMode="dropdown_menu">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/spinner_action"
+                        android:dropDownWidth="wrap_content"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:focusable="true"
+                        android:clickable="true"
+                        android:minHeight="48dp" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+</merge>

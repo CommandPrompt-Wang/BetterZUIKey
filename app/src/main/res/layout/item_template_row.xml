@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 模板卡片: [名称 + Switch] [重命名] [选择应用 (n个) >] -->
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="12dp"
+    android:layout_marginVertical="6dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="1dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- 模板名 + 启用开关 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tv_template_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="游戏模式"
+                android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/sw_enabled"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+        </LinearLayout>
+
+        <!-- 重命名 -->
+        <TextView
+            android:id="@+id/tv_rename"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:padding="8dp"
+            android:text="重命名"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorPrimary"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground" />
+
+        <!-- 选择应用 -->
+        <TextView
+            android:id="@+id/tv_apps"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:text="选择应用（已选择 0 个）"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorPrimary"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground" />
+
+        <!-- 删除 -->
+        <TextView
+            android:id="@+id/tv_delete"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="8dp"
+            android:text="删除模板"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorError"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground" />
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

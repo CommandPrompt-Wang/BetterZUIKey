@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App 行: [CheckBox] 名 (包名) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="10dp"
+    android:minHeight="48dp"
+    android:background="?attr/selectableItemBackground">
+
+    <CheckBox
+        android:id="@+id/cb_selected"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <TextView
+        android:id="@+id/tv_app_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="8dp"
+        android:text="App Name (com.example.app)"
+        android:textAppearance="?attr/textAppearanceBodyMedium"
+        android:ellipsize="end"
+        android:maxLines="2" />
+
+</LinearLayout>

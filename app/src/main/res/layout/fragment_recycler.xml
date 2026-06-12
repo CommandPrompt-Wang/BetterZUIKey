@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 通用 RecyclerView Fragment 容器（支持下拉刷新） -->
+<!-- 警告卡片悬挂于顶部，不随列表滚动 -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <!-- 系统设置写入失败警告卡片（悬挂顶部，不滚动） -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardWriteWarning"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        android:visibility="gone"
+        android:backgroundTint="#FFF0F0"
+        app:cardElevation="4dp"
+        app:cardCornerRadius="8dp"
+        tools:visibility="visible">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="⚠ 无法写入系统设置"
+                    android:textColor="#CC0000"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvWriteErrorDetail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:visibility="gone"
+                    android:textColor="#990000"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:lineSpacingExtra="2dp"
+                    tools:text="原因: Failed to get ContentResolver" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="方法一：前往系统授权页&#10;方法二：使用 Root 自授权（需 Magisk/KSU）"
+                    android:textColor="#990000"
+                    android:textSize="12sp"
+                    android:lineSpacingExtra="2dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal"
+                    android:gravity="end">
+
+                    <Button
+                        android:id="@+id/btnGrantSettings"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="前往授权"
+                        android:textSize="12sp"
+                        android:minHeight="0dp"
+                        android:paddingLeft="10dp"
+                        android:paddingRight="10dp"
+                        android:paddingTop="6dp"
+                        android:paddingBottom="6dp"
+                        style="?android:attr/buttonBarButtonStyle" />
+
+                    <Button
+                        android:id="@+id/btnSuGrant"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="su 授权"
+                        android:textSize="12sp"
+                        android:minHeight="0dp"
+                        android:paddingLeft="10dp"
+                        android:paddingRight="10dp"
+                        android:paddingTop="6dp"
+                        android:paddingBottom="6dp"
+                        style="?android:attr/buttonBarButtonStyle" />
+
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefresh"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp" />
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+</LinearLayout>

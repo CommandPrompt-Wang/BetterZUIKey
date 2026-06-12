@@ -1,0 +1,22 @@
+{
+  "profiles": {
+    "17ef:6271": {
+      "name": "Lenovo Keyboard Pack For Yoga Keyboard",
+      "friendlyName": "联想小新平板Pro GT 磁吸键盘",
+      "keys": {
+        "F1":  { "keyCode": 111 },
+        "F2":  { "keyCode": 501 },
+        "F3":  { "keyCode": 25 },
+        "F4":  { "keyCode": 24 },
+        "F5":  { "keyCode": 503 },
+        "F6":  { "keyCode": 220 },
+        "F7":  { "keyCode": 221 },
+        "F8":  { "keyCode": 120 },
+        "F9":  { "keyCode": 500 },
+        "F10": { "keyCode": 504 },
+        "F11": { "keyCode": 507 },
+        "F12": { "keyCode": 112 }
+      }
+    }
+  }
+}

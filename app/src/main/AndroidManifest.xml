@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 读取已安装应用列表，用于模板的应用选择器 -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <!-- 写系统设置（同步快捷键开关到 Settings.System） -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+
+    <!-- 写无障碍设置（辅助功能开关） -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.BetterZUIKey">
+
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+
+        <meta-data
+            android:name="xposeddescription"
+            android:value="Better shortcut experience in ZUI/ZUXOS" />
+
+        <meta-data
+            android:name="xposedminversion"
+            android:value="90" />
+
+        <meta-data
+            android:name="xposedscope"
+            android:resource="@array/xposed_scope" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".TemplateEditorActivity"
+            android:label="编辑模板" />
+
+        <activity
+            android:name=".AppPickerActivity"
+            android:label="选择应用" />
+
+        <activity
+            android:name=".FnSettingsActivity"
+            android:label="虚拟Fn" />
+
+        <activity
+            android:name=".ProfileManageActivity"
+            android:label="配置文件管理" />
+
+        <activity
+            android:name=".AospSettingsActivity"
+            android:label="辅助功能开关" />
+
+        <activity
+            android:name=".HelpActivity"
+            android:label="帮助" />
+
+        <activity
+            android:name=".KeyboardDetectActivity"
+            android:label="键盘检测" />
+
+        <activity
+            android:name=".ImportProfileActivity"
+            android:label="导入配置文件" />
+
+        <activity
+            android:name=".AppearanceSettingsActivity"
+            android:label="外观设置" />
+
+    </application>
+
+</manifest>
