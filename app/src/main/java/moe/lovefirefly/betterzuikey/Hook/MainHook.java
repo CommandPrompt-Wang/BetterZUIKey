@@ -258,6 +258,21 @@ public class MainHook implements IXposedHookLoadPackage {
         }
     }
 
+    /**
+     * OFF re-injection helper: block ZUI + L3, inject clean key to foreground app.
+     * @return true if the caller should return immediately (OFF handled)
+     */
+    private boolean handleOffInject(String shortcutKey, Config.OverrideMode ov,
+                                     XC_MethodHook.MethodHookParam param, int keyCode) {
+        if (ov != Config.OverrideMode.OFF) return false;
+        LogHelper.log(VerboseLevel.INFO, "L1: ", shortcutKey,
+                " → OFF (block system, inject ", keyCodeToString(keyCode), " to app)");
+        param.setResult(true);
+        mOffInjectKeys.add(keyCode);
+        injectKeyDown(keyCode);
+        return true;
+    }
+
     // ----------------------------------------------------------------
     //   Event-driven foreground detection (hook ActivityTaskManager focus change)
     // ----------------------------------------------------------------
@@ -610,6 +625,15 @@ public class MainHook implements IXposedHookLoadPackage {
                             int repeatCount = event.getRepeatCount();
                             boolean firstDown = down && repeatCount == 0;
 
+                            // OFF re-injection UP: consume physical UP, inject clean UP
+                            if (!down && mOffInjectKeys.remove(keyCode)) {
+                                param.setResult(true);
+                                injectKeyUp(keyCode);
+                                LogHelper.log(VerboseLevel.DEBUG, "L1: OFF inject UP keyCode=",
+                                        String.valueOf(keyCode));
+                                return;
+                            }
+
                             // Ctrl+Shift+T — Toggle touchpad
                             if (keyCode == KeyEvent.KEYCODE_T && firstDown
                                     && event.isCtrlPressed() && event.isShiftPressed()) {
@@ -625,8 +649,6 @@ public class MainHook implements IXposedHookLoadPackage {
                             }
 
                             // Win+D — Back to desktop (L3 AOSP PhoneWindowManager type=1 → goHome())
-                            // L1 only sends telemetry; the actual KeyGestureEvent dispatch happens
-                            // inside the original ZUI method. We must NOT skip it.
                             if (keyCode == KeyEvent.KEYCODE_D && firstDown
                                     && event.isMetaPressed()) {
                                 LogHelper.log(VerboseLevel.INFO, "L1: Win+D detected",
@@ -637,23 +659,27 @@ public class MainHook implements IXposedHookLoadPackage {
                                     param.setResult(true);
                                     return;
                                 }
-                                if (applyInterceptAction(ra("winD", cfg.overrideWinD), param, "L1: Win+D")) return;
-                                // For OFF/FOLLOW_SYSTEM/AOSP: applyInterceptAction returns false,
-                                // meaning let the original ZUI method run (which dispatches type=1 → goHome())
+                                Config.OverrideMode ov = ra("winD", cfg.overrideWinD);
+                                if (handleOffInject("Win+D", ov, param, keyCode)) return;
+                                if (applyInterceptAction(ov, param, "L1: Win+D")) return;
                             }
 
                             // Win+I — Open Settings
                             if (keyCode == KeyEvent.KEYCODE_I && firstDown
                                     && event.isMetaPressed()) {
                                 if (!r("winI", cfg.switchWinI).isEnabled()) return;
-                                if (applyInterceptAction(ra("winI", cfg.overrideWinI), param, "L1: Win+I")) return;
+                                Config.OverrideMode ov = ra("winI", cfg.overrideWinI);
+                                if (handleOffInject("winI", ov, param, keyCode)) return;
+                                if (applyInterceptAction(ov, param, "L1: Win+I")) return;
                             }
 
                             // Win+N — Notification panel
                             if (keyCode == KeyEvent.KEYCODE_N && firstDown
                                     && event.isMetaPressed()) {
                                 if (!r("winN", cfg.switchWinN).isEnabled()) return;
-                                if (applyInterceptAction(ra("winN", cfg.overrideWinN), param, "L1: Win+N")) return;
+                                Config.OverrideMode ov = ra("winN", cfg.overrideWinN);
+                                if (handleOffInject("winN", ov, param, keyCode)) return;
+                                if (applyInterceptAction(ov, param, "L1: Win+N")) return;
                             }
 
                             // Ctrl+Shift — Switch IME
@@ -889,6 +915,11 @@ public class MainHook implements IXposedHookLoadPackage {
                                             action = ra("winD", cfg.overrideWinD);
                                             label = "L3: Win+D (type=1)";
                                             break;
+                                        case 7: // Win+I → launchSettings (AOSP default registered)
+                                            if (!r("winI", cfg.switchWinI).isEnabled()) break;
+                                            action = ra("winI", cfg.overrideWinI);
+                                            label = "L3: Win+I (type=7)";
+                                            break;
                                         case 8: // Win+N / 514 → 通知面板
                                             if (!r("winN", cfg.switchWinN).isEnabled()) break;
                                             action = ra("winN", cfg.overrideWinN);
@@ -926,11 +957,15 @@ public class MainHook implements IXposedHookLoadPackage {
                                             param.setResult(null);
                                             break;
                                         case OFF:
+                                            // OFF: 阻止系统处理 (goHome等), 放行原始按键给前台App
+                                            LogHelper.log(VerboseLevel.INFO, label,
+                                                    "→ OFF (block system, pass raw keys to app)");
+                                            param.setResult(null);
+                                            break;
                                         case ZUI:
                                         case AOSP:
                                         case FOLLOW_SYSTEM:
                                         default:
-                                            // OFF = 关闭拦截, 让系统正常处理 (如 goHome)
                                             // ZUI/AOSP/FOLLOW_SYSTEM = 放行给系统
                                             LogHelper.log(VerboseLevel.DEBUG, label,
                                                     "→", action.name(), "(pass through)");
@@ -961,6 +996,9 @@ public class MainHook implements IXposedHookLoadPackage {
     /** keyCode -> F-keyCode mapping cache (use keyCode because ZUI overwrites scanCode) */
     private java.util.Map<Integer, Integer> mFnKeyCodeMap = null;
     private String mFnMapProfileKey = null;
+
+    /** keyCodes whose DOWN was intercepted for OFF pass-through re-injection */
+    private final java.util.Set<Integer> mOffInjectKeys = new java.util.HashSet<>();
 
     /** keyCodes whose DOWN was intercepted by Fn mapping, used to intercept matching UP */
     private final java.util.Set<Integer> mFnDownKeys = new java.util.HashSet<>();
