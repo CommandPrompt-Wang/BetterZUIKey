@@ -34,6 +34,13 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
     /** 系统设置写入权限状态：null=未检测, true=可写, false=不可写 */
     companion object {
         var canWriteSystemSettings: Boolean? = null
+        /** AOSP 辅助键 → Settings.Secure key 映射 */
+        val AOSP_SECURE_KEY_MAP = mapOf(
+            "aospBounceKeys" to "accessibility_bounce_keys",
+            "aospMouseKeys"  to "accessibility_mouse_keys_enabled",
+            "aospStickyKeys" to "accessibility_sticky_keys",
+            "aospSlowKeys"   to "accessibility_slow_keys",
+        )
     }
 
     private lateinit var adapter: ShortcutAdapter
@@ -45,6 +52,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
         val cfg = Config.load()
         cfg.syncSwitchesFromSystem(requireContext())
         cfg.save()
+        Config.syncToSharedPrefs(requireContext(), cfg)
         cachedConfig = cfg
         return cfg
     }
@@ -241,27 +249,47 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
                 b.root.setOnClickListener(null)
 
                 // ── 系统开关 ──
-                if (meta.hasSystemSwitch) {
+                val isAospSecure = meta.key in AOSP_SECURE_KEY_MAP
+                if (meta.hasSystemSwitch || isAospSecure) {
                     b.swEnabled.visibility = View.VISIBLE
-                    b.swEnabled.isEnabled = switchState.isUserToggleable
-                    b.swEnabled.isChecked = switchState.isEnabled
-                    b.swEnabled.setOnCheckedChangeListener { _, isChecked ->
-                        val newState = if (isChecked) Config.SwitchState.ON else Config.SwitchState.OFF
-                        ShortcutMeta.setSwitch(cfg, meta.key, newState)
-                        // 组内同步
-                        for (gk in meta.groupKeys) {
-                            ShortcutMeta.setSwitch(cfg, gk, newState)
+                    if (isAospSecure) {
+                        // AOSP 辅助键：直接读写 Settings.Secure
+                        val secureKey = AOSP_SECURE_KEY_MAP[meta.key]!!
+                        b.swEnabled.isEnabled = true
+                        b.swEnabled.isChecked = try {
+                            Settings.Secure.getInt(requireContext().contentResolver, secureKey) == 1
+                        } catch (_: Exception) { false }
+                        b.swEnabled.setOnCheckedChangeListener { _, isChecked ->
+                            try {
+                                Settings.Secure.putInt(requireContext().contentResolver, secureKey, if (isChecked) 1 else 0)
+                            } catch (_: SecurityException) {
+                                try {
+                                    Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put secure $secureKey ${if (isChecked) 1 else 0}"))
+                                } catch (_: Exception) { }
+                            }
                         }
-                        val err = Config.writeSystemSwitch(requireContext(), meta.key, isChecked)
-                        if (err != null) {
-                            LogHelper.log(LogHelper.VerboseLevel.WARNING,
-                                "Failed to sync switch to system:", err)
-                            canWriteSystemSettings = false
-                            showWriteWarning(b.root.rootView, err)
+                    } else {
+                        b.swEnabled.isEnabled = switchState.isUserToggleable
+                        b.swEnabled.isChecked = switchState.isEnabled
+                        b.swEnabled.setOnCheckedChangeListener { _, isChecked ->
+                            val newState = if (isChecked) Config.SwitchState.ON else Config.SwitchState.OFF
+                            ShortcutMeta.setSwitch(cfg, meta.key, newState)
+                            // 组内同步
+                            for (gk in meta.groupKeys) {
+                                ShortcutMeta.setSwitch(cfg, gk, newState)
+                            }
+                            val err = Config.writeSystemSwitch(requireContext(), meta.key, isChecked)
+                            if (err != null) {
+                                LogHelper.log(LogHelper.VerboseLevel.WARNING,
+                                    "Failed to sync switch to system:", err)
+                                canWriteSystemSettings = false
+                                showWriteWarning(b.root.rootView, err)
+                            }
+                            cfg.syncSwitchesFromSystem(requireContext())
+                            cfg.save()
+                            Config.syncToSharedPrefs(requireContext(), cfg)
+                            // 不主动刷新列表 — 切回此 Tab 时 onResume 会统一刷新
                         }
-                        cfg.syncSwitchesFromSystem(requireContext())
-                        cfg.save()
-                        // 不主动刷新列表 — 切回此 Tab 时 onResume 会统一刷新
                     }
                 } else {
                     b.swEnabled.visibility = View.GONE
@@ -280,6 +308,10 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
                     val nm = Config.OverrideMode.entries.filter { it.isAvailable(meta) }[pos]
                     ShortcutMeta.setOverride(cfg, meta.key, nm)
                     cfg.save()
+                    // Push full JSON via SharedPreferences → XSharedPreferences reads in system_server
+                    Config.syncToSharedPrefs(requireContext(), cfg)
+                    LogHelper.log(LogHelper.VerboseLevel.INFO,
+                        "Notify config change: override ", meta.key, " → ", nm.name)
                 }
             }
         }
@@ -387,11 +419,6 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                 SettingItem.Tap("外观设置", "夜间模式与 Material You 主题",
                     onClick = {
                         host.startActivity(Intent(host.requireContext(), AppearanceSettingsActivity::class.java))
-                    }
-                ),
-                SettingItem.Tap("辅助功能开关", "管理 Win+Alt+3~6 AOSP 原生辅助键开关",
-                    onClick = {
-                        host.startActivity(Intent(host.requireContext(), AospSettingsActivity::class.java))
                     }
                 ),
                 SettingItem.Combo("日志级别", "控制 Xposed 模块日志输出详细程度",

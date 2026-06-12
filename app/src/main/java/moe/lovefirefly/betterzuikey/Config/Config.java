@@ -553,6 +553,41 @@ public class Config {
         }
     }
 
+    /** Serialize config to JSON (reuses GSON with defaults-safe InstanceCreator). */
+    public static String toJson(Config cfg) {
+        return GSON.toJson(cfg);
+    }
+
+    /** Deserialize config from JSON (fills defaults for missing fields). */
+    public static Config fromJson(String json) {
+        return GSON.fromJson(json, Config.class);
+    }
+
+    /**
+     * Write full config JSON to SharedPreferences for RemotePreferences → system_server sync.
+     * Call this from the app process after {@link #save()} to push changes instantly.
+     */
+    public static void syncToSharedPrefs(android.content.Context ctx, Config cfg) {
+        try {
+            String json = GSON.toJson(cfg);
+            ctx.getSharedPreferences(
+                    moe.lovefirefly.betterzuikey.RemotePrefProvider.PREF_FILE,
+                    android.content.Context.MODE_PRIVATE)
+                .edit().putString("config_sync", json).apply();
+            // Explicitly notify RemotePreferences ContentObserver in system_server.
+            // URI must match what RemotePreferences registers: content://<authority>/<prefFile>
+            android.net.Uri uri = android.net.Uri.parse(
+                    "content://" + moe.lovefirefly.betterzuikey.BuildConfig.APPLICATION_ID
+                    + ".prefs/" + moe.lovefirefly.betterzuikey.RemotePrefProvider.PREF_FILE);
+            ctx.getContentResolver().notifyChange(uri, null);
+            LogHelper.log(LogHelper.VerboseLevel.INFO,
+                    "Config synced + notifyChange (", String.valueOf(json.length()), " bytes)");
+        } catch (Exception e) {
+            LogHelper.log(LogHelper.VerboseLevel.WARNING,
+                    "Config syncToSharedPrefs failed:", e.getMessage());
+        }
+    }
+
     /**
      * 将当前配置重置为安全默认值
      * 所有系统开关设FORCED_ON（未知状态→假设可用），

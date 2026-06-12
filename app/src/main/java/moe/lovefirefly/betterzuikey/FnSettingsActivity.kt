@@ -28,12 +28,14 @@ class FnSettingsActivity : AppCompatActivity() {
         binding.swEnabled.setOnCheckedChangeListener { _, checked ->
             cfg.fnKeyEnabled = checked
             cfg.save()
+            Config.syncToSharedPrefs(this@FnSettingsActivity, cfg)
         }
 
         binding.swFnToast.isChecked = cfg.fnToastEnabled
         binding.swFnToast.setOnCheckedChangeListener { _, checked ->
             cfg.fnToastEnabled = checked
             cfg.save()
+            Config.syncToSharedPrefs(this@FnSettingsActivity, cfg)
         }
 
         binding.spProfile.setOnItemClickListener { _, _, pos, _ ->
@@ -41,6 +43,7 @@ class FnSettingsActivity : AppCompatActivity() {
             val keys = KeyboardProfiles.getProfileNames(this@FnSettingsActivity).map { it.first }
             cfg.fnProfileKey = if (pos == 0) "" else keys.getOrElse(pos - 1) { "" }
             cfg.save()
+            Config.syncToSharedPrefs(this@FnSettingsActivity, cfg)
             refreshSummary()
         }
 

@@ -32,6 +32,7 @@ class AppearanceSettingsActivity : AppCompatActivity() {
             if (pos == cfg.nightMode) return@setOnItemClickListener
             cfg.nightMode = pos
             cfg.save()
+            Config.syncToSharedPrefs(this, cfg)
             val nightMode = when (pos) {
                 1 -> AppCompatDelegate.MODE_NIGHT_YES
                 2 -> AppCompatDelegate.MODE_NIGHT_NO
@@ -47,6 +48,7 @@ class AppearanceSettingsActivity : AppCompatActivity() {
         binding.swDynamicColor.setOnCheckedChangeListener { _, checked ->
             cfg.dynamicColorEnabled = checked
             cfg.save()
+            Config.syncToSharedPrefs(this@AppearanceSettingsActivity, cfg)
             // 动态调色板需要重建 Activity 才能完全刷新
             androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(
                 AppCompatDelegate.getDefaultNightMode()

@@ -1,5 +1,7 @@
 package moe.lovefirefly.betterzuikey.Utils;
 
+import moe.lovefirefly.betterzuikey.BuildConfig;
+
 public class LogHelper {
     public enum VerboseLevel {
         SILENT("SILENT"),
@@ -29,10 +31,17 @@ public class LogHelper {
 
     public static void log(VerboseLevel vlevel, String ...args) {
         refreshLevel();
+        String msg = "[" + vlevel.getLabel() + "] " + String.join(" ", args);
+
+        // 编译期开关：无视优先级，输出 [TMP] 毫秒时间戳行到 logcat
+        if (BuildConfig.DEBUG_TMP_LOG) {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("MM-dd HH:mm:ss.SSS", java.util.Locale.US);
+            android.util.Log.i(TAG, "[TMP] " + sdf.format(new java.util.Date()) + " " + msg);
+        }
+
         if (vlevel.ordinal() > currentLevel.ordinal()) {
             return;
         }
-        String msg = "[" + vlevel.getLabel() + "] " + String.join(" ", args);
         try {
             // Xposed 进程：用 XposedBridge.log
             de.robv.android.xposed.XposedBridge.log(TAG + " " + msg);

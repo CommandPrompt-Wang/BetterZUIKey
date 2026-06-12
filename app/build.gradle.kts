@@ -20,19 +20,24 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    buildFeatures {
+        buildConfig = true
+        viewBinding = true
+    }
+
+    // DEBUG_TMP_LOG: 编译期常量，debug 构建下 LogHelper 无视优先级输出 [TMP] logcat 行
     buildTypes {
+        debug {
+            buildConfigField("boolean", "DEBUG_TMP_LOG", "true")
+        }
         release {
             isMinifyEnabled = false
+            buildConfigField("boolean", "DEBUG_TMP_LOG", "false")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
-    }
-
-    buildFeatures {
-        buildConfig = true
-        viewBinding = true
     }
 
     compileOptions {
@@ -49,6 +54,7 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("com.google.code.gson:gson:2.11.0")
+    implementation(libs.remotepreferences)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

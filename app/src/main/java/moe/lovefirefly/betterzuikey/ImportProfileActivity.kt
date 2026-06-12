@@ -76,6 +76,7 @@ class ImportProfileActivity : AppCompatActivity() {
             cfg.fnCustomProfiles[key] = v
         }
         cfg.save()
+        Config.syncToSharedPrefs(this, cfg)
         Toast.makeText(this, "已导入 ${imported.size} 个配置", Toast.LENGTH_SHORT).show()
         finish()
     }

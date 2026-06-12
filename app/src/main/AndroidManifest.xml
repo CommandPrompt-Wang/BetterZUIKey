@@ -86,6 +86,13 @@
             android:name=".AppearanceSettingsActivity"
             android:label="外观设置" />
 
+        <!-- RemotePreferences: App → system_server 配置热加载（ContentProvider） -->
+        <provider
+            android:name=".RemotePrefProvider"
+            android:authorities="${applicationId}.prefs"
+            android:exported="true"
+            android:directBootAware="true" />
+
     </application>
 
 </manifest>

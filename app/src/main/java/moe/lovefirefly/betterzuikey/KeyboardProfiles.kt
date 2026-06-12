@@ -80,17 +80,19 @@ object KeyboardProfiles {
     }
 
     /** 导入自定义配置 */
-    fun importProfile(key: String, data: Profile) {
+    fun importProfile(key: String, data: Profile, context: android.content.Context) {
         val cfg = Config.load()
         cfg.fnCustomProfiles[key] = data
         cfg.save()
+        Config.syncToSharedPrefs(context, cfg)
     }
 
     /** 删除自定义配置 */
-    fun deleteProfile(context: Context, key: String) {
+    fun deleteProfile(context: android.content.Context, key: String) {
         val cfg = Config.load()
         cfg.fnCustomProfiles.remove(key)
         cfg.save()
+        Config.syncToSharedPrefs(context, cfg)
     }
 
     // ── internal ──

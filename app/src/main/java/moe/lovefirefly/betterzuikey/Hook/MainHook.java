@@ -8,6 +8,7 @@ import java.io.StringWriter;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XSharedPreferences;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
@@ -31,6 +32,9 @@ public class MainHook implements IXposedHookLoadPackage {
     private Config cfg = null;
     private ConfigResolver mResolver = null;
     private static volatile boolean sInitDone = false;
+    /** XSharedPreferences for cross-process config reading */
+    private XSharedPreferences mConfigPrefs = null;
+    private String mLastConfigSync = "";
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) {
@@ -81,6 +85,10 @@ public class MainHook implements IXposedHookLoadPackage {
 
             mResolver = new ConfigResolver(cfg);
 
+            // Hook SharedPreferencesImpl → make prefs file world-readable
+            // (YukiHookAPI core magic: enables XSharedPreferences cross-process)
+            hookWorldReadablePrefs();
+
             LogHelper.log(VerboseLevel.INFO, "Installing RegionHook...");
             RegionHook.install(mClassLoader, cfg);
             LogHelper.log(VerboseLevel.INFO, "Installing FeatureHook...");
@@ -107,6 +115,55 @@ public class MainHook implements IXposedHookLoadPackage {
             LogHelper.log(VerboseLevel.ERROR, "Hook installation failed:", t.getMessage());
             setError("Injection error: " + t.toString() + "\n\n" + stackTraceToString(t));
         }
+    }
+
+    /**
+     * Hook SharedPreferencesImpl constructor to set prefs file world-readable.
+     * This enables XSharedPreferences cross-process access from system_server.
+     */
+    private void hookWorldReadablePrefs() {
+        try {
+            XposedHelpers.findAndHookConstructor(
+                "android.app.SharedPreferencesImpl",
+                mClassLoader,
+                java.io.File.class, int.class,
+                new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) {
+                        java.io.File prefsFile = (java.io.File) param.args[0];
+                        prefsFile.setReadable(true, false);
+                    }
+                });
+            LogHelper.log(VerboseLevel.INFO, "SharedPreferencesImpl hook installed (world-readable)");
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.WARNING, "SharedPreferencesImpl hook failed:", t.getMessage());
+        }
+    }
+
+    /**
+     * Check if App updated config via SharedPreferences.
+     * Uses XSharedPreferences — works because we made the file world-readable.
+     * Called from L0 hook on every key event.
+     */
+    private void checkConfigChanged() {
+        try {
+            if (mConfigPrefs == null) {
+                mConfigPrefs = new XSharedPreferences(
+                    moe.lovefirefly.betterzuikey.BuildConfig.APPLICATION_ID,
+                    moe.lovefirefly.betterzuikey.RemotePrefProvider.PREF_FILE);
+            }
+            mConfigPrefs.reload();
+            String sync = mConfigPrefs.getString("config_sync", "");
+            if (sync.isEmpty() || sync.equals(mLastConfigSync)) return;
+            mLastConfigSync = sync;
+            Config newCfg = Config.fromJson(sync);
+            if (newCfg == null) return;
+            newCfg.injected = cfg.injected;
+            newCfg.injectError = cfg.injectError;
+            cfg = newCfg;
+            if (mResolver != null) mResolver = new ConfigResolver(cfg);
+            LogHelper.log(VerboseLevel.INFO, "Config hot-reloaded via XSharedPreferences");
+        } catch (Exception ignored) { }
     }
 
     private void setError(String msg) {
@@ -289,6 +346,7 @@ public class MainHook implements IXposedHookLoadPackage {
                             // Global enable check
                             if (cfg == null || !cfg.zuxKeyboardFuncEnabled) return;
                             refreshForegroundPackage();
+                            checkConfigChanged(); // XSharedPreferences: check for App config changes
 
                             KeyEvent event = (KeyEvent) param.args[0];
                             int keyCode = event.getKeyCode();
@@ -465,24 +523,38 @@ public class MainHook implements IXposedHookLoadPackage {
                             // Win+Alt+3 — Bounce keys (AOSP native)
                             if (keyCode == KeyEvent.KEYCODE_3 && down
                                     && event.isMetaPressed() && event.isAltPressed() && repeatCount == 0) {
+                                LogHelper.log(VerboseLevel.INFO, "L0: Win+Alt+3 reach",
+                                        " switch=", String.valueOf(cfg.switchAospBounceKeys),
+                                        " override=", String.valueOf(cfg.overrideAospBounceKeys),
+                                        " meta=", String.valueOf(event.isMetaPressed()),
+                                        " alt=", String.valueOf(event.isAltPressed()));
                                 if (!r("aospBounceKeys", cfg.switchAospBounceKeys).isEnabled()) return;
                                 if (applyInterceptAction(ra("aospBounceKeys", cfg.overrideAospBounceKeys), param, "L0: Win+Alt+3")) return;
                             }
                             // Win+Alt+4 — Mouse keys (AOSP native)
                             if (keyCode == KeyEvent.KEYCODE_4 && down
                                     && event.isMetaPressed() && event.isAltPressed() && repeatCount == 0) {
+                                LogHelper.log(VerboseLevel.INFO, "L0: Win+Alt+4 reach",
+                                        " switch=", String.valueOf(cfg.switchAospMouseKeys),
+                                        " override=", String.valueOf(cfg.overrideAospMouseKeys));
                                 if (!r("aospMouseKeys", cfg.switchAospMouseKeys).isEnabled()) return;
                                 if (applyInterceptAction(ra("aospMouseKeys", cfg.overrideAospMouseKeys), param, "L0: Win+Alt+4")) return;
                             }
                             // Win+Alt+5 — Sticky keys (AOSP native)
                             if (keyCode == KeyEvent.KEYCODE_5 && down
                                     && event.isMetaPressed() && event.isAltPressed() && repeatCount == 0) {
+                                LogHelper.log(VerboseLevel.INFO, "L0: Win+Alt+5 reach",
+                                        " switch=", String.valueOf(cfg.switchAospStickyKeys),
+                                        " override=", String.valueOf(cfg.overrideAospStickyKeys));
                                 if (!r("aospStickyKeys", cfg.switchAospStickyKeys).isEnabled()) return;
                                 if (applyInterceptAction(ra("aospStickyKeys", cfg.overrideAospStickyKeys), param, "L0: Win+Alt+5")) return;
                             }
                             // Win+Alt+6 — Slow keys (AOSP native)
                             if (keyCode == KeyEvent.KEYCODE_6 && down
                                     && event.isMetaPressed() && event.isAltPressed() && repeatCount == 0) {
+                                LogHelper.log(VerboseLevel.INFO, "L0: Win+Alt+6 reach",
+                                        " switch=", String.valueOf(cfg.switchAospSlowKeys),
+                                        " override=", String.valueOf(cfg.overrideAospSlowKeys));
                                 if (!r("aospSlowKeys", cfg.switchAospSlowKeys).isEnabled()) return;
                                 if (applyInterceptAction(ra("aospSlowKeys", cfg.overrideAospSlowKeys), param, "L0: Win+Alt+6")) return;
                             }
