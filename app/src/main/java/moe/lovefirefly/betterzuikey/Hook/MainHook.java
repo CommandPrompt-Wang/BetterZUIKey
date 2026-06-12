@@ -270,16 +270,16 @@ public class MainHook implements IXposedHookLoadPackage {
         LogHelper.log(VerboseLevel.INFO, "L1: ", shortcutKey,
                 " → OFF (block system, inject ", keyCodeToString(keyCode), " to app)");
         param.setResult(true);
-        mOffInjectKeys.add(keyCode);
+        mOffInjectKeys.put(keyCode, metaState);       // track for UP with same metaState
         injectKeyDown(keyCode, metaState);
         return true;
     }
 
-    /** OFF re-injection UP: consume physical UP, inject clean UP */
-    private void handleOffInjectUp(int keyCode) {
-        injectKeyUp(keyCode);
+    /** OFF re-injection UP: consume physical UP, inject UP with stored metaState */
+    private void handleOffInjectUp(int keyCode, int metaState) {
+        injectKeyUp(keyCode, metaState);
         LogHelper.log(VerboseLevel.DEBUG, "L1: OFF inject UP keyCode=",
-                String.valueOf(keyCode));
+                String.valueOf(keyCode), " metaState=", String.valueOf(metaState));
     }
 
     // ----------------------------------------------------------------
@@ -634,10 +634,11 @@ public class MainHook implements IXposedHookLoadPackage {
                             int repeatCount = event.getRepeatCount();
                             boolean firstDown = down && repeatCount == 0;
 
-                            // OFF re-injection UP: consume physical UP, inject clean UP
-                            if (!down && mOffInjectKeys.remove(keyCode)) {
+                            // OFF re-injection UP: consume physical UP, inject UP with stored metaState
+                            Integer offMeta = mOffInjectKeys.remove(keyCode);
+                            if (!down && offMeta != null) {
                                 param.setResult(true);
-                                handleOffInjectUp(keyCode);
+                                handleOffInjectUp(keyCode, offMeta);
                                 return;
                             }
 
@@ -1008,8 +1009,8 @@ public class MainHook implements IXposedHookLoadPackage {
     private java.util.Map<Integer, Integer> mFnKeyCodeMap = null;
     private String mFnMapProfileKey = null;
 
-    /** keyCodes whose DOWN was intercepted for OFF pass-through re-injection */
-    private final java.util.Set<Integer> mOffInjectKeys = new java.util.HashSet<>();
+    /** physicalKeyCode -> metaState mapping for OFF re-injected keys, used to inject matching UP */
+    private final java.util.Map<Integer, Integer> mOffInjectKeys = new java.util.HashMap<>();
 
     /** keyCodes whose DOWN was intercepted by Fn mapping, used to intercept matching UP */
     private final java.util.Set<Integer> mFnDownKeys = new java.util.HashSet<>();
@@ -1211,12 +1212,17 @@ public class MainHook implements IXposedHookLoadPackage {
 
     /** Inject a clean key UP event (metaState=0, no modifiers). */
     private void injectKeyUp(int keyCode) {
+        injectKeyUp(keyCode, 0);
+    }
+
+    /** Inject key UP event with specified metaState. */
+    private void injectKeyUp(int keyCode, int metaState) {
         if (keyCode <= 0) return;
         try {
             long now = android.os.SystemClock.uptimeMillis();
             android.view.KeyEvent ev = new android.view.KeyEvent(
                     now, now, android.view.KeyEvent.ACTION_UP, keyCode,
-                    0, 0, 0, 0, 0);
+                    0, metaState, 0, 0, 0);
             Object im = XposedHelpers.callStaticMethod(
                     android.hardware.input.InputManager.class, "getInstance");
             XposedHelpers.callMethod(im, "injectInputEvent", (android.view.InputEvent) ev, 0);
