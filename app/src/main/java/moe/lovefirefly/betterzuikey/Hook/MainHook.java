@@ -259,18 +259,27 @@ public class MainHook implements IXposedHookLoadPackage {
     }
 
     /**
-     * OFF re-injection helper: block ZUI + L3, inject clean key to foreground app.
+     * OFF re-injection helper: block ZUI + L3, inject key to foreground app
+     * preserving original modifier state (Ctrl/Shift/Alt/Meta).
      * @return true if the caller should return immediately (OFF handled)
      */
     private boolean handleOffInject(String shortcutKey, Config.OverrideMode ov,
-                                     XC_MethodHook.MethodHookParam param, int keyCode) {
+                                     XC_MethodHook.MethodHookParam param,
+                                     int keyCode, int metaState) {
         if (ov != Config.OverrideMode.OFF) return false;
         LogHelper.log(VerboseLevel.INFO, "L1: ", shortcutKey,
                 " → OFF (block system, inject ", keyCodeToString(keyCode), " to app)");
         param.setResult(true);
         mOffInjectKeys.add(keyCode);
-        injectKeyDown(keyCode);
+        injectKeyDown(keyCode, metaState);
         return true;
+    }
+
+    /** OFF re-injection UP: consume physical UP, inject clean UP */
+    private void handleOffInjectUp(int keyCode) {
+        injectKeyUp(keyCode);
+        LogHelper.log(VerboseLevel.DEBUG, "L1: OFF inject UP keyCode=",
+                String.valueOf(keyCode));
     }
 
     // ----------------------------------------------------------------
@@ -628,9 +637,7 @@ public class MainHook implements IXposedHookLoadPackage {
                             // OFF re-injection UP: consume physical UP, inject clean UP
                             if (!down && mOffInjectKeys.remove(keyCode)) {
                                 param.setResult(true);
-                                injectKeyUp(keyCode);
-                                LogHelper.log(VerboseLevel.DEBUG, "L1: OFF inject UP keyCode=",
-                                        String.valueOf(keyCode));
+                                handleOffInjectUp(keyCode);
                                 return;
                             }
 
@@ -638,7 +645,9 @@ public class MainHook implements IXposedHookLoadPackage {
                             if (keyCode == KeyEvent.KEYCODE_T && firstDown
                                     && event.isCtrlPressed() && event.isShiftPressed()) {
                                 if (!r("ctrlShiftT", cfg.switchCtrlShiftT).isEnabled()) return;
-                                if (applyInterceptAction(ra("ctrlShiftT", cfg.overrideCtrlShiftT), param, "L1: Ctrl+Shift+T")) return;
+                                Config.OverrideMode ov = ra("ctrlShiftT", cfg.overrideCtrlShiftT);
+                                if (handleOffInject("Ctrl+Shift+T", ov, param, keyCode, event.getMetaState())) return;
+                                if (applyInterceptAction(ov, param, "L1: Ctrl+Shift+T")) return;
                             }
 
                             // Win+S — Global search
@@ -660,7 +669,7 @@ public class MainHook implements IXposedHookLoadPackage {
                                     return;
                                 }
                                 Config.OverrideMode ov = ra("winD", cfg.overrideWinD);
-                                if (handleOffInject("Win+D", ov, param, keyCode)) return;
+                                if (handleOffInject("Win+D", ov, param, keyCode, event.getMetaState())) return;
                                 if (applyInterceptAction(ov, param, "L1: Win+D")) return;
                             }
 
@@ -669,7 +678,7 @@ public class MainHook implements IXposedHookLoadPackage {
                                     && event.isMetaPressed()) {
                                 if (!r("winI", cfg.switchWinI).isEnabled()) return;
                                 Config.OverrideMode ov = ra("winI", cfg.overrideWinI);
-                                if (handleOffInject("winI", ov, param, keyCode)) return;
+                                if (handleOffInject("winI", ov, param, keyCode, event.getMetaState())) return;
                                 if (applyInterceptAction(ov, param, "L1: Win+I")) return;
                             }
 
@@ -678,7 +687,7 @@ public class MainHook implements IXposedHookLoadPackage {
                                     && event.isMetaPressed()) {
                                 if (!r("winN", cfg.switchWinN).isEnabled()) return;
                                 Config.OverrideMode ov = ra("winN", cfg.overrideWinN);
-                                if (handleOffInject("winN", ov, param, keyCode)) return;
+                                if (handleOffInject("winN", ov, param, keyCode, event.getMetaState())) return;
                                 if (applyInterceptAction(ov, param, "L1: Win+N")) return;
                             }
 
@@ -709,7 +718,9 @@ public class MainHook implements IXposedHookLoadPackage {
                             if (keyCode == KeyEvent.KEYCODE_SLASH && firstDown
                                     && event.isCtrlPressed()) {
                                 if (!r("ctrlSlash", cfg.switchCtrlSlash).isEnabled()) return;
-                                if (applyInterceptAction(ra("ctrlSlash", cfg.overrideCtrlSlash), param, "L1: Ctrl+/")) return;
+                                Config.OverrideMode ov = ra("ctrlSlash", cfg.overrideCtrlSlash);
+                                if (handleOffInject("Ctrl+/", ov, param, keyCode, event.getMetaState())) return;
+                                if (applyInterceptAction(ov, param, "L1: Ctrl+/")) return;
                             }
 
                             // 510 Settings key bug fix
@@ -1178,12 +1189,17 @@ public class MainHook implements IXposedHookLoadPackage {
 
     /** Inject a clean key DOWN event (metaState=0, no modifiers). */
     private void injectKeyDown(int keyCode) {
+        injectKeyDown(keyCode, 0);
+    }
+
+    /** Inject key DOWN event with specified metaState (preserves Ctrl/Shift/Alt/Meta). */
+    private void injectKeyDown(int keyCode, int metaState) {
         if (keyCode <= 0) return;
         try {
             long now = android.os.SystemClock.uptimeMillis();
             android.view.KeyEvent ev = new android.view.KeyEvent(
                     now, now, android.view.KeyEvent.ACTION_DOWN, keyCode,
-                    0, 0, 0, 0, 0);
+                    0, metaState, 0, 0, 0);
             Object im = XposedHelpers.callStaticMethod(
                     android.hardware.input.InputManager.class, "getInstance");
             XposedHelpers.callMethod(im, "injectInputEvent", (android.view.InputEvent) ev, 0);

@@ -53,9 +53,9 @@ data class ShortcutMeta(
                 groupKeys = listOf("winDown")),
             ShortcutMeta("winLeft",     "Win + ← / Win + →",   "分屏到左侧 / 分屏到右侧\n系统开关 ←→ 共用",    hasZui = true,
                 groupKeys = listOf("winRight")),
-            // 三、Ctrl/Alt/Shift（ctrlSlash / ctrlLongPress 共用 keyboard_combo_ctrl_3）
-            ShortcutMeta("ctrlSlash",       "Ctrl + /  /  Ctrl 长按", "短按 / 长按≥3s 弹出快捷键菜单\n系统开关共用", hasZui = true, hasAosp = true,
-                groupKeys = listOf("ctrlLongPress")),
+            // 三、Ctrl/Alt/Shift
+            ShortcutMeta("ctrlSlash",       "Ctrl + /",          "弹出快捷键菜单（系统无独立开关",              hasZui = true, hasAosp = true,  hasSystemSwitch = false),
+            ShortcutMeta("ctrlLongPress",   "Ctrl 长按",         "长按≥3s 弹出快捷键菜单（同上系统开关）",       hasZui = true,  hasSystemSwitch = true),
             ShortcutMeta("ctrlShift",       "Ctrl + Shift",      "切换输入法（仅 ROW 生效）",            hasZui = true),
             ShortcutMeta("altShift",        "Alt + Shift",       "切换语言（仅 ROW 生效）",              hasZui = true),
             ShortcutMeta("ctrlShiftT",      "Ctrl + Shift + T",  "切换触控板开关",                       hasZui = true,  hasSystemSwitch = false),
