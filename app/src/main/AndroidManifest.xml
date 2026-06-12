@@ -34,7 +34,12 @@
 
         <meta-data
             android:name="xposedminversion"
-            android:value="90" />
+            android:value="93" />
+
+        <!-- Enable New XSharedPreferences (world-readable prefs) -->
+        <meta-data
+            android:name="xposedsharedprefs"
+            android:value="true"/>
 
         <meta-data
             android:name="xposedscope"
@@ -86,7 +91,13 @@
             android:name=".AppearanceSettingsActivity"
             android:label="外观设置" />
 
-        <!-- RemotePreferences: App → system_server 配置热加载（ContentProvider） -->
+        <!-- ConfigSyncProvider: App → system_server 配置热加载（Binder IPC） -->
+        <provider
+            android:name=".ConfigSyncProvider"
+            android:authorities="moe.lovefirefly.betterzuikey.config"
+            android:exported="true" />
+
+        <!-- RemotePreferences: SharedPreferences 跨进程访问 -->
         <provider
             android:name=".RemotePrefProvider"
             android:authorities="${applicationId}.prefs"

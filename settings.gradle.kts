@@ -21,6 +21,8 @@ dependencyResolutionManagement {
         mavenCentral()
         maven("https://repo1.maven.org/maven2/")
         maven("https://api.xposed.info/")
+        maven("https://repo.highcapable.cn/releases")
+        maven("https://jitpack.io")
     }
 }
 

@@ -4,23 +4,47 @@ import android.content.ContentProvider
 import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
+import android.os.Bundle
 
 /**
- * 最小化 ContentProvider — 仅用于 App → system_server 的跨进程配置变更通知。
+ * ContentProvider for App → system_server cross-process config sync via Binder IPC.
  *
- * App 端 cfg.save() 后调用 contentResolver.notifyChange(RELOAD_URI, null)，
- * system_server 端的 ContentObserver 收到通知后热加载配置 JSON。
+ * Bypasses file permission / SELinux issues that plague XSharedPreferences file polling.
  *
- * 无需数据库存储，query/insert/update/delete 均为空操作。
+ * App side: cfg.save() + Config.syncToSharedPrefs() writes JSON to SharedPreferences,
+ *   then calls contentResolver.call(RELOAD_URI, "notifySync", null, null) to push.
+ *
+ * system_server side: calls contentResolver.call(RELOAD_URI, "getSync", null, null)
+ *   to pull the latest JSON via Binder IPC (no file access needed).
  */
 class ConfigSyncProvider : ContentProvider() {
 
     companion object {
         const val AUTHORITY = "moe.lovefirefly.betterzuikey.config"
+        @JvmField
         val RELOAD_URI: Uri = Uri.parse("content://$AUTHORITY/reload")
+        const val METHOD_GET_SYNC = "getSync"
+        const val METHOD_NOTIFY_SYNC = "notifySync"
+        const val KEY_CONFIG_JSON = "config_json"
     }
 
     override fun onCreate(): Boolean = true
+
+    override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
+        return when (method) {
+            METHOD_GET_SYNC -> {
+                val prefs = context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                val json = prefs?.getString("config_sync", "") ?: ""
+                Bundle().apply { putString(KEY_CONFIG_JSON, json) }
+            }
+            METHOD_NOTIFY_SYNC -> {
+                context?.contentResolver?.notifyChange(RELOAD_URI, null)
+                null
+            }
+            else -> null
+        }
+    }
 
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?,
                        selectionArgs: Array<out String>?, sortOrder: String?): Cursor? = null

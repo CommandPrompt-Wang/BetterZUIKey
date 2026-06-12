@@ -564,24 +564,37 @@ public class Config {
     }
 
     /**
-     * Write full config JSON to SharedPreferences for RemotePreferences → system_server sync.
-     * Call this from the app process after {@link #save()} to push changes instantly.
+     * Write full config JSON to SharedPreferences + fix permissions.
+     * GravityBox WorldReadablePrefs pattern: setExecutable + setReadable on
+     * the shared_prefs directory so system_server (uid=1000) can traverse.
      */
     public static void syncToSharedPrefs(android.content.Context ctx, Config cfg) {
         try {
             String json = GSON.toJson(cfg);
-            ctx.getSharedPreferences(
+            android.content.SharedPreferences prefs = ctx.getSharedPreferences(
                     moe.lovefirefly.betterzuikey.RemotePrefProvider.PREF_FILE,
-                    android.content.Context.MODE_PRIVATE)
-                .edit().putString("config_sync", json).apply();
-            // Explicitly notify RemotePreferences ContentObserver in system_server.
-            // URI must match what RemotePreferences registers: content://<authority>/<prefFile>
-            android.net.Uri uri = android.net.Uri.parse(
-                    "content://" + moe.lovefirefly.betterzuikey.BuildConfig.APPLICATION_ID
-                    + ".prefs/" + moe.lovefirefly.betterzuikey.RemotePrefProvider.PREF_FILE);
-            ctx.getContentResolver().notifyChange(uri, null);
+                    android.content.Context.MODE_PRIVATE);
+            prefs.edit().putString("config_sync", json).commit();
+
+            // GravityBox WorldReadablePrefs pattern: fix entire directory chain
+            // so system_server (uid=1000) can traverse and read the prefs file.
+            // Chain: /data/data/<pkg>/ → shared_prefs/ → betterzuikey_config.xml
+            java.io.File dataDir = new java.io.File(ctx.getApplicationInfo().dataDir);
+            if (dataDir.exists()) {
+                dataDir.setExecutable(true, false);   // o+x: allow traversal
+            }
+            java.io.File prefsDir = new java.io.File(dataDir, "shared_prefs");
+            if (prefsDir.exists()) {
+                prefsDir.setExecutable(true, false);
+                prefsDir.setReadable(true, false);
+            }
+            java.io.File prefsFile = new java.io.File(prefsDir,
+                moe.lovefirefly.betterzuikey.RemotePrefProvider.PREF_FILE + ".xml");
+            if (prefsFile.exists()) {
+                prefsFile.setReadable(true, false);   // o+r: allow reading
+            }
             LogHelper.log(LogHelper.VerboseLevel.INFO,
-                    "Config synced + notifyChange (", String.valueOf(json.length()), " bytes)");
+                    "Config synced (", String.valueOf(json.length()), " bytes) + permissions fixed");
         } catch (Exception e) {
             LogHelper.log(LogHelper.VerboseLevel.WARNING,
                     "Config syncToSharedPrefs failed:", e.getMessage());

@@ -6,9 +6,12 @@ import android.view.KeyEvent;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
+import android.content.ContentResolver;
+import android.os.Bundle;
+import android.net.Uri;
+
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XSharedPreferences;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 
@@ -32,8 +35,8 @@ public class MainHook implements IXposedHookLoadPackage {
     private Config cfg = null;
     private ConfigResolver mResolver = null;
     private static volatile boolean sInitDone = false;
-    /** XSharedPreferences for cross-process config reading */
-    private XSharedPreferences mConfigPrefs = null;
+    /** ContentResolver for cross-process config reading via Binder IPC */
+    private ContentResolver mConfigResolver = null;
     private String mLastConfigSync = "";
 
     @Override
@@ -85,9 +88,9 @@ public class MainHook implements IXposedHookLoadPackage {
 
             mResolver = new ConfigResolver(cfg);
 
-            // Hook SharedPreferencesImpl → make prefs file world-readable
-            // (YukiHookAPI core magic: enables XSharedPreferences cross-process)
-            hookWorldReadablePrefs();
+            // ContentProvider-based IPC: bypasses file permission / SELinux issues.
+            // system_server gets a ContentResolver and calls ConfigSyncProvider.call("getSync").
+            initConfigResolver();
 
             LogHelper.log(VerboseLevel.INFO, "Installing RegionHook...");
             RegionHook.install(mClassLoader, cfg);
@@ -118,42 +121,53 @@ public class MainHook implements IXposedHookLoadPackage {
     }
 
     /**
-     * Hook SharedPreferencesImpl constructor to set prefs file world-readable.
-     * This enables XSharedPreferences cross-process access from system_server.
+     * Initialize ContentResolver for cross-process config reading via Binder IPC.
+     * Uses ActivityThread.getSystemContext() pattern (same as readSystemSwitches).
      */
-    private void hookWorldReadablePrefs() {
+    private void initConfigResolver() {
         try {
-            XposedHelpers.findAndHookConstructor(
-                "android.app.SharedPreferencesImpl",
-                mClassLoader,
-                java.io.File.class, int.class,
-                new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(MethodHookParam param) {
-                        java.io.File prefsFile = (java.io.File) param.args[0];
-                        prefsFile.setReadable(true, false);
-                    }
-                });
-            LogHelper.log(VerboseLevel.INFO, "SharedPreferencesImpl hook installed (world-readable)");
-        } catch (Throwable t) {
-            LogHelper.log(VerboseLevel.WARNING, "SharedPreferencesImpl hook failed:", t.getMessage());
+            Object at = Class.forName("android.app.ActivityThread")
+                .getMethod("currentActivityThread").invoke(null);
+            android.content.Context sysCtx = (android.content.Context)
+                at.getClass().getMethod("getSystemContext").invoke(at);
+            mConfigResolver = sysCtx.getContentResolver();
+            // Read initial config via Binder IPC
+            String sync = pullConfigSync();
+            mLastConfigSync = sync;
+            LogHelper.log(VerboseLevel.INFO, "ContentResolver IPC initialized, config_sync len=",
+                String.valueOf(sync.length()));
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.ERROR, "initConfigResolver failed:", e.getMessage());
         }
     }
 
     /**
-     * Check if App updated config via SharedPreferences.
-     * Uses XSharedPreferences — works because we made the file world-readable.
-     * Called from L0 hook on every key event.
+     * Pull config JSON via ContentProvider.call() — Binder IPC, no file permissions needed.
+     * @return config JSON string, or "" on failure
+     */
+    private String pullConfigSync() {
+        try {
+            if (mConfigResolver == null) return "";
+            Bundle result = mConfigResolver.call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.METHOD_GET_SYNC,
+                null, null);
+            if (result == null) return "";
+            return result.getString(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_CONFIG_JSON, "");
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.WARNING, "pullConfigSync failed:", e.getMessage());
+            return "";
+        }
+    }
+
+    /**
+     * Check for config changes via ContentProvider.call(). Called from L0 hook.
+     * Uses Binder IPC — immune to file permission / SELinux issues.
      */
     private void checkConfigChanged() {
         try {
-            if (mConfigPrefs == null) {
-                mConfigPrefs = new XSharedPreferences(
-                    moe.lovefirefly.betterzuikey.BuildConfig.APPLICATION_ID,
-                    moe.lovefirefly.betterzuikey.RemotePrefProvider.PREF_FILE);
-            }
-            mConfigPrefs.reload();
-            String sync = mConfigPrefs.getString("config_sync", "");
+            String sync = pullConfigSync();
             if (sync.isEmpty() || sync.equals(mLastConfigSync)) return;
             mLastConfigSync = sync;
             Config newCfg = Config.fromJson(sync);
@@ -162,8 +176,11 @@ public class MainHook implements IXposedHookLoadPackage {
             newCfg.injectError = cfg.injectError;
             cfg = newCfg;
             if (mResolver != null) mResolver = new ConfigResolver(cfg);
-            LogHelper.log(VerboseLevel.INFO, "Config hot-reloaded via XSharedPreferences");
-        } catch (Exception ignored) { }
+            LogHelper.log(VerboseLevel.INFO, "Config hot-reloaded via ContentProvider, len=",
+                String.valueOf(sync.length()));
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.WARNING, "checkConfigChanged failed:", e.getMessage());
+        }
     }
 
     private void setError(String msg) {
