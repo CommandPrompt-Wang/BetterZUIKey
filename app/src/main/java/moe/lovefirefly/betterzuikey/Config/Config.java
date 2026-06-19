@@ -78,7 +78,7 @@ public class Config {
     public SwitchState switchWinNumber = SwitchState.ON;
     public OverrideMode overrideWinNumber = OverrideMode.FOLLOW_SYSTEM;
 
-    /** Win+Tab 最近任(L0) */
+    /** Win+Tab 最近任(ZUI L0 launchRecent + AOSP L3 type=2 showRecentApps) */
     public SwitchState switchWinTab = SwitchState.ON;
     public OverrideMode overrideWinTab = OverrideMode.FOLLOW_SYSTEM;
 
@@ -86,33 +86,23 @@ public class Config {
     // 二、Win/Meta + 功能
     // ================================================================
 
-    /** Win+窗口最大化 (L3 AOSP type=53) */
+    /** Win+↑/↓ 窗口最大化/还原 (L3 AOSP type=53/52, 共用开关 keyboard_combo_ud_arrow) */
     public SwitchState switchWinUp = SwitchState.ON;
     public OverrideMode overrideWinUp = OverrideMode.OFF;
 
-    /** Win+窗口还原/退回桌(L3 AOSP type=52) */
-    public SwitchState switchWinDown = SwitchState.ON;
-    public OverrideMode overrideWinDown = OverrideMode.OFF;
-
-    /** Win+分屏到左(L4 type=312) */
+    /** Win+←/→ 分屏 (L4 type=312, 共用开关 keyboard_combo_lr_arrow) */
     public SwitchState switchWinLeft = SwitchState.ON;
     public OverrideMode overrideWinLeft = OverrideMode.FOLLOW_SYSTEM;
-
-    /** Win+分屏到右(L4 type=312, 共用) */
-    public SwitchState switchWinRight = SwitchState.ON;
-    public OverrideMode overrideWinRight = OverrideMode.FOLLOW_SYSTEM;
 
     // ================================================================
     // 三、Ctrl / Alt / Shift 组合
     // ================================================================
 
-    /** Ctrl+/ 快捷键菜(L3 AOSP type=12, L2 门控) */
-    public SwitchState switchCtrlSlash = SwitchState.ON;
+    /** Ctrl+/ 快捷键菜单 (L3 AOSP type=12, 无系统开关, 始终启用) */
     public OverrideMode overrideCtrlSlash = OverrideMode.OFF;
 
-    /** Ctrl 长按 s 快捷键菜(L1 重新注入 type=12) */
+    /** Ctrl 长按快捷键菜单 (L1 type=12, 通过 keyboard_combo_ctrl_3 开关控制) */
     public SwitchState switchCtrlLongPress = SwitchState.ON;
-    public OverrideMode overrideCtrlLongPress = OverrideMode.FOLLOW_SYSTEM;
 
     /** Ctrl+Shift 切换输入ROW (L1 type=311 L4) */
     public SwitchState switchCtrlShift = SwitchState.ON;
@@ -623,12 +613,10 @@ public class Config {
         switchWinTab = SwitchState.ON;      overrideWinTab = OverrideMode.FOLLOW_SYSTEM;
         // 二、Win+功能
         switchWinUp = SwitchState.ON;       overrideWinUp = OverrideMode.OFF;
-        switchWinDown = SwitchState.ON;     overrideWinDown = OverrideMode.OFF;
         switchWinLeft = SwitchState.ON;     overrideWinLeft = OverrideMode.FOLLOW_SYSTEM;
-        switchWinRight = SwitchState.ON;    overrideWinRight = OverrideMode.FOLLOW_SYSTEM;
         // 三、Ctrl/Alt/Shift
-        switchCtrlSlash = SwitchState.ON;     overrideCtrlSlash = OverrideMode.OFF;
-        switchCtrlLongPress = SwitchState.ON; overrideCtrlLongPress = OverrideMode.FOLLOW_SYSTEM;
+        overrideCtrlSlash = OverrideMode.OFF;
+        switchCtrlLongPress = SwitchState.ON;
         switchCtrlShift = SwitchState.ON;     overrideCtrlShift = OverrideMode.FOLLOW_SYSTEM;
         switchAltShift = SwitchState.ON;      overrideAltShift = OverrideMode.FOLLOW_SYSTEM;
         switchCtrlShiftT = SwitchState.ON;    overrideCtrlShiftT = OverrideMode.FOLLOW_SYSTEM;
@@ -724,11 +712,8 @@ public class Config {
         switchWinM = SwitchState.ON;
         // Win+N: L3 AOSP type=8 通知面板
         switchWinN = SwitchState.ON;
-        // Win+↑↓: L3 AOSP type=53/52 窗口最大化/还原
+        // Win+↑↓: L3 AOSP type=53/52 窗口最大化/还原 (共用)
         switchWinUp = SwitchState.ON;
-        switchWinDown = SwitchState.ON;
-        // Ctrl+/: L3 AOSP type=12 toggleKeyboardShortcutsMenu
-        switchCtrlSlash = SwitchState.ON;
         // Meta 单按: L3 AOSP type=21 triggerShowAllApps（开始菜单）
         switchMetaSingle = SwitchState.ON;
 
@@ -777,10 +762,7 @@ public class Config {
         map.put("winNumber",   "keyboard_combo_win_number");
         map.put("winTab",      "keyboard_combo_win_tab");
         map.put("winLeft",     "keyboard_combo_lr_arrow");
-        map.put("winRight",    "keyboard_combo_lr_arrow");
         map.put("winUp",       "keyboard_combo_ud_arrow");
-        map.put("winDown",     "keyboard_combo_ud_arrow");
-        map.put("ctrlSlash",   "keyboard_combo_ctrl_3");
         map.put("ctrlLongPress","keyboard_combo_ctrl_3");
         map.put("ctrlShift",   "keyboard_combo_ctrl_shift");
         map.put("altShift",    "keyboard_combo_alt_shift");
@@ -924,7 +906,6 @@ public class Config {
             switchWinNumber = SwitchState.ON;
             switchWinTab = SwitchState.ON;
             switchWinLeft = SwitchState.ON;
-            switchWinRight = SwitchState.ON;
             switchCtrlLongPress = SwitchState.ON;
             switchCtrlShift = SwitchState.ON;
             switchAltShift = SwitchState.ON;

@@ -19,7 +19,13 @@ data class ShortcutMeta(
     val groupKeys: List<String> = emptyList(),
     val hasZui: Boolean = false,
     val hasAosp: Boolean = false,
-    val hasSystemSwitch: Boolean = true
+    val hasSystemSwitch: Boolean = true,
+    /** Whether to show AOSP as a selectable option in the dropdown. Default: hasAosp. */
+    val showAospOption: Boolean = hasAosp,
+    /** Whether to show the switch control. Defaults to hasSystemSwitch value. */
+    val showSwitch: Boolean = hasSystemSwitch,
+    /** Auto switch on if there is a system switch available */
+    val autoSwitchOnIfPossible: Boolean = true,
 ) {
     // ── 预计算的显示文本（一次性计算，不在每次 bind 中动态拼接）──
     /** 标题：快捷方式名 + 实现标注 */
@@ -47,15 +53,15 @@ data class ShortcutMeta(
             ShortcutMeta("winP",        "Win + P",           "切换 PC 模式",                           hasZui = true),
             ShortcutMeta("winW",        "Win + W",           "关闭前台应用（保护5个系统进程）",            hasZui = true),
             ShortcutMeta("winNumber",   "Win + 1~8",         "打开 Dock 栏对应位置应用",                  hasZui = true),
-            ShortcutMeta("winTab",      "Win + Tab",         "最近任务",                               hasZui = true),
+            ShortcutMeta("winTab",      "Win + Tab",         "最近任务",                               hasZui = true,  hasSystemSwitch = false),
             // 二、Win+功能键（↑↓ 共用 keyboard_combo_ud_arrow，←→ 共用 keyboard_combo_lr_arrow）
             ShortcutMeta("winUp",       "Win + ↑ / Win + ↓",   "窗口最大化 / 窗口还原\n系统开关 ↑↓ 共用",    hasZui = false, hasAosp = true,
                 groupKeys = listOf("winDown")),
             ShortcutMeta("winLeft",     "Win + ← / Win + →",   "分屏到左侧 / 分屏到右侧\n系统开关 ←→ 共用",    hasZui = true,
                 groupKeys = listOf("winRight")),
             // 三、Ctrl/Alt/Shift
-            ShortcutMeta("ctrlSlash",       "Ctrl + /",          "弹出快捷键菜单（系统无独立开关",              hasZui = true, hasAosp = true,  hasSystemSwitch = false),
-            ShortcutMeta("ctrlLongPress",   "Ctrl 长按",         "长按≥3s 弹出快捷键菜单（同上系统开关）",       hasZui = true,  hasSystemSwitch = true),
+            ShortcutMeta("ctrlCard",       "长按 Ctrl 和 Ctrl + /",       "Ctrl 长按开关 | Ctrl+/ 行为模式\n注意：「长按 Ctrl」功能仅在开关开启且「Ctrl+/ 」为“保持默认”时有效。",  
+                         hasZui = false,  hasAosp = false, hasSystemSwitch = false, showSwitch = true, autoSwitchOnIfPossible = false),
             ShortcutMeta("ctrlShift",       "Ctrl + Shift",      "切换输入法（仅 ROW 生效）",            hasZui = true),
             ShortcutMeta("altShift",        "Alt + Shift",       "切换语言（仅 ROW 生效）",              hasZui = true),
             ShortcutMeta("ctrlShiftT",      "Ctrl + Shift + T",  "切换触控板开关",                       hasZui = true,  hasSystemSwitch = false),
@@ -85,10 +91,10 @@ data class ShortcutMeta(
             ShortcutMeta("keyKeyboardReverse",  "521 键盘翻转",   "启用物理键盘",                           hasZui = true,  hasSystemSwitch = false),
             ShortcutMeta("altRightKR",          "Alt_RIGHT KR",   "韩国版切语言",                           hasZui = true,  hasSystemSwitch = false),
             // 六、AOSP 辅助键（Settings.Secure 控制，非 Settings.System）
-            ShortcutMeta("aospBounceKeys",  "Win+Alt+3 防抖", "AOSP 原生防抖键",                         hasZui = false, hasAosp = true, hasSystemSwitch = false),
-            ShortcutMeta("aospMouseKeys",   "Win+Alt+4 鼠标", "AOSP 原生鼠标键",                         hasZui = false, hasAosp = true, hasSystemSwitch = false),
-            ShortcutMeta("aospStickyKeys",  "Win+Alt+5 粘滞", "AOSP 原生粘滞键",                         hasZui = false, hasAosp = true, hasSystemSwitch = false),
-            ShortcutMeta("aospSlowKeys",    "Win+Alt+6 慢速", "AOSP 原生慢速键",                         hasZui = false, hasAosp = true, hasSystemSwitch = false),
+            ShortcutMeta("aospBounceKeys",  "Win+Alt+3 防抖", "AOSP 原生防抖键",                         hasZui = false, hasAosp = true, hasSystemSwitch = false, autoSwitchOnIfPossible = false),
+            ShortcutMeta("aospMouseKeys",   "Win+Alt+4 鼠标", "AOSP 原生鼠标键",                         hasZui = false, hasAosp = true, hasSystemSwitch = false, autoSwitchOnIfPossible = false),
+            ShortcutMeta("aospStickyKeys",  "Win+Alt+5 粘滞", "AOSP 原生粘滞键",                         hasZui = false, hasAosp = true, hasSystemSwitch = false, autoSwitchOnIfPossible = false),
+            ShortcutMeta("aospSlowKeys",    "Win+Alt+6 慢速", "AOSP 原生慢速键",                         hasZui = false, hasAosp = true, hasSystemSwitch = false, autoSwitchOnIfPossible = false),
         )
 
         // ── 直接字段访问：替代不可靠的反射（Config.java 字段命名不一致导致反射失败）──
@@ -99,9 +105,8 @@ data class ShortcutMeta(
             "winBack" -> cfg.switchWinBack; "winE" -> cfg.switchWinE; "winI" -> cfg.switchWinI
             "winL" -> cfg.switchWinL; "winM" -> cfg.switchWinM; "winN" -> cfg.switchWinN
             "winP" -> cfg.switchWinP; "winW" -> cfg.switchWinW; "winNumber" -> cfg.switchWinNumber
-            "winTab" -> cfg.switchWinTab; "winUp" -> cfg.switchWinUp; "winDown" -> cfg.switchWinDown
-            "winLeft" -> cfg.switchWinLeft; "winRight" -> cfg.switchWinRight
-            "ctrlSlash" -> cfg.switchCtrlSlash; "ctrlLongPress" -> cfg.switchCtrlLongPress
+            "winTab" -> cfg.switchWinTab; "winUp" -> cfg.switchWinUp
+            "winLeft" -> cfg.switchWinLeft
             "ctrlShift" -> cfg.switchCtrlShift; "altShift" -> cfg.switchAltShift
             "ctrlShiftT" -> cfg.switchCtrlShiftT; "ctrlEnter" -> cfg.switchCtrlEnter
             "altTab" -> cfg.switchAltTab
@@ -132,9 +137,7 @@ data class ShortcutMeta(
                 "winN" -> cfg.switchWinN = value; "winP" -> cfg.switchWinP = value
                 "winW" -> cfg.switchWinW = value; "winNumber" -> cfg.switchWinNumber = value
                 "winTab" -> cfg.switchWinTab = value; "winUp" -> cfg.switchWinUp = value
-                "winDown" -> cfg.switchWinDown = value
-                "winLeft" -> cfg.switchWinLeft = value; "winRight" -> cfg.switchWinRight = value
-                "ctrlSlash" -> cfg.switchCtrlSlash = value
+                "winLeft" -> cfg.switchWinLeft = value
                 "ctrlLongPress" -> cfg.switchCtrlLongPress = value
                 "ctrlShift" -> cfg.switchCtrlShift = value; "altShift" -> cfg.switchAltShift = value
                 "ctrlShiftT" -> cfg.switchCtrlShiftT = value; "ctrlEnter" -> cfg.switchCtrlEnter = value
@@ -168,9 +171,9 @@ data class ShortcutMeta(
             "winL" -> cfg.overrideWinL; "winM" -> cfg.overrideWinM; "winN" -> cfg.overrideWinN
             "winP" -> cfg.overrideWinP; "winW" -> cfg.overrideWinW
             "winNumber" -> cfg.overrideWinNumber; "winTab" -> cfg.overrideWinTab
-            "winUp" -> cfg.overrideWinUp; "winDown" -> cfg.overrideWinDown
-            "winLeft" -> cfg.overrideWinLeft; "winRight" -> cfg.overrideWinRight
-            "ctrlSlash" -> cfg.overrideCtrlSlash; "ctrlLongPress" -> cfg.overrideCtrlLongPress
+            "winUp" -> cfg.overrideWinUp
+            "winLeft" -> cfg.overrideWinLeft
+            "ctrlSlash" -> cfg.overrideCtrlSlash
             "ctrlShift" -> cfg.overrideCtrlShift; "altShift" -> cfg.overrideAltShift
             "ctrlShiftT" -> cfg.overrideCtrlShiftT
             "ctrlEnter" -> cfg.overrideCtrlEnter; "altTab" -> cfg.overrideAltTab
@@ -206,10 +209,8 @@ data class ShortcutMeta(
                 "winN" -> cfg.overrideWinN = value; "winP" -> cfg.overrideWinP = value
                 "winW" -> cfg.overrideWinW = value; "winNumber" -> cfg.overrideWinNumber = value
                 "winTab" -> cfg.overrideWinTab = value; "winUp" -> cfg.overrideWinUp = value
-                "winDown" -> cfg.overrideWinDown = value
-                "winLeft" -> cfg.overrideWinLeft = value; "winRight" -> cfg.overrideWinRight = value
+                "winLeft" -> cfg.overrideWinLeft = value
                 "ctrlSlash" -> cfg.overrideCtrlSlash = value
-                "ctrlLongPress" -> cfg.overrideCtrlLongPress = value
                 "ctrlShift" -> cfg.overrideCtrlShift = value; "altShift" -> cfg.overrideAltShift = value
                 "ctrlShiftT" -> cfg.overrideCtrlShiftT = value
                 "ctrlEnter" -> cfg.overrideCtrlEnter = value; "altTab" -> cfg.overrideAltTab = value

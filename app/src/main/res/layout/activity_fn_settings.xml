@@ -125,7 +125,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:padding="12dp"
-                android:text="获取键盘VID:PID"
+                android:text="制作配置文件"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
                 android:textColor="?attr/colorPrimary"
                 android:clickable="true"

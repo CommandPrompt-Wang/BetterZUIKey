@@ -40,6 +40,7 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
 }
 
 dependencies {
@@ -54,6 +55,19 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    // Markdown
+    implementation("io.noties.markwon:core:4.6.2")
+    implementation("io.noties.markwon:ext-tables:4.6.2")
+    implementation("io.noties.markwon:linkify:4.6.2")
+    implementation("io.noties.markwon:syntax-highlight:4.6.2") {
+        // 排除 prism4j 拉进来的 annotations-java5
+        exclude(group = "org.jetbrains", module = "annotations-java5")
+    }
+    implementation("io.noties:prism4j:2.0.0") {
+        // prism4j 自己也要排除
+        exclude(group = "org.jetbrains", module = "annotations-java5")
+    }
 
     compileOnly("de.robv.android.xposed:api:82")
 }

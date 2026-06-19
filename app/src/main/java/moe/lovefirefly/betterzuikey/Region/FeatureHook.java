@@ -89,6 +89,7 @@ public class FeatureHook {
             XposedHelpers.findAndHookMethod(kscClass, methodName, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) {
+                    if (!moe.lovefirefly.betterzuikey.Hook.MainHook.globalEnabled) return;
                     if (block) {
                         LogHelper.log(VerboseLevel.INFO, "FeatureHook: ", methodName, "→ BLOCKED");
                         param.setResult(null);
@@ -143,6 +144,7 @@ public class FeatureHook {
                     String.class, new XC_MethodHook() {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
+                            if (!moe.lovefirefly.betterzuikey.Hook.MainHook.globalEnabled) return;
                             if (targetPkg == null) {
                                 LogHelper.log(VerboseLevel.INFO, "FeatureHook: fileManager → BLOCKED");
                                 param.setResult(null);

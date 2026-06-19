@@ -236,8 +236,12 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
 
             fun bind(meta: ShortcutMeta) {
                 val cfg = cachedConfig ?: return
-                val switchState = ShortcutMeta.getSwitch(cfg, meta.key)
-                val overrideMode = ShortcutMeta.getOverride(cfg, meta.key)
+                // ctrlCard: switch → ctrlLongPress, spinner → ctrlSlash
+                val isCtrlCard = meta.key == "ctrlCard"
+                val switchKey = if (isCtrlCard) "ctrlLongPress" else meta.key
+                val overrideKey = if (isCtrlCard) "ctrlSlash" else meta.key
+                val switchState = ShortcutMeta.getSwitch(cfg, switchKey)
+                val overrideMode = ShortcutMeta.getOverride(cfg, overrideKey)
 
                 // ── 始终先清空所有视图状态，防止 RecyclerView 复用残留旧数据 ──
                 b.tvName.text = meta.displayName
@@ -248,9 +252,9 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
                 b.spAction.setOnClickListener(null)
                 b.root.setOnClickListener(null)
 
-                // ── 系统开关 ──
+                // ── 开关（系统开关 或 ctrlCard 的 Ctrl 长按开关）──
                 val isAospSecure = meta.key in AOSP_SECURE_KEY_MAP
-                if (meta.hasSystemSwitch || isAospSecure) {
+                if (meta.showSwitch || isAospSecure) {
                     b.swEnabled.visibility = View.VISIBLE
                     if (isAospSecure) {
                         // AOSP 辅助键：直接读写 Settings.Secure
@@ -273,12 +277,12 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
                         b.swEnabled.isChecked = switchState.isEnabled
                         b.swEnabled.setOnCheckedChangeListener { _, isChecked ->
                             val newState = if (isChecked) Config.SwitchState.ON else Config.SwitchState.OFF
-                            ShortcutMeta.setSwitch(cfg, meta.key, newState)
+                            ShortcutMeta.setSwitch(cfg, switchKey, newState)
                             // 组内同步
                             for (gk in meta.groupKeys) {
                                 ShortcutMeta.setSwitch(cfg, gk, newState)
                             }
-                            val err = Config.writeSystemSwitch(requireContext(), meta.key, isChecked)
+                            val err = Config.writeSystemSwitch(requireContext(), switchKey, isChecked)
                             if (err != null) {
                                 LogHelper.log(LogHelper.VerboseLevel.WARNING,
                                     "Failed to sync switch to system:", err)
@@ -297,21 +301,32 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
 
                 // ── 行为覆写下拉 ──
                 val modes = Config.OverrideMode.entries
-                    .filter { it.isAvailable(meta) }
+                    .filter { it.isAvailable(meta) && (it != Config.OverrideMode.AOSP || meta.showAospOption) }
                     .map { it.displayName() }
+                // Clear old adapter first to force visual refresh on rebind
+                b.spAction.setAdapter(null)
                 b.spAction.setAdapter(android.widget.ArrayAdapter(
                     requireContext(), R.layout.dropdown_item_wrap, modes))
                 b.spAction.threshold = Int.MAX_VALUE
                 b.spAction.setText(overrideMode.displayName(), false)
 
                 b.spAction.setOnItemClickListener { _, _, pos, _ ->
-                    val nm = Config.OverrideMode.entries.filter { it.isAvailable(meta) }[pos]
-                    ShortcutMeta.setOverride(cfg, meta.key, nm)
+                    val nm = Config.OverrideMode.entries.filter { it.isAvailable(meta) && (it != Config.OverrideMode.AOSP || meta.showAospOption) }[pos]
+                    ShortcutMeta.setOverride(cfg, overrideKey, nm)
                     cfg.save()
                     // Push full JSON via SharedPreferences → XSharedPreferences reads in system_server
                     Config.syncToSharedPrefs(requireContext(), cfg)
                     LogHelper.log(LogHelper.VerboseLevel.INFO,
-                        "Notify config change: override ", meta.key, " → ", nm.name)
+                        "Notify config change: override ", overrideKey, " → ", nm.name)
+                    // 操作优化：修改覆写模式后，若开关存在、可操作且未开启，则自动打开
+                    // 由 ShortcutMeta.autoSwitchOnIfPossible 控制是否启用此行为
+                    // - false 的场景：AOSP 辅助键 (Win+Alt+3,4,5,6) 开关直读 Settings.Secure 不走 Config
+                    // - false 的场景：Ctrl Card 的 Ctrl 长按开关，switch 和 spinner 分别控制两个不同的功能，应当互不影响
+                    if (meta.autoSwitchOnIfPossible
+                            && b.swEnabled.visibility == View.VISIBLE
+                            && b.swEnabled.isEnabled && !b.swEnabled.isChecked) {
+                        b.swEnabled.isChecked = true
+                    }
                 }
             }
         }
@@ -326,6 +341,7 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val binding = FragmentRecyclerBinding.bind(view)
+        binding.swipeRefresh.isEnabled = false  // 设置页不需要下拉刷新
         binding.recycler.layoutManager = LinearLayoutManager(requireContext())
         binding.recycler.adapter = SettingsAdapter(this)
     }
@@ -356,6 +372,7 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                         cfg.regionCustomValue = v
                         cfg.regionOverride = moe.lovefirefly.betterzuikey.Region.RegionProfile.CUSTOM
                         cfg.save()
+                        Config.syncToSharedPrefs(host.requireContext(), cfg)
                     }
                     // 无论输入与否都刷新，空输入会回退到上一个值
                     notifyDataSetChanged()
@@ -385,6 +402,7 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                     val v = input.text.toString().trim().uppercase()
                     cfg.countryOverride = v
                     cfg.save()
+                    Config.syncToSharedPrefs(host.requireContext(), cfg)
                     notifyDataSetChanged()
                 }
                 .setOnCancelListener { notifyDataSetChanged() }
@@ -403,9 +421,9 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
         private val items: List<SettingItem> = run {
             val cfg = Config.load()
             listOf(
-                SettingItem.Switch("ZUX 键盘总开关", "全局启用或禁用所有 ZUX 键盘功能覆写",
+                SettingItem.Switch("模块功能开关", "关闭后所有 Hook 失效，快捷键恢复 ZUI 原始行为",
                     getChecked = { cfg.zuxKeyboardFuncEnabled },
-                    onChanged = { cfg.zuxKeyboardFuncEnabled = it; cfg.save() }
+                    onChanged = { cfg.zuxKeyboardFuncEnabled = it; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
                 ),
                 SettingItem.Tap("虚拟 Fn 键", "管理 Fn 组合键配置文件与键值映射",
                     onClick = {
@@ -414,7 +432,7 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                 ),
                 SettingItem.Switch("OneVision 特性", "启用联想 OneVision 跨屏协同相关快捷键行为",
                     getChecked = { cfg.oneVisionFeatureEnabled },
-                    onChanged = { cfg.oneVisionFeatureEnabled = it; cfg.save() }
+                    onChanged = { cfg.oneVisionFeatureEnabled = it; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
                 ),
                 SettingItem.Tap("外观设置", "夜间模式与 Material You 主题",
                     onClick = {
@@ -431,6 +449,7 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                         cfg.verboseLevel = levels[idx]
                         moe.lovefirefly.betterzuikey.Utils.LogHelper.currentLevel = cfg.verboseLevel
                         cfg.save()
+                        Config.syncToSharedPrefs(host.requireContext(), cfg)
                     }
                 ),
                 SettingItem.Combo("区域", "控制 ro.config.lgsi.region 系统属性（区域判定）",
@@ -453,9 +472,9 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                     },
                     onSelected = { idx ->
                         when (idx) {
-                            0 -> { cfg.regionOverride = moe.lovefirefly.betterzuikey.Region.RegionProfile.DEFAULT; cfg.save() }
-                            1 -> { cfg.regionOverride = moe.lovefirefly.betterzuikey.Region.RegionProfile.CHINA;  cfg.save() }
-                            2 -> { cfg.regionOverride = moe.lovefirefly.betterzuikey.Region.RegionProfile.ROW;    cfg.save() }
+                            0 -> { cfg.regionOverride = moe.lovefirefly.betterzuikey.Region.RegionProfile.DEFAULT; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
+                            1 -> { cfg.regionOverride = moe.lovefirefly.betterzuikey.Region.RegionProfile.CHINA;  cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
+                            2 -> { cfg.regionOverride = moe.lovefirefly.betterzuikey.Region.RegionProfile.ROW;    cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
                             3 -> showRegionCustomDialog()
                         }
                     }
@@ -476,8 +495,8 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                     },
                     onSelected = { idx ->
                         when (idx) {
-                            0 -> { cfg.countryOverride = ""; cfg.save() }
-                            1 -> { cfg.countryOverride = "KR"; cfg.save() }
+                            0 -> { cfg.countryOverride = ""; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
+                            1 -> { cfg.countryOverride = "KR"; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
                             2 -> showCountryCustomDialog()
                         }
                     }
@@ -587,6 +606,11 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        
+        // TODO: 应用模板 - 暂时禁用
+        disableAllChildren(view)
+        showComingSoonOverlay(view)
+        
         val binding = moe.lovefirefly.betterzuikey.databinding.FragmentTemplatesBinding.bind(view)
 
         adapter = TemplateAdapter()
@@ -601,6 +625,35 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                 adapter.refresh()
             }
         }
+    }
+    
+    /** 递归禁用所有子 View 的交互 */
+    private fun disableAllChildren(view: View) {
+        view.isEnabled = false
+        view.isClickable = false
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                disableAllChildren(view.getChildAt(i))
+            }
+        }
+    }
+    
+    /** 叠加"敬请期待"遮罩 */
+    private fun showComingSoonOverlay(view: View) {
+        val overlay = TextView(requireContext()).apply {
+            text = "敬请期待"
+            textSize = 24f
+            setTextColor(0xFFFFFFFF.toInt())
+            gravity = android.view.Gravity.CENTER
+            setBackgroundColor(0x88000000.toInt())  // 半透明黑色背景
+            isClickable = true   // 拦截所有触摸事件
+            isFocusable = true
+        }
+        (view as? ViewGroup)?.addView(
+            overlay,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
     }
 
     // ── TemplateAdapter ──

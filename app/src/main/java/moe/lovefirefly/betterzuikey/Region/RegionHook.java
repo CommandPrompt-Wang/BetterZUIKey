@@ -79,6 +79,7 @@ public class RegionHook {
                     new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
+                            if (!moe.lovefirefly.betterzuikey.Hook.MainHook.globalEnabled) return;
                             if (sCurrentProfile == RegionProfile.DEFAULT) return;
 
                             String key = (String) param.args[0];
@@ -211,6 +212,7 @@ public class RegionHook {
                     new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
+                            if (!moe.lovefirefly.betterzuikey.Hook.MainHook.globalEnabled) return;
                             KeyEvent event = (KeyEvent) param.thisObject;
                             // 仅覆写 Meta 键 (117/118) 的 scanCode
                             int keyCode = event.getKeyCode();
