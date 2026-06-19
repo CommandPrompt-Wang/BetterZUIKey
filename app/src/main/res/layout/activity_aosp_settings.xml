@@ -4,6 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
@@ -11,11 +12,12 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         app:navigationIcon="?attr/homeAsUpIndicator"
-        app:title="辅助功能开关" />
+        app:title="@string/aosp_title" />
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+    android:fitsSystemWindows="true">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -54,13 +56,13 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="防抖键"
+                    android:text="@string/aosp_bounce_keys"
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="忽略过快的连续击键，防止误触重复输入"
+                    android:text="@string/aosp_bounce_keys_desc"
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 
@@ -105,13 +107,13 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="鼠标键"
+                    android:text="@string/aosp_mouse_keys"
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="用数字小键盘区域控制鼠标指针移动和点击"
+                    android:text="@string/aosp_mouse_keys_desc"
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 
@@ -156,13 +158,13 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="粘滞键"
+                    android:text="@string/aosp_sticky_keys"
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="组合键（如 Ctrl+C）可以逐一按下而非同时按住"
+                    android:text="@string/aosp_sticky_keys_desc"
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 
@@ -207,13 +209,13 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="慢速键"
+                    android:text="@string/aosp_slow_keys"
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="按键必须按住一定时间后才被识别，过滤意外轻触"
+                    android:text="@string/aosp_slow_keys_desc"
                     android:textAppearance="?attr/textAppearanceBodySmall"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 

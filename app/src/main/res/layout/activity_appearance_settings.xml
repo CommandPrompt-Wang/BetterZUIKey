@@ -3,6 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:orientation="vertical"
     android:padding="16dp">
 
@@ -11,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         app:navigationIcon="?attr/homeAsUpIndicator"
-        app:title="外观设置" />
+        app:title="@string/appearance_title" />
 
     <LinearLayout
         android:id="@+id/row_night_mode"
@@ -30,7 +31,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="夜间模式"
+            android:text="@string/appearance_night_mode"
             android:textAppearance="?attr/textAppearanceBodyLarge" />
 
         <com.google.android.material.textfield.TextInputLayout
@@ -50,7 +51,7 @@
                 android:inputType="none"
                 android:focusable="true"
                 android:clickable="true"
-                android:text="自动" />
+                android:text="@string/appearance_night_auto" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -72,7 +73,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="跟随系统动态色板 (Material You)"
+            android:text="@string/appearance_dynamic_color"
             android:textAppearance="?attr/textAppearanceBodyLarge" />
 
         <com.google.android.material.materialswitch.MaterialSwitch

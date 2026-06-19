@@ -4,6 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
@@ -11,21 +12,21 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         app:navigationIcon="?attr/homeAsUpIndicator"
-        app:title="选择应用" />
+        app:title="@string/app_picker_title" />
 
     <androidx.appcompat.widget.SearchView
         android:id="@+id/search_view"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="8dp"
-        app:queryHint="搜索应用名或包名…" />
+        app:queryHint="@string/app_picker_search_hint" />
 
     <TextView
         android:id="@+id/tv_selected_count"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
-        android:text="已选择 0 个"
+        android:text="@string/app_picker_selected_count"
         android:textAppearance="?attr/textAppearanceBodySmall" />
 
     <androidx.recyclerview.widget.RecyclerView
@@ -40,7 +41,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
-        android:text="完成"
+        android:text="@string/app_picker_btn_done"
         style="?attr/materialButtonStyle" />
 
 </LinearLayout>

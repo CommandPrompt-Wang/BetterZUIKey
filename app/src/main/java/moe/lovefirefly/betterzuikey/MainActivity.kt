@@ -14,13 +14,28 @@ import moe.lovefirefly.betterzuikey.Utils.ZuiDetector
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private val titles = arrayOf("主页", "快捷键", "模板", "设置")
+    private val titles by lazy {
+        arrayOf(
+            getString(R.string.tab_home),
+            getString(R.string.tab_shortcuts),
+            getString(R.string.tab_templates),
+            getString(R.string.tab_settings)
+        )
+    }
+    /** 记录创建时应用的主题/语言状态，onResume 时检测变化并 recreate */
+    private var appliedDynamicColor: Boolean = false
+    private var appliedNightMode: Int = 0
+    private var appliedLocaleTag: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         applyTheme()
+        applyLocale()
         super.onCreate(savedInstanceState)
-        // 动态调色板：必须在 setContentView 之前调用
-        if (Config.load().dynamicColorEnabled) {
+        val cfg = Config.load()
+        appliedDynamicColor = cfg.dynamicColorEnabled
+        appliedNightMode = cfg.nightMode
+        appliedLocaleTag = cfg.localeOverride
+        if (appliedDynamicColor) {
             DynamicColors.applyToActivityIfAvailable(this)
         }
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -33,6 +48,34 @@ class MainActivity : AppCompatActivity() {
 
         // 自动通过 su 授予 WRITE_SECURE_SETTINGS
         grantSecureSettings()
+
+        // 首次启动 → 显示使用协议对话框
+        val prefs = getSharedPreferences("app", MODE_PRIVATE)
+        if (!prefs.getBoolean("agreement_shown", false)) {
+            showAgreementDialog(
+                onAccept = { prefs.edit().putBoolean("agreement_shown", true).apply() },
+                canExit = true
+            )
+        }
+
+        // 调试：长按标题栏 3s 弹出协议对话框（不可退出）
+        var longPressRunnable: Runnable? = null
+        binding.toolbar.setOnTouchListener { _, event ->
+            when (event.action) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    val r = Runnable { showAgreementDialog(onAccept = { }, canExit = false) }
+                    longPressRunnable = r
+                    binding.toolbar.postDelayed(r, 3000)
+                    false  // 不消费，让 toolbar 正常处理（不影响点击、滚动等）
+                }
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                    longPressRunnable?.let { binding.toolbar.removeCallbacks(it) }
+                    longPressRunnable = null
+                    false
+                }
+                else -> false
+            }
+        }
 
         binding.bottomNav.setOnItemSelectedListener { item ->
             val target = when (item.itemId) {
@@ -52,6 +95,58 @@ class MainActivity : AppCompatActivity() {
                 binding.toolbar.title = titles[position]
             }
         })
+    }
+
+    /** 使用协议对话框：首次启动强制阅读帮助文档 */
+    private fun showAgreementDialog(onAccept: () -> Unit, canExit: Boolean) {
+        val msg = getString(R.string.agreement_body)
+
+        val tv = android.widget.TextView(this).apply {
+            setText(msg)
+            setTextIsSelectable(false)
+            setPadding(48, 32, 48, 0)
+            setLineSpacing(4f, 1.1f)
+            textSize = 15f
+        }
+
+        val titleView = android.widget.TextView(this).apply {
+            text = getString(R.string.agreement_header)
+            setTextColor(0xFF_D32F2F.toInt())
+            setPadding(48, 16, 48, 0)
+            textSize = 16f
+            android.graphics.Typeface.DEFAULT_BOLD.also { setTypeface(it) }
+        }
+
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            addView(titleView)
+            addView(tv)
+        }
+
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(getString(R.string.agreement_title))
+            .setView(container)
+            .setNegativeButton(if (canExit) getString(R.string.agreement_btn_exit) else getString(R.string.agreement_btn_close)) { _, _ ->
+                if (canExit) finish()
+            }
+            .setPositiveButton(getString(R.string.agreement_btn_read_doc)) { _, _ ->
+                onAccept()
+                startActivity(android.content.Intent(this, HelpActivity::class.java))
+            }
+            .setCancelable(false)
+            .create()
+
+        dialog.show()
+        dialog.getButton(android.content.DialogInterface.BUTTON_NEGATIVE)
+            ?.setTextColor(0xFF_757575.toInt())
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val cfg = Config.load()
+        if (cfg.dynamicColorEnabled != appliedDynamicColor || cfg.nightMode != appliedNightMode || cfg.localeOverride != appliedLocaleTag) {
+            recreate()
+        }
     }
 
     private class TabAdapter(fa: FragmentActivity) : FragmentStateAdapter(fa) {
@@ -83,10 +178,10 @@ class MainActivity : AppCompatActivity() {
             val cfg = Config.load()
             val r = ZuiDetector.result
             view.findViewById<android.widget.TextView>(R.id.tv_status)?.text =
-                "BetterZUIKey v1.0"
+                getString(R.string.home_version_template)
             view.findViewById<android.widget.TextView>(R.id.tv_module_status)?.text =
-                if (r.isZux) "✅ 已激活 — ${r.detail}"
-                else "❌ 未激活 — ${r.detail}"
+                if (r.isZux) getString(R.string.home_module_status_active, r.detail)
+                else getString(R.string.home_module_status_inactive_detail, r.detail)
 
             view.findViewById<android.view.View>(R.id.card_help)?.setOnClickListener {
                 startActivity(android.content.Intent(requireContext(), HelpActivity::class.java))
@@ -104,6 +199,11 @@ class MainActivity : AppCompatActivity() {
                 else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
             }
             AppCompatDelegate.setDefaultNightMode(nightMode)
+        }
+
+        /** 在 setContentView 之前调用，按配置应用语言设置 */
+        fun applyLocale() {
+            LocaleHelper.applyFromConfig()
         }
     }
 

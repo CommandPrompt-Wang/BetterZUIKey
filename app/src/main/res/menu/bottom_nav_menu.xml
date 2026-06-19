@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:id="@+id/nav_home"      android:icon="@android:drawable/ic_menu_info_details" android:title="主页" />
-    <item android:id="@+id/nav_shortcuts" android:icon="@android:drawable/ic_menu_sort_alphabetically" android:title="快捷键" />
-    <item android:id="@+id/nav_templates" android:icon="@android:drawable/ic_menu_edit" android:title="模板" />
-    <item android:id="@+id/nav_settings"  android:icon="@android:drawable/ic_menu_manage" android:title="设置" />
+    <item android:id="@+id/nav_home"      android:icon="@android:drawable/ic_menu_info_details" android:title="@string/tab_home" />
+    <item android:id="@+id/nav_shortcuts" android:icon="@android:drawable/ic_menu_sort_alphabetically" android:title="@string/tab_shortcuts" />
+    <item android:id="@+id/nav_templates" android:icon="@android:drawable/ic_menu_edit" android:title="@string/tab_templates" />
+    <item android:id="@+id/nav_settings"  android:icon="@android:drawable/ic_menu_manage" android:title="@string/tab_settings" />
 </menu>

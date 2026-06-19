@@ -63,7 +63,16 @@ public class HookContext {
         newCfg.injectError = cfg.injectError;
         cfg = newCfg;
         MainHook.globalEnabled = cfg.zuxKeyboardFuncEnabled;
+        LogHelper.currentLevel = cfg.verboseLevel;
         resolver = new ConfigResolver(cfg);
+        // Resync: ForegroundTracker holds old resolver ref + new resolver needs current foreground pkg
+        if (foregroundTracker != null) {
+            foregroundTracker.setResolver(resolver);
+            String pkg = foregroundTracker.getForegroundPackage();
+            if (pkg != null) resolver.setForegroundPackage(pkg);
+        }
+        LogHelper.log(VerboseLevel.INFO, "Config hot-reloaded, templates=",
+            String.valueOf(cfg.templates != null ? cfg.templates.size() : 0));
     }
 
     // ----------------------------------------------------------------

@@ -264,6 +264,9 @@ public class Config {
     /** 动态调色板 (Material You) */
     public boolean dynamicColorEnabled = false;
 
+    /** 应用内语言覆盖：""=跟随系统, "en-US"=英语, "zh-CN"=简体中文 */
+    public String localeOverride = "";
+
     // ================================================================
     // 七、区域差异化行为（独立开关）
     // 覆盖 RegionProfile 的默认值，允许混合搭配
@@ -583,6 +586,16 @@ public class Config {
             if (prefsFile.exists()) {
                 prefsFile.setReadable(true, false);   // o+r: allow reading
             }
+            // Notify system_server that config has changed (Binder IPC push)
+            try {
+                ctx.getContentResolver().call(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.METHOD_NOTIFY_SYNC,
+                    null, null);
+            } catch (Exception ignored) {
+                // notification is best-effort; polling fallback via checkConfigChanged()
+            }
+
             LogHelper.log(LogHelper.VerboseLevel.INFO,
                     "Config synced (", String.valueOf(json.length()), " bytes) + permissions fixed");
         } catch (Exception e) {
@@ -663,6 +676,7 @@ public class Config {
         matchSystemTheme = true;
         nightMode = 0;
         dynamicColorEnabled = false;
+        localeOverride = "";
         // 八、区域行
         keyboardScanCode = 0;
         rowInputMethodSwitch = true;

@@ -1,0 +1,368 @@
+<resources>
+    <!-- ================================================================ -->
+    <!-- App 基本信息 -->
+    <!-- ================================================================ -->
+    <string name="app_name">BetterZUIKey</string>
+
+    <!-- ================================================================ -->
+    <!-- 底部导航 Tab -->
+    <!-- ================================================================ -->
+    <string name="tab_home">主页</string>
+    <string name="tab_shortcuts">快捷键</string>
+    <string name="tab_templates">模板</string>
+    <string name="tab_settings">设置</string>
+
+    <!-- ================================================================ -->
+    <!-- 主页 (fragment_home.xml + MainActivity.HomeFragment) -->
+    <!-- ================================================================ -->
+    <string name="home_app_icon_desc">应用图标</string>
+    <string name="home_app_title">BetterZUIKey</string>
+    <string name="home_status_loading">状态: 等待加载…</string>
+    <string name="home_module_status_title">模块状态</string>
+    <string name="home_module_status_inactive">未激活 (需 Xposed)</string>
+    <string name="home_module_status_active">✅ 已激活 — %1$s</string>
+    <string name="home_module_status_inactive_detail">❌ 未激活 — %1$s</string>
+    <string name="home_help_title">帮助</string>
+    <string name="home_help_click_hint">点击查看</string>
+    <string name="home_help_warning">请务必阅读完后再进行修改</string>
+    <string name="home_chevron">›</string>
+    <string name="home_version_template">BetterZUIKey v1.0</string>
+
+    <!-- ================================================================ -->
+    <!-- 使用协议对话框 (MainActivity) -->
+    <!-- ================================================================ -->
+    <string name="agreement_title">使用协议</string>
+    <string name="agreement_header">⚠ 请务必阅读帮助文档</string>
+    <string name="agreement_body">BetterZUIKey 是一款 Xposed 模块，通过 Hook 系统键盘快捷键处理逻辑来改变其行为。\n\n本模块仅限个人学习与研究使用。请在使用前充分理解各选项含义，不当配置可能导致部分系统快捷键行为异常。\n\n开发者不为因使用本模块造成的任何系统故障、数据丢失或设备异常承担责任。\n使用本模块即表示您已理解并接受以上条款。</string>
+    <string name="agreement_btn_read_doc">阅读文档</string>
+    <string name="agreement_btn_exit">退出</string>
+    <string name="agreement_btn_close">关闭</string>
+
+    <!-- ================================================================ -->
+    <!-- 系统设置写入警告卡片 (fragment_recycler.xml) -->
+    <!-- ================================================================ -->
+    <string name="warn_cannot_write_settings">⚠ 无法写入系统设置</string>
+    <string name="warn_write_error_reason">原因: %1$s</string>
+    <string name="warn_write_solution">方法一：前往系统授权页\n方法二：使用 Root 自授权（需 Magisk/KSU）</string>
+    <string name="btn_grant_settings">前往授权</string>
+    <string name="btn_su_grant">su 授权</string>
+    <string name="dialog_su_grant_success_title">授权成功</string>
+    <string name="dialog_su_grant_success_msg">系统设置写入权限已通过 su 授予，开关可正常同步到系统。</string>
+    <string name="dialog_su_grant_uncertain_title">授权可能未生效</string>
+    <string name="dialog_su_grant_uncertain_msg">su 执行成功但权限验证仍失败。\n\n输出: %1$s</string>
+    <string name="dialog_su_grant_failed_title">su 授权失败</string>
+    <string name="dialog_su_grant_failed_msg">无法获取 Root 权限。\n请确保已安装 Magisk/KSU 并授权。\n\n命令: su -c \"%1$s\"\n%2$s</string>
+    <string name="dialog_confirm_ok">确定</string>
+    <string name="dialog_confirm_cancel">取消</string>
+
+    <!-- ================================================================ -->
+    <!-- 模板 Tab (fragment_templates.xml + TemplatesFragment) -->
+    <!-- ================================================================ -->
+    <string name="templates_new_template">新建模板</string>
+    <string name="templates_name_dialog_title">模板名称</string>
+    <string name="templates_select_apps">选择应用（已选择 %1$d 个）</string>
+    <string name="templates_delete_title">删除模板</string>
+    <string name="templates_delete_msg">确定删除「%1$s」？</string>
+    <string name="templates_btn_rename">重命名</string>
+    <string name="templates_btn_delete">删除模板</string>
+    <string name="templates_btn_delete_confirm">删除</string>
+    <string name="templates_default_name">游戏模式</string>
+    <string name="templates_create_title">新建模板</string>
+
+    <!-- ================================================================ -->
+    <!-- 模板编辑器 (activity_template_editor.xml + TemplateEditorActivity) -->
+    <!-- ================================================================ -->
+    <string name="editor_title">编辑模板</string>
+    <string name="editor_inherit_global">继承全局（%1$s）</string>
+
+    <!-- ================================================================ -->
+    <!-- App 选择器 (activity_app_picker.xml + AppPickerActivity) -->
+    <!-- ================================================================ -->
+    <string name="app_picker_title">选择应用</string>
+    <string name="app_picker_search_hint">搜索应用名或包名…</string>
+    <string name="app_picker_selected_count">已选择 %1$d 个</string>
+    <string name="app_picker_btn_done">完成</string>
+    <string name="app_picker_conflict_toast">「%1$s」已包含此应用</string>
+    <string name="app_picker_placeholder_name">App Name (com.example.app)</string>
+
+    <!-- ================================================================ -->
+    <!-- 虚拟 Fn 设置 (activity_fn_settings.xml + FnSettingsActivity) -->
+    <!-- ================================================================ -->
+    <string name="fn_title">虚拟Fn</string>
+    <string name="fn_enabled">启用</string>
+    <string name="fn_toast_debug">触发映射时弹出 Toast（调试）</string>
+    <string name="fn_profile_label">配置文件</string>
+    <string name="fn_import_profile">导入配置文件</string>
+    <string name="fn_create_profile">制作配置文件</string>
+    <string name="fn_manage_profiles">配置文件管理</string>
+    <string name="fn_summary_title">当前配置文件概要：</string>
+    <string name="fn_summary_loading">加载中…</string>
+    <string name="fn_auto_detect_label">自动检测 (%1$s)</string>
+    <string name="fn_auto_detect_failed">自动检测 (失败)</string>
+    <string name="fn_auto_detect_line">自动检测: %1$s</string>
+    <string name="fn_auto_detect_failed_detail">自动检测: 失败（未找到匹配的键盘）</string>
+    <string name="fn_no_profile_matched">未匹配到键盘配置</string>
+    <string name="fn_available_count">可用配置: %1$d 个 (内置 + 导入)</string>
+    <string name="fn_custom_tag">[自定义配置]</string>
+    <string name="fn_key_unmapped">(未映射)</string>
+    <string name="fn_key_scan_format">  F%1$d → scan:0x%2$s (%3$d)</string>
+    <string name="fn_key_keycode_format">  F%1$d → keyCode:%2$d</string>
+    <string name="fn_key_unmapped_format">  F%1$d → (未映射)</string>
+
+    <!-- ================================================================ -->
+    <!-- AOSP 辅助功能开关 (activity_aosp_settings.xml + AospSettingsActivity) -->
+    <!-- ================================================================ -->
+    <string name="aosp_title">辅助功能开关</string>
+    <string name="aosp_bounce_keys">防抖键</string>
+    <string name="aosp_bounce_keys_desc">忽略过快的连续击键，防止误触重复输入</string>
+    <string name="aosp_mouse_keys">鼠标键</string>
+    <string name="aosp_mouse_keys_desc">用数字小键盘区域控制鼠标指针移动和点击</string>
+    <string name="aosp_sticky_keys">粘滞键</string>
+    <string name="aosp_sticky_keys_desc">组合键（如 Ctrl+C）可以逐一按下而非同时按住</string>
+    <string name="aosp_slow_keys">慢速键</string>
+    <string name="aosp_slow_keys_desc">按键必须按住一定时间后才被识别，过滤意外轻触</string>
+
+    <!-- ================================================================ -->
+    <!-- 外观设置 (activity_appearance_settings.xml + AppearanceSettingsActivity) -->
+    <!-- ================================================================ -->
+    <string name="appearance_title">外观设置</string>
+    <string name="appearance_night_mode">夜间模式</string>
+    <string name="appearance_dynamic_color">跟随系统动态色板 (Material You)</string>
+    <string name="appearance_night_auto">自动</string>
+    <string name="appearance_night_on">开启</string>
+    <string name="appearance_night_off">关闭</string>
+
+    <!-- ================================================================ -->
+    <!-- 键盘检测 (activity_keyboard_detect.xml + KeyboardDetectActivity) -->
+    <!-- ================================================================ -->
+    <string name="detect_title">键盘检测</string>
+    <string name="detect_hint_press_key">请按下键盘上的任意按键</string>
+    <string name="detect_hint_fill">选中目标 F 键 → 按键 → 获取并填入</string>
+    <string name="detect_default_vidpid">0000:0000</string>
+    <string name="detect_btn_fill">填入</string>
+    <string name="detect_btn_copy_config">复制当前配置</string>
+    <string name="detect_btn_copy_vidpid">复制 VID:PID</string>
+    <string name="detect_fkey_placeholder">请输入</string>
+    <string name="detect_toast_select_fkey">请先在表格中选中目标 F 键</string>
+    <string name="detect_toast_copied">已复制 %1$s</string>
+    <string name="detect_toast_press_first">请先按下键盘按键进行检测</string>
+    <string name="detect_toast_config_copied">已复制配置文件</string>
+    <string name="detect_config_default_name">自定义键盘</string>
+    <string name="detect_config_placeholder">【请填写】</string>
+    <string name="detect_key_display">按键: %1$d (%2$s) / 扫描码: %3$s</string>
+    <string name="detect_scan_none">无</string>
+    <string name="detect_fkey_label">F%1$d</string>
+
+    <!-- ================================================================ -->
+    <!-- 导入配置文件 (activity_import_profile.xml + ImportProfileActivity) -->
+    <!-- ================================================================ -->
+    <string name="import_title">导入配置文件</string>
+    <string name="import_from_file">从文件</string>
+    <string name="import_from_text">从输入</string>
+    <string name="import_json_hint">{ \"profiles\": { \"17ef:6271\": { ... } } }</string>
+    <string name="import_btn_submit">提交</string>
+    <string name="import_toast_read_fail">读取失败: %1$s</string>
+    <string name="import_toast_input_required">请输入 JSON 内容</string>
+    <string name="import_toast_parse_fail">JSON 解析失败: %1$s</string>
+    <string name="import_toast_no_data">未找到有效的 profile 数据</string>
+    <string name="import_toast_success">已导入 %1$d 个配置</string>
+
+    <!-- ================================================================ -->
+    <!-- 配置文件管理 (activity_profile_manage.xml + ProfileManageActivity) -->
+    <!-- ================================================================ -->
+    <string name="profile_manage_title">配置文件管理</string>
+    <string name="profile_btn_delete">删除</string>
+    <string name="profile_builtin_label">内置(不可删)</string>
+    <string name="profile_delete_title">删除配置</string>
+    <string name="profile_delete_msg">确定删除「%1$s」？</string>
+    <string name="profile_delete_confirm">删除</string>
+    <string name="profile_deleted_toast">已删除</string>
+    <string name="profile_key_unmapped">(未映射)</string>
+    <string name="profile_key_scan_fmt">scan:0x%1$s</string>
+    <string name="profile_key_keycode_fmt">keyCode:%1$d</string>
+    <string name="profile_view_title">%1$s</string>
+    <string name="profile_edit_title">编辑: %1$s</string>
+    <string name="profile_btn_edit_keys">编辑键值</string>
+    <string name="profile_btn_close">关闭</string>
+
+    <!-- ================================================================ -->
+    <!-- 帮助文档 (activity_help.xml + HelpActivity) -->
+    <!-- ================================================================ -->
+    <string name="help_title">帮助文档</string>
+    <string name="help_subtitle">v1.0</string>
+
+    <!-- ================================================================ -->
+    <!-- 设置 Tab (SettingsFragment in TabsFragments.kt) -->
+    <!-- ================================================================ -->
+    <string name="settings_master_switch">模块功能开关</string>
+    <string name="settings_master_switch_desc">关闭后所有 Hook 失效，快捷键恢复 ZUI 原始行为</string>
+    <string name="settings_fn_entry">虚拟 Fn 键</string>
+    <string name="settings_fn_entry_desc">管理 Fn 组合键配置文件与键值映射</string>
+    <string name="settings_onevision">OneVision 特性</string>
+    <string name="settings_onevision_desc">启用联想 OneVision 跨屏协同相关快捷键行为</string>
+    <string name="settings_appearance_entry">外观设置</string>
+    <string name="settings_appearance_entry_desc">夜间模式与 Material You 主题</string>
+    <string name="settings_log_level">日志级别</string>
+    <string name="settings_log_level_desc">控制 Xposed 模块日志输出详细程度</string>
+    <string name="settings_region">区域</string>
+    <string name="settings_region_desc">控制 ro.config.lgsi.region 系统属性（区域判定）</string>
+    <string name="settings_country">国家/地区</string>
+    <string name="settings_country_desc">控制 ro.config.lgsi.countrycode 系统属性（国家判定）</string>
+
+    <!-- 区域选项 -->
+    <string name="region_default">默认 (%1$s)</string>
+    <string name="region_china">中国 (CN)</string>
+    <string name="region_row">国际 (ROW)</string>
+    <string name="region_custom">自定义 (%1$s)</string>
+    <string name="region_not_configured">未配置</string>
+
+    <!-- 国家选项 -->
+    <string name="country_default">默认 (%1$s)</string>
+    <string name="country_kr">韩国 (KR)</string>
+    <string name="country_custom">自定义 (%1$s)</string>
+
+    <!-- 区域对话框 -->
+    <string name="region_custom_dialog_title">自定义区域值</string>
+    <string name="region_custom_dialog_msg">输入一个区域代码，将覆写 ro.config.lgsi.region 属性</string>
+    <string name="region_custom_dialog_hint">例如: TW, JP, US</string>
+
+    <!-- 国家对话框 -->
+    <string name="country_custom_dialog_title">自定义国家/地区值</string>
+    <string name="country_custom_dialog_msg">输入一个国家代码，将覆写 ro.config.lgsi.countrycode 属性</string>
+    <string name="country_custom_dialog_hint">例如: KR, JP, US</string>
+
+    <!-- ================================================================ -->
+    <!-- 快捷方式元数据 (ShortcutMeta.kt) -->
+    <!-- ================================================================ -->
+    <!-- ZUI/AOSP 标签 -->
+    <string name="badge_zui">ZUI</string>
+    <string name="badge_aosp">AOSP</string>
+    <string name="shortcut_badge_format">%1$s  [%2$s]</string>
+
+    <!-- OverrideMode 显示名 -->
+    <string name="mode_follow_system">保持默认</string>
+    <string name="mode_zui">启用 ZUI 实现</string>
+    <string name="mode_aosp">启用 AOSP 实现</string>
+    <string name="mode_off">关闭</string>
+    <string name="mode_block">忽略</string>
+
+    <!-- OverrideMode 描述 -->
+    <string name="mode_follow_system_desc">跟随系统开关（开启则用 ZUI，关闭则透传）</string>
+    <string name="mode_zui_desc">强制启用 ZUI 快捷键行为</string>
+    <string name="mode_aosp_desc">禁用 ZUI，启用 Android 原生处理</string>
+    <string name="mode_off_desc">禁用 ZUI 和 AOSP，事件透传给应用</string>
+    <string name="mode_block_desc">消费事件，系统和应用都收不到</string>
+
+    <!-- 各快捷方式显示名和描述 -->
+    <string name="shortcut_winD">Win + D</string>
+    <string name="shortcut_winD_desc">回到桌面</string>
+    <string name="shortcut_winS">Win + S</string>
+    <string name="shortcut_winS_desc">全局搜索</string>
+    <string name="shortcut_winA">Win + A</string>
+    <string name="shortcut_winA_desc">隐藏/显示任务栏</string>
+    <string name="shortcut_winBack">Win + Back</string>
+    <string name="shortcut_winBack_desc">发送 ESC / 返回\n设置-实体键盘-辅助键 可改 ESC 功能</string>
+    <string name="shortcut_winE">Win + E</string>
+    <string name="shortcut_winE_desc">打开文件管理器</string>
+    <string name="shortcut_winI">Win + I</string>
+    <string name="shortcut_winI_desc">打开设置</string>
+    <string name="shortcut_winL">Win + L</string>
+    <string name="shortcut_winL_desc">锁屏</string>
+    <string name="shortcut_winM">Win + M</string>
+    <string name="shortcut_winM_desc">最小化窗口</string>
+    <string name="shortcut_winN">Win + N</string>
+    <string name="shortcut_winN_desc">通知面板</string>
+    <string name="shortcut_winP">Win + P</string>
+    <string name="shortcut_winP_desc">切换 PC 模式</string>
+    <string name="shortcut_winW">Win + W</string>
+    <string name="shortcut_winW_desc">关闭前台应用（保护5个系统进程）</string>
+    <string name="shortcut_winNumber">Win + 1~8</string>
+    <string name="shortcut_winNumber_desc">打开 Dock 栏对应位置应用</string>
+    <string name="shortcut_winTab">Win + Tab</string>
+    <string name="shortcut_winTab_desc">最近任务</string>
+    <string name="shortcut_winUp">Win + ↑ / Win + ↓</string>
+    <string name="shortcut_winUp_desc">窗口最大化 / 窗口还原\n系统开关 ↑↓ 共用</string>
+    <string name="shortcut_winLeft">Win + ← / Win + →</string>
+    <string name="shortcut_winLeft_desc">分屏到左侧 / 分屏到右侧\n系统开关 ←→ 共用</string>
+    <string name="shortcut_ctrlCard">长按 Ctrl 和 Ctrl + /</string>
+    <string name="shortcut_ctrlCard_desc">Ctrl 长按开关 | Ctrl+/ 行为模式\n注意：「长按 Ctrl」功能仅在开关开启且「Ctrl+/ 」为“保持默认”时有效。</string>
+    <string name="shortcut_ctrlShift">Ctrl + Shift</string>
+    <string name="shortcut_ctrlShift_desc">切换输入法（仅 ROW 生效）</string>
+    <string name="shortcut_altShift">Alt + Shift</string>
+    <string name="shortcut_altShift_desc">切换语言（仅 ROW 生效）</string>
+    <string name="shortcut_ctrlShiftT">Ctrl + Shift + T</string>
+    <string name="shortcut_ctrlShiftT_desc">切换触控板开关</string>
+    <string name="shortcut_ctrlEnter">Ctrl + Enter</string>
+    <string name="shortcut_ctrlEnter_desc">QQ 前台时放行给应用</string>
+    <string name="shortcut_altTab">Alt + Tab</string>
+    <string name="shortcut_altTab_desc">最近任务切换</string>
+    <string name="shortcut_keyMute">501 静音键</string>
+    <string name="shortcut_keyMute_desc">静音切换</string>
+    <string name="shortcut_keyTouchpad">502 触控板</string>
+    <string name="shortcut_keyTouchpad_desc">触控板开关</string>
+    <string name="shortcut_keySplitScreen">504 分屏</string>
+    <string name="shortcut_keySplitScreen_desc">分屏开关</string>
+    <string name="shortcut_keySuperConnect">505 超级互联</string>
+    <string name="shortcut_keySuperConnect_desc">启动超级互联</string>
+    <string name="shortcut_keyApp1">507 App1</string>
+    <string name="shortcut_keyApp1_desc">自定义按键（短按行为 / 长按设置）</string>
+    <string name="shortcut_keyApp2">508 App2</string>
+    <string name="shortcut_keyApp2_desc">自定义按键（短按行为 / 长按设置）</string>
+    <string name="shortcut_keySearch">509 搜索</string>
+    <string name="shortcut_keySearch_desc">全局搜索</string>
+    <string name="shortcut_keySettings">510 设置</string>
+    <string name="shortcut_keySettings_desc">⚠ 解锁时无效（ZUI Bug）</string>
+    <string name="shortcut_keyFnLock">511 Fn 锁</string>
+    <string name="shortcut_keyFnLock_desc">Fn 锁定切换 + LED</string>
+    <string name="shortcut_keyBacklight">512 背光</string>
+    <string name="shortcut_keyBacklight_desc">键盘背光循环</string>
+    <string name="shortcut_keyTpUp">514 触控板上移</string>
+    <string name="shortcut_keyTpUp_desc">打开通知面板</string>
+    <string name="shortcut_keyScreenLock">515 锁屏</string>
+    <string name="shortcut_keyScreenLock_desc">锁屏</string>
+    <string name="shortcut_printScreenShort">Print Screen 短按</string>
+    <string name="shortcut_printScreenShort_desc">区域截图</string>
+    <string name="shortcut_printScreenLong">Print Screen 长按</string>
+    <string name="shortcut_printScreenLong_desc">全屏截图</string>
+    <string name="shortcut_metaSingle">Meta 单按</string>
+    <string name="shortcut_metaSingle_desc">开始菜单</string>
+    <string name="shortcut_metaShortRow">Meta ROW 短按</string>
+    <string name="shortcut_metaShortRow_desc">切换语言（需 ROW+特殊键盘）</string>
+    <string name="shortcut_metaLongRow">Meta ROW 长按</string>
+    <string name="shortcut_metaLongRow_desc">语音助手（需 ROW+特殊键盘）</string>
+    <string name="shortcut_metaHoldNonRow">Meta 非ROW 按住</string>
+    <string name="shortcut_metaHoldNonRow_desc">连续切语言（需非ROW+特殊键盘）</string>
+    <string name="shortcut_keyKeyboardRestore">520 键盘恢复</string>
+    <string name="shortcut_keyKeyboardRestore_desc">禁用物理键盘</string>
+    <string name="shortcut_keyKeyboardReverse">521 键盘翻转</string>
+    <string name="shortcut_keyKeyboardReverse_desc">启用物理键盘</string>
+    <string name="shortcut_altRightKR">Alt_RIGHT KR</string>
+    <string name="shortcut_altRightKR_desc">韩国版切语言</string>
+    <string name="shortcut_aospBounceKeys">Win+Alt+3 防抖</string>
+    <string name="shortcut_aospBounceKeys_desc">AOSP 原生防抖键</string>
+    <string name="shortcut_aospMouseKeys">Win+Alt+4 鼠标</string>
+    <string name="shortcut_aospMouseKeys_desc">AOSP 原生鼠标键</string>
+    <string name="shortcut_aospStickyKeys">Win+Alt+5 粘滞</string>
+    <string name="shortcut_aospStickyKeys_desc">AOSP 原生粘滞键</string>
+    <string name="shortcut_aospSlowKeys">Win+Alt+6 慢速</string>
+    <string name="shortcut_aospSlowKeys_desc">AOSP 原生慢速键</string>
+
+    <!-- ================================================================ -->
+    <!-- 语言设置 -->
+    <!-- ================================================================ -->
+    <string name="settings_language">语言</string>
+    <string name="settings_language_desc">应用显示语言</string>
+
+    <!-- ================================================================ -->
+    <!-- 通用 UI 元素 -->
+    <!-- ================================================================ -->
+    <string name="label_placeholder">Label</string>
+    <string name="btn_placeholder">Btn</string>
+    <string name="star_marker">*</string>
+
+    <!-- ================================================================ -->
+    <!-- 非 ZUXOS 检测 -->
+    <!-- ================================================================ -->
+    <string name="zui_detect_active">ZUXOS %1$s</string>
+    <string name="zui_detect_inactive">非 ZUXOS (ro.com.zui.version 为空)</string>
+</resources>

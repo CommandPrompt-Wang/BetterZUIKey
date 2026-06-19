@@ -8,6 +8,7 @@ import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,6 +20,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import moe.lovefirefly.betterzuikey.Config.Config
 import moe.lovefirefly.betterzuikey.Config.KeyTemplate
+import moe.lovefirefly.betterzuikey.Config.PerKeyOverride
 import moe.lovefirefly.betterzuikey.Utils.LogHelper
 import moe.lovefirefly.betterzuikey.databinding.FragmentRecyclerBinding
 import moe.lovefirefly.betterzuikey.databinding.ItemShortcutRowBinding
@@ -109,7 +111,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
         // 显示具体错误原因
         if (!errorMsg.isNullOrBlank()) {
             val tvError = card.findViewById<TextView>(R.id.tvWriteErrorDetail)
-            tvError?.text = "原因: $errorMsg"
+            tvError?.text = getString(R.string.warn_write_error_reason, errorMsg)
             tvError?.visibility = View.VISIBLE
         }
 
@@ -169,24 +171,23 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
                     if (canWriteSystemSettings == true) {
                         view.findViewById<CardView>(R.id.cardWriteWarning)?.visibility = View.GONE
                         AlertDialog.Builder(requireContext())
-                            .setTitle("授权成功")
-                            .setMessage("系统设置写入权限已通过 su 授予，开关可正常同步到系统。")
-                            .setPositiveButton("确定", null)
+                            .setTitle(getString(R.string.dialog_su_grant_success_title))
+                            .setMessage(getString(R.string.dialog_su_grant_success_msg))
+                            .setPositiveButton(getString(R.string.dialog_confirm_ok), null)
                             .show()
                     } else {
                         AlertDialog.Builder(requireContext())
-                            .setTitle("授权可能未生效")
-                            .setMessage("su 执行成功但权限验证仍失败。\n\n输出: $finalOutput")
-                            .setPositiveButton("确定", null)
+                            .setTitle(getString(R.string.dialog_su_grant_uncertain_title))
+                            .setMessage(getString(R.string.dialog_su_grant_uncertain_msg, finalOutput))
+                            .setPositiveButton(getString(R.string.dialog_confirm_ok), null)
                             .show()
                     }
                 } else {
                     AlertDialog.Builder(requireContext())
-                        .setTitle("su 授权失败")
-                        .setMessage("无法获取 Root 权限。\n请确保已安装 Magisk/KSU 并授权。\n\n" +
-                            "命令: su -c \"$cmd\"\n" +
-                            (if (finalOutput.isNotEmpty()) "输出: $finalOutput" else ""))
-                        .setPositiveButton("确定", null)
+                        .setTitle(getString(R.string.dialog_su_grant_failed_title))
+                        .setMessage(getString(R.string.dialog_su_grant_failed_msg, cmd,
+                            if (finalOutput.isNotEmpty()) "输出: $finalOutput" else ""))
+                        .setPositiveButton(getString(R.string.dialog_confirm_ok), null)
                         .show()
                 }
             }
@@ -200,6 +201,8 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
 
         /** 所有 Spinner 统一固定最小宽度（px），按全部可能文本的最宽值一次性计算 */
         private var spinnerFixedMinWidth: Int = 0
+        /** 当前展开的 Spinner 所在 position，-1 表示无 */
+        private var openSpinnerPos = -1
 
         override fun getItemCount() = ShortcutMeta.ALL.size
 
@@ -207,9 +210,10 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
             val b = ItemShortcutRowBinding.inflate(LayoutInflater.from(parent.context), parent, false)
             // 首次创建时，根据所有 OverrideMode 显示名称计算最大文本宽度，统一设置
             if (spinnerFixedMinWidth == 0) {
+                val ctx = parent.context
                 val paint = b.spAction.paint
                 val maxTextW = Config.OverrideMode.entries.maxOf {
-                    paint.measureText(it.displayName()).toInt()
+                    paint.measureText(it.displayName(ctx)).toInt()
                 }
                 // 额外留出 dropdown 图标 + 内边距空间
                 spinnerFixedMinWidth = maxTextW + b.spAction.paddingLeft +
@@ -219,6 +223,10 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
             b.spAction.minWidth = spinnerFixedMinWidth
             b.spAction.maxWidth = spinnerFixedMinWidth
             b.spAction.dropDownWidth = spinnerFixedMinWidth
+            b.spAction.layoutParams?.let { lp ->
+                lp.width = spinnerFixedMinWidth
+                b.spAction.layoutParams = lp
+            }
             // 同时约束外层 TextInputLayout
             b.tilAction.minWidth = spinnerFixedMinWidth
             b.tilAction.layoutParams?.let { lp ->
@@ -229,12 +237,12 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
         }
 
         override fun onBindViewHolder(holder: VH, position: Int) {
-            holder.bind(ShortcutMeta.ALL[position])
+            holder.bind(ShortcutMeta.ALL[position], position)
         }
 
         inner class VH(private val b: ItemShortcutRowBinding) : RecyclerView.ViewHolder(b.root) {
 
-            fun bind(meta: ShortcutMeta) {
+            fun bind(meta: ShortcutMeta, pos: Int) {
                 val cfg = cachedConfig ?: return
                 // ctrlCard: switch → ctrlLongPress, spinner → ctrlSlash
                 val isCtrlCard = meta.key == "ctrlCard"
@@ -244,8 +252,8 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
                 val overrideMode = ShortcutMeta.getOverride(cfg, overrideKey)
 
                 // ── 始终先清空所有视图状态，防止 RecyclerView 复用残留旧数据 ──
-                b.tvName.text = meta.displayName
-                b.tvDesc.text = meta.displayDesc
+                b.tvName.text = meta.displayName(requireContext())
+                b.tvDesc.text = meta.displayDesc(requireContext())
                 b.tvDesc.visibility = View.VISIBLE
                 b.swEnabled.setOnCheckedChangeListener(null)
                 b.spAction.setOnItemClickListener(null)
@@ -302,30 +310,57 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
                 // ── 行为覆写下拉 ──
                 val modes = Config.OverrideMode.entries
                     .filter { it.isAvailable(meta) && (it != Config.OverrideMode.AOSP || meta.showAospOption) }
-                    .map { it.displayName() }
+                    .map { it.displayName(requireContext()) }
                 // Clear old adapter first to force visual refresh on rebind
                 b.spAction.setAdapter(null)
                 b.spAction.setAdapter(android.widget.ArrayAdapter(
                     requireContext(), R.layout.dropdown_item_wrap, modes))
                 b.spAction.threshold = Int.MAX_VALUE
-                b.spAction.setText(overrideMode.displayName(), false)
+                b.spAction.setText(overrideMode.displayName(requireContext()), false)
 
-                b.spAction.setOnItemClickListener { _, _, pos, _ ->
-                    val nm = Config.OverrideMode.entries.filter { it.isAvailable(meta) && (it != Config.OverrideMode.AOSP || meta.showAospOption) }[pos]
+                // ── 卡片点击行为（统一由 ShortcutMeta 控制）──
+                val resolvedClick = meta.cardClick.resolve(
+                    hasSpinner = true, hasSwitch = meta.showSwitch || isAospSecure)
+                b.root.setOnClickListener {
+                    // 同一张 card：toggle（展开↔收回）；不同 card：直接切
+                    if (openSpinnerPos == pos) {
+                        openSpinnerPos = -1
+                        return@setOnClickListener
+                    }
+                    when (resolvedClick) {
+                        CardClickBehavior.EXPAND_SPIN -> {
+                            b.spAction.showDropDown()
+                            openSpinnerPos = pos
+                        }
+                        CardClickBehavior.SWITCH -> b.swEnabled.toggle()
+                        CardClickBehavior.NONE -> { /* 仅水波纹 */ }
+                        else -> {}
+                    }
+                }
+
+                b.spAction.setOnItemClickListener { _, _, itemPos, _ ->
+                    openSpinnerPos = -1
+                    val nm = Config.OverrideMode.entries.filter { it.isAvailable(meta) && (it != Config.OverrideMode.AOSP || meta.showAospOption) }[itemPos]
                     ShortcutMeta.setOverride(cfg, overrideKey, nm)
                     cfg.save()
-                    // Push full JSON via SharedPreferences → XSharedPreferences reads in system_server
                     Config.syncToSharedPrefs(requireContext(), cfg)
                     LogHelper.log(LogHelper.VerboseLevel.INFO,
                         "Notify config change: override ", overrideKey, " → ", nm.name)
-                    // 操作优化：修改覆写模式后，若开关存在、可操作且未开启，则自动打开
-                    // 由 ShortcutMeta.autoSwitchOnIfPossible 控制是否启用此行为
-                    // - false 的场景：AOSP 辅助键 (Win+Alt+3,4,5,6) 开关直读 Settings.Secure 不走 Config
-                    // - false 的场景：Ctrl Card 的 Ctrl 长按开关，switch 和 spinner 分别控制两个不同的功能，应当互不影响
-                    if (meta.autoSwitchOnIfPossible
-                            && b.swEnabled.visibility == View.VISIBLE
-                            && b.swEnabled.isEnabled && !b.swEnabled.isChecked) {
-                        b.swEnabled.isChecked = true
+                    // OnSpinSelectedNonDefault: Spinner 选中非默认项时的附加行为
+                    when (meta.onSpinSelectedNonDefault) {
+                        OnSpinSelectedNonDefault.SWITCH_ON -> {
+                            if (b.swEnabled.visibility == View.VISIBLE
+                                && b.swEnabled.isEnabled && !b.swEnabled.isChecked) {
+                                b.swEnabled.isChecked = true
+                            }
+                        }
+                        OnSpinSelectedNonDefault.SWITCH_OFF -> {
+                            if (b.swEnabled.visibility == View.VISIBLE
+                                && b.swEnabled.isEnabled && b.swEnabled.isChecked) {
+                                b.swEnabled.isChecked = false
+                            }
+                        }
+                        OnSpinSelectedNonDefault.NOTHING -> { /* 不操作开关 */ }
                     }
                 }
             }
@@ -359,14 +394,14 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
             val ctx = host.requireContext()
             val cfg = Config.load()
             val input = android.widget.EditText(ctx)
-            input.hint = "例如: TW, JP, US"
+            input.hint = ctx.getString(R.string.region_custom_dialog_hint)
             input.setText(cfg.regionCustomValue)
 
             AlertDialog.Builder(ctx)
-                .setTitle("自定义区域值")
-                .setMessage("输入一个区域代码，将覆写 ro.config.lgsi.region 属性")
+                .setTitle(ctx.getString(R.string.region_custom_dialog_title))
+                .setMessage(ctx.getString(R.string.region_custom_dialog_msg))
                 .setView(input)
-                .setPositiveButton("确定") { _, _ ->
+                .setPositiveButton(ctx.getString(R.string.dialog_confirm_ok)) { _, _ ->
                     val v = input.text.toString().trim()
                     if (v.isNotEmpty()) {
                         cfg.regionCustomValue = v
@@ -381,7 +416,7 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                     // 取消时回退到上一个值
                     notifyDataSetChanged()
                 }
-                .setNegativeButton("取消") { _, _ ->
+                .setNegativeButton(ctx.getString(R.string.dialog_confirm_cancel)) { _, _ ->
                     notifyDataSetChanged()
                 }
                 .show()
@@ -391,14 +426,14 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
             val ctx = host.requireContext()
             val cfg = Config.load()
             val input = android.widget.EditText(ctx)
-            input.hint = "例如: KR, JP, US"
+            input.hint = ctx.getString(R.string.country_custom_dialog_hint)
             input.setText(cfg.countryOverride)
 
             AlertDialog.Builder(ctx)
-                .setTitle("自定义国家/地区值")
-                .setMessage("输入一个国家代码，将覆写 ro.config.lgsi.countrycode 属性")
+                .setTitle(ctx.getString(R.string.country_custom_dialog_title))
+                .setMessage(ctx.getString(R.string.country_custom_dialog_msg))
                 .setView(input)
-                .setPositiveButton("确定") { _, _ ->
+                .setPositiveButton(ctx.getString(R.string.dialog_confirm_ok)) { _, _ ->
                     val v = input.text.toString().trim().uppercase()
                     cfg.countryOverride = v
                     cfg.save()
@@ -406,7 +441,7 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                     notifyDataSetChanged()
                 }
                 .setOnCancelListener { notifyDataSetChanged() }
-                .setNegativeButton("取消") { _, _ -> notifyDataSetChanged() }
+                .setNegativeButton(ctx.getString(R.string.dialog_confirm_cancel)) { _, _ -> notifyDataSetChanged() }
                 .show()
         }
 
@@ -419,27 +454,28 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
         }
 
         private val items: List<SettingItem> = run {
+            val ctx = host.requireContext()
             val cfg = Config.load()
             listOf(
-                SettingItem.Switch("模块功能开关", "关闭后所有 Hook 失效，快捷键恢复 ZUI 原始行为",
+                SettingItem.Switch(ctx.getString(R.string.settings_master_switch), ctx.getString(R.string.settings_master_switch_desc),
                     getChecked = { cfg.zuxKeyboardFuncEnabled },
                     onChanged = { cfg.zuxKeyboardFuncEnabled = it; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
                 ),
-                SettingItem.Tap("虚拟 Fn 键", "管理 Fn 组合键配置文件与键值映射",
+                SettingItem.Tap(ctx.getString(R.string.settings_fn_entry), ctx.getString(R.string.settings_fn_entry_desc),
                     onClick = {
                         host.startActivity(Intent(host.requireContext(), FnSettingsActivity::class.java))
                     }
                 ),
-                SettingItem.Switch("OneVision 特性", "启用联想 OneVision 跨屏协同相关快捷键行为",
+                SettingItem.Switch(ctx.getString(R.string.settings_onevision), ctx.getString(R.string.settings_onevision_desc),
                     getChecked = { cfg.oneVisionFeatureEnabled },
                     onChanged = { cfg.oneVisionFeatureEnabled = it; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
                 ),
-                SettingItem.Tap("外观设置", "夜间模式与 Material You 主题",
+                SettingItem.Tap(ctx.getString(R.string.settings_appearance_entry), ctx.getString(R.string.settings_appearance_entry_desc),
                     onClick = {
                         host.startActivity(Intent(host.requireContext(), AppearanceSettingsActivity::class.java))
                     }
                 ),
-                SettingItem.Combo("日志级别", "控制 Xposed 模块日志输出详细程度",
+                SettingItem.Combo(ctx.getString(R.string.settings_log_level), ctx.getString(R.string.settings_log_level_desc),
                     getOptions = {
                         moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel.values().map { it.label }
                     },
@@ -452,22 +488,22 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                         Config.syncToSharedPrefs(host.requireContext(), cfg)
                     }
                 ),
-                SettingItem.Combo("区域", "控制 ro.config.lgsi.region 系统属性（区域判定）",
+                SettingItem.Combo(ctx.getString(R.string.settings_region), ctx.getString(R.string.settings_region_desc),
                     getOptions = {
                         val real = getSysProp("ro.config.lgsi.region", "?")
-                        val v = cfg.regionCustomValue.ifBlank { "未配置" }
-                        listOf("默认 ($real)", "中国 (CN)", "国际 (ROW)", "自定义 ($v)")
+                        val v = cfg.regionCustomValue.ifBlank { ctx.getString(R.string.region_not_configured) }
+                        listOf(ctx.getString(R.string.region_default, real), ctx.getString(R.string.region_china), ctx.getString(R.string.region_row), ctx.getString(R.string.region_custom, v))
                     },
                     getCurrentText = {
                         val real = getSysProp("ro.config.lgsi.region", "?")
                         when (cfg.regionOverride) {
-                            moe.lovefirefly.betterzuikey.Region.RegionProfile.CHINA -> "中国 (CN)"
-                            moe.lovefirefly.betterzuikey.Region.RegionProfile.ROW -> "国际 (ROW)"
+                            moe.lovefirefly.betterzuikey.Region.RegionProfile.CHINA -> ctx.getString(R.string.region_china)
+                            moe.lovefirefly.betterzuikey.Region.RegionProfile.ROW -> ctx.getString(R.string.region_row)
                             moe.lovefirefly.betterzuikey.Region.RegionProfile.CUSTOM -> {
-                                val v = cfg.regionCustomValue.ifBlank { "未配置" }
-                                "自定义 ($v)"
+                                val v = cfg.regionCustomValue.ifBlank { ctx.getString(R.string.region_not_configured) }
+                                ctx.getString(R.string.region_custom, v)
                             }
-                            else -> "默认 ($real)"
+                            else -> ctx.getString(R.string.region_default, real)
                         }
                     },
                     onSelected = { idx ->
@@ -479,18 +515,18 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                         }
                     }
                 ),
-                SettingItem.Combo("国家/地区", "控制 ro.config.lgsi.countrycode 系统属性（国家判定）",
+                SettingItem.Combo(ctx.getString(R.string.settings_country), ctx.getString(R.string.settings_country_desc),
                     getOptions = {
                         val real = getSysProp("ro.config.lgsi.countrycode", "?")
-                        val v = cfg.countryOverride.ifBlank { "未配置" }
-                        listOf("默认 ($real)", "韩国 (KR)", "自定义 ($v)")
+                        val v = cfg.countryOverride.ifBlank { ctx.getString(R.string.region_not_configured) }
+                        listOf(ctx.getString(R.string.country_default, real), ctx.getString(R.string.country_kr), ctx.getString(R.string.country_custom, v))
                     },
                     getCurrentText = {
                         val real = getSysProp("ro.config.lgsi.countrycode", "?")
                         when {
-                            cfg.countryOverride == "KR" -> "韩国 (KR)"
-                            cfg.countryOverride.isNotEmpty() -> "自定义 (${cfg.countryOverride})"
-                            else -> "默认 ($real)"
+                            cfg.countryOverride == "KR" -> ctx.getString(R.string.country_kr)
+                            cfg.countryOverride.isNotEmpty() -> ctx.getString(R.string.country_custom, cfg.countryOverride)
+                            else -> ctx.getString(R.string.country_default, real)
                         }
                     },
                     onSelected = { idx ->
@@ -499,6 +535,21 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                             1 -> { cfg.countryOverride = "KR"; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
                             2 -> showCountryCustomDialog()
                         }
+                    }
+                ),
+                SettingItem.Combo(ctx.getString(R.string.settings_language), ctx.getString(R.string.settings_language_desc),
+                    getOptions = {
+                        LocaleHelper.ENTRIES.map { it.displayName }
+                    },
+                    getCurrentText = {
+                        LocaleHelper.currentEntryDisplay(cfg)
+                    },
+                    onSelected = { idx ->
+                        val tag = LocaleHelper.ENTRIES[idx].tag
+                        cfg.localeOverride = tag
+                        cfg.save()
+                        Config.syncToSharedPrefs(host.requireContext(), cfg)
+                        LocaleHelper.applyAndRecreate(tag)
                     }
                 ),
             )
@@ -587,30 +638,33 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
     private lateinit var adapter: TemplateAdapter
     private var pendingPickerPos = -1
 
+    /** 加载配置、应用变更、保存并同步到 SharedPrefs（供 system_server 读取） */
+    private fun mutateConfig(block: (Config) -> Unit) {
+        val cfg = Config.load()
+        block(cfg)
+        cfg.save()
+        Config.syncToSharedPrefs(requireContext(), cfg)
+    }
+
     private val appPickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             val pkgs = result.data?.getStringArrayListExtra("packages") ?: return@registerForActivityResult
             if (pendingPickerPos < 0) return@registerForActivityResult
-            val cfg = Config.load()
-            if (pendingPickerPos < cfg.templates.size) {
-                cfg.templates[pendingPickerPos].packages.clear()
-                cfg.templates[pendingPickerPos].packages.addAll(pkgs)
-                cfg.save()
-                adapter.refresh()
+            mutateConfig { cfg ->
+                if (pendingPickerPos < cfg.templates.size) {
+                    cfg.templates[pendingPickerPos].packages.clear()
+                    cfg.templates[pendingPickerPos].packages.addAll(pkgs)
+                }
             }
+            adapter.refresh()
             pendingPickerPos = -1
         }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
-        // TODO: 应用模板 - 暂时禁用
-        disableAllChildren(view)
-        showComingSoonOverlay(view)
-        
         val binding = moe.lovefirefly.betterzuikey.databinding.FragmentTemplatesBinding.bind(view)
 
         adapter = TemplateAdapter()
@@ -618,42 +672,18 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
         binding.recycler.adapter = adapter
 
         binding.fabAddTemplate.setOnClickListener {
-            showNameDialog("新建模板") { name ->
-                val cfg = Config.load()
-                cfg.templates.add(KeyTemplate(name))
-                cfg.save()
+            showNameDialog(getString(R.string.templates_create_title)) { name ->
+                mutateConfig { cfg -> cfg.templates.add(KeyTemplate(name)) }
                 adapter.refresh()
             }
         }
     }
-    
-    /** 递归禁用所有子 View 的交互 */
-    private fun disableAllChildren(view: View) {
-        view.isEnabled = false
-        view.isClickable = false
-        if (view is ViewGroup) {
-            for (i in 0 until view.childCount) {
-                disableAllChildren(view.getChildAt(i))
-            }
+
+    override fun onResume() {
+        super.onResume()
+        if (::adapter.isInitialized) {
+            adapter.refresh()
         }
-    }
-    
-    /** 叠加"敬请期待"遮罩 */
-    private fun showComingSoonOverlay(view: View) {
-        val overlay = TextView(requireContext()).apply {
-            text = "敬请期待"
-            textSize = 24f
-            setTextColor(0xFFFFFFFF.toInt())
-            gravity = android.view.Gravity.CENTER
-            setBackgroundColor(0x88000000.toInt())  // 半透明黑色背景
-            isClickable = true   // 拦截所有触摸事件
-            isFocusable = true
-        }
-        (view as? ViewGroup)?.addView(
-            overlay,
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        )
     }
 
     // ── TemplateAdapter ──
@@ -672,8 +702,7 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
         override fun getItemCount() = items.size
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
-            val b = moe.lovefirefly.betterzuikey.databinding.ItemTemplateRowBinding
-                .inflate(LayoutInflater.from(parent.context), parent, false)
+            val b = ItemTemplateRowBinding.inflate(LayoutInflater.from(parent.context), parent, false)
             return VH(b)
         }
 
@@ -695,20 +724,22 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                 }
 
                 b.swEnabled.setOnCheckedChangeListener { _, checked ->
-                    t.enabled = checked
-                    Config.load().save()
+                    mutateConfig { cfg ->
+                        if (pos < cfg.templates.size) cfg.templates[pos].enabled = checked
+                    }
                 }
 
                 b.tvRename.setOnClickListener {
                     showNameDialog(t.name) { newName ->
-                        t.name = newName
-                        Config.load().save()
+                        mutateConfig { cfg ->
+                            if (pos < cfg.templates.size) cfg.templates[pos].name = newName
+                        }
                         adapter.refresh()
                     }
                 }
 
                 val count = t.packages.size
-                b.tvApps.text = "选择应用（已选择 $count 个）"
+                b.tvApps.text = getString(R.string.templates_select_apps, count)
                 b.tvApps.setOnClickListener {
                     pendingPickerPos = pos
                     val intent = Intent(requireContext(), AppPickerActivity::class.java)
@@ -719,15 +750,13 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
 
                 b.tvDelete.setOnClickListener {
                     AlertDialog.Builder(requireContext())
-                        .setTitle("删除模板")
-                        .setMessage("确定删除「${t.name}」？")
-                        .setPositiveButton("删除") { _, _ ->
-                            val cfg = Config.load()
-                            cfg.templates.removeAt(pos)
-                            cfg.save()
+                        .setTitle(getString(R.string.templates_delete_title))
+                        .setMessage(getString(R.string.templates_delete_msg, t.name))
+                        .setPositiveButton(getString(R.string.templates_btn_delete_confirm)) { _, _ ->
+                            mutateConfig { cfg -> cfg.templates.removeAt(pos) }
                             adapter.refresh()
                         }
-                        .setNegativeButton("取消", null)
+                        .setNegativeButton(getString(R.string.dialog_confirm_cancel), null)
                         .show()
                 }
             }
@@ -742,44 +771,14 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
             setSingleLine()
         }
         AlertDialog.Builder(requireContext())
-            .setTitle("模板名称")
+            .setTitle(getString(R.string.templates_name_dialog_title))
             .setView(input)
-            .setPositiveButton("确定") { _, _ ->
+            .setPositiveButton(getString(R.string.dialog_confirm_ok)) { _, _ ->
                 val name = input.text.toString().trim()
                 if (name.isNotEmpty()) onOk(name)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(getString(R.string.dialog_confirm_cancel), null)
             .show()
     }
 
-    private fun showAppPicker(template: KeyTemplate) {
-        val pm = requireContext().packageManager
-        val allApps = pm.getInstalledApplications(0)
-            .filter { it.packageName !in setOf(
-                "android", "com.android.systemui", "com.android.settings",
-                "com.android.launcher3", "com.zui.launcher"
-            )}
-            .sortedBy { it.loadLabel(pm).toString() }
-
-        val names = allApps.map { it.loadLabel(pm).toString() }.toTypedArray()
-        val checked = BooleanArray(allApps.size) { i ->
-            template.packages.contains(allApps[i].packageName)
-        }
-
-        AlertDialog.Builder(requireContext())
-            .setTitle("选择应用")
-            .setMultiChoiceItems(names, checked) { _, which, isChecked ->
-                checked[which] = isChecked
-            }
-            .setPositiveButton("确定") { _, _ ->
-                template.packages.clear()
-                allApps.forEachIndexed { i, app ->
-                    if (checked[i]) template.packages.add(app.packageName)
-                }
-                Config.load().save()
-                adapter.refresh()
-            }
-            .setNegativeButton("取消", null)
-            .show()
-    }
 }

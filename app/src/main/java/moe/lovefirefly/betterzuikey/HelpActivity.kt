@@ -40,6 +40,37 @@ class HelpActivity : AppCompatActivity() {
         setupHelpContent()
     }
 
+    /**
+     * 根据当前语言环境加载对应的帮助文档。
+     * 命名规则: help_{lang}.md（如 help_zh.md, help_en.md）
+     * 回退链：locale exact → locale lang → en → 内置提示
+     */
+    private fun loadHelpForLocale(): String {
+        val locale = java.util.Locale.getDefault()
+        val lang = locale.language
+        // 尝试 help_{lang}_{region}.md（如 help_zh_CN.md）
+        val fullTag = locale.toLanguageTag().replace("-", "_").lowercase()
+        val fullResId = resources.getIdentifier("help_$fullTag", "raw", packageName)
+        if (fullResId != 0) {
+            return resources.openRawResource(fullResId)
+                .use { BufferedReader(InputStreamReader(it)).readText() }
+        }
+        // 尝试 help_{lang}.md（如 help_zh.md, help_en.md）
+        val langResId = resources.getIdentifier("help_$lang", "raw", packageName)
+        if (langResId != 0) {
+            return resources.openRawResource(langResId)
+                .use { BufferedReader(InputStreamReader(it)).readText() }
+        }
+        // 最终回退：English help_en.md
+        val enResId = resources.getIdentifier("help_en", "raw", packageName)
+        if (enResId != 0) {
+            return resources.openRawResource(enResId)
+                .use { BufferedReader(InputStreamReader(it)).readText() }
+        }
+        // 什么都没有 — 显示提示
+        return "No help document available for current language."
+    }
+
     private fun setupToolbar() {
         binding.toolbar.apply {
             setNavigationOnClickListener { finish() }
@@ -52,8 +83,7 @@ class HelpActivity : AppCompatActivity() {
             .usePlugin(LinkifyPlugin.create())
             .build()
 
-        val helpText = resources.openRawResource(R.raw.help)
-            .use { BufferedReader(InputStreamReader(it)).readText() }
+        val helpText = loadHelpForLocale()
 
         markwon.setMarkdown(binding.tvHelp, helpText)
 

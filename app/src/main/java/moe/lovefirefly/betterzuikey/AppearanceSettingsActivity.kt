@@ -23,7 +23,11 @@ class AppearanceSettingsActivity : AppCompatActivity() {
         binding.toolbar.setNavigationOnClickListener { finish() }
 
         val cfg = Config.load()
-        val nightModes = arrayOf("自动", "开启", "关闭")
+        val nightModes = arrayOf(
+            getString(R.string.appearance_night_auto),
+            getString(R.string.appearance_night_on),
+            getString(R.string.appearance_night_off)
+        )
         val adapter = ArrayAdapter(this, R.layout.dropdown_item_wrap, nightModes)
         binding.spNightMode.setAdapter(adapter)
         binding.spNightMode.threshold = Int.MAX_VALUE

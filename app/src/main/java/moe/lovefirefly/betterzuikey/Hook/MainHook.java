@@ -79,9 +79,29 @@ public class MainHook implements IXposedHookLoadPackage {
             ForegroundTracker foregroundTracker = new ForegroundTracker(resolver);
             ConfigIPCManager configIPC = new ConfigIPCManager();
 
-            ctx = new HookContext(cfg, resolver, fnKeyManager, foregroundTracker, configIPC);
+            // Pull the real config via ContentProvider Binder IPC.
+            // Config.load() above reads from /data/data/<pkg>/config.json which
+            // system_server (uid=1000) cannot traverse.  The ContentProvider
+            // bypasses file-permission issues and returns the config as JSON.
+            Config ipcConfig = configIPC.init();
+            if (ipcConfig != null) {
+                // Preserve injected status (set by detectFromSystem / readSystemSwitches
+                // on the file-loaded config above).
+                ipcConfig.injected = cfg.injected;
+                ipcConfig.injectError = cfg.injectError;
+                // Re-read system switch states to reflect current hardware state
+                ipcConfig.readSystemSwitchesPublic();
+                cfg = ipcConfig;
+                LogHelper.currentLevel = cfg.verboseLevel;
+                // Re-create resolver with the real config so templates are available
+                resolver = new ConfigResolver(cfg);
+                foregroundTracker.setResolver(resolver);
+                LogHelper.log(VerboseLevel.INFO,
+                    "Config replaced with ContentProvider version, templates=",
+                    String.valueOf(cfg.templates != null ? cfg.templates.size() : 0));
+            }
 
-            configIPC.init();
+            ctx = new HookContext(cfg, resolver, fnKeyManager, foregroundTracker, configIPC);
 
             LogHelper.log(VerboseLevel.INFO, "Installing RegionHook...");
             RegionHook.install(mClassLoader, cfg);

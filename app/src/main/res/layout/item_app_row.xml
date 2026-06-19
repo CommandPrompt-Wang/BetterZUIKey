@@ -21,7 +21,7 @@
         android:layout_height="wrap_content"
         android:layout_weight="1"
         android:layout_marginStart="8dp"
-        android:text="App Name (com.example.app)"
+        android:text="@string/app_picker_placeholder_name"
         android:textAppearance="?attr/textAppearanceBodyMedium"
         android:ellipsize="end"
         android:maxLines="2" />

@@ -3,6 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:orientation="vertical"
     android:gravity="center_horizontal"
     android:padding="16dp">
@@ -12,14 +13,14 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         app:navigationIcon="?attr/homeAsUpIndicator"
-        app:title="键盘检测" />
+        app:title="@string/detect_title" />
 
     <TextView
         android:id="@+id/tv_hint"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="请按下键盘上的任意按键"
+        android:text="@string/detect_hint_press_key"
         android:textAppearance="?attr/textAppearanceHeadlineSmall"
         android:textColor="?attr/colorOnSurfaceVariant" />
 
@@ -41,7 +42,7 @@
                 android:id="@+id/tv_vidpid"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="0000:0000"
+                android:text="@string/detect_default_vidpid"
                 android:textAppearance="?attr/textAppearanceHeadlineSmall"
                 android:fontFamily="monospace"
                 android:textColor="?attr/colorPrimary" />
@@ -79,7 +80,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:text="填入"
+                    android:text="@string/detect_btn_fill"
                     android:textSize="12sp" />
             </LinearLayout>
 
@@ -96,14 +97,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:text="复制当前配置" />
+                android:text="@string/detect_btn_copy_config" />
 
             <Button
                 android:id="@+id/btn_copy_vidpid"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="复制 VID:PID" />
+                android:text="@string/detect_btn_copy_vidpid" />
 
         </LinearLayout>
 

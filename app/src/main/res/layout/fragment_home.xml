@@ -30,7 +30,7 @@
                     android:layout_height="64dp"
                     android:layout_marginEnd="16dp"
                     android:src="@drawable/ic_liuying"
-                    android:contentDescription="应用图标" />
+                    android:contentDescription="@string/home_app_icon_desc" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -41,14 +41,14 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="BetterZUIKey"
+                        android:text="@string/home_app_title"
                         android:textAppearance="?attr/textAppearanceHeadlineSmall" />
                     <TextView
                         android:id="@+id/tv_status"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="状态: 等待加载…"
+                        android:text="@string/home_status_loading"
                         android:textAppearance="?attr/textAppearanceBodyMedium" />
 
                 </LinearLayout>
@@ -69,14 +69,14 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="模块状态"
+                    android:text="@string/home_module_status_title"
                     android:textAppearance="?attr/textAppearanceTitleMedium" />
                 <TextView
                     android:id="@+id/tv_module_status"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="未激活 (需 Xposed)"
+                    android:text="@string/home_module_status_inactive"
                     android:textAppearance="?attr/textAppearanceBodyMedium" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -107,21 +107,21 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="帮助"
+                        android:text="@string/home_help_title"
                         android:textAppearance="?attr/textAppearanceTitleMedium" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="点击查看"
+                        android:text="@string/home_help_click_hint"
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorOnSurfaceVariant" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="请务必阅读完后再进行修改"
+                        android:text="@string/home_help_warning"
                         android:textAppearance="?attr/textAppearanceBodySmall"
                         android:textColor="?attr/colorError" />
 
@@ -130,7 +130,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="›"
+                    android:text="@string/home_chevron"
                     android:textSize="28sp"
                     android:textColor="?attr/colorOnSurfaceVariant" />
 

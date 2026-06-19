@@ -78,9 +78,9 @@ class FnSettingsActivity : AppCompatActivity() {
         val allProfiles = KeyboardProfiles.all(this)
         val autoLabel = if (detectedKey != null) {
             val friendly = allProfiles[detectedKey]?.friendlyName ?: detectedKey
-            "自动检测 ($friendly)"
+            getString(R.string.fn_auto_detect_label, friendly)
         } else {
-            "自动检测 (失败)"
+            getString(R.string.fn_auto_detect_failed)
         }
         val names = mutableListOf(autoLabel)
         names.addAll(profiles.map { it.second })
@@ -108,32 +108,32 @@ class FnSettingsActivity : AppCompatActivity() {
 
         if (isAuto) {
             if (detectedKey != null) {
-                sb.appendLine("自动检测: $detectedKey")
+                sb.appendLine(getString(R.string.fn_auto_detect_line, detectedKey))
             } else {
-                sb.appendLine("自动检测: 失败（未找到匹配的键盘）")
+                sb.appendLine(getString(R.string.fn_auto_detect_failed_detail))
             }
             sb.appendLine()
         }
 
         if (p == null) {
-            if (!isAuto) sb.appendLine("未匹配到键盘配置")
-            sb.append("可用配置: ${all.size} 个 (内置 + 导入)")
+            if (!isAuto) sb.appendLine(getString(R.string.fn_no_profile_matched))
+            sb.append(getString(R.string.fn_available_count, all.size))
             binding.tvSummary.text = sb.toString()
             return
         }
         sb.appendLine("${p.friendlyName} (${p.name})")
-        if (p.isCustom) sb.appendLine("[自定义配置]")
+        if (p.isCustom) sb.appendLine(getString(R.string.fn_custom_tag))
         sb.appendLine()
         for (i in 1..12) {
             val entry = p.keys["F$i"]
             if (entry != null && entry.isValid) {
                 if (entry.scan > 0) {
-                    sb.appendLine("  F$i → scan:0x${Integer.toHexString(entry.scan)} (${entry.scan})")
+                    sb.appendLine(getString(R.string.fn_key_scan_format, i, Integer.toHexString(entry.scan), entry.scan))
                 } else {
-                    sb.appendLine("  F$i → keyCode:${entry.keyCode}")
+                    sb.appendLine(getString(R.string.fn_key_keycode_format, i, entry.keyCode))
                 }
             } else {
-                sb.appendLine("  F$i → (未映射)")
+                sb.appendLine(getString(R.string.fn_key_unmapped_format, i))
             }
         }
         binding.tvSummary.text = sb.toString()

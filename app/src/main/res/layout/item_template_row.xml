@@ -27,7 +27,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="游戏模式"
+                android:text="@string/templates_default_name"
                 android:textAppearance="?attr/textAppearanceTitleMedium" />
 
             <com.google.android.material.materialswitch.MaterialSwitch
@@ -44,7 +44,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:padding="8dp"
-            android:text="重命名"
+            android:text="@string/templates_btn_rename"
             android:textAppearance="?attr/textAppearanceBodyMedium"
             android:textColor="?attr/colorPrimary"
             android:clickable="true"
@@ -57,7 +57,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:padding="8dp"
-            android:text="选择应用（已选择 0 个）"
+            android:text="@string/templates_select_apps"
             android:textAppearance="?attr/textAppearanceBodyMedium"
             android:textColor="?attr/colorPrimary"
             android:clickable="true"
@@ -70,7 +70,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:padding="8dp"
-            android:text="删除模板"
+            android:text="@string/templates_btn_delete"
             android:textAppearance="?attr/textAppearanceBodyMedium"
             android:textColor="?attr/colorError"
             android:clickable="true"

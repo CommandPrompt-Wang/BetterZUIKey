@@ -3,6 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
     android:orientation="vertical"
     android:padding="16dp">
 
@@ -11,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         app:navigationIcon="?attr/homeAsUpIndicator"
-        app:title="导入配置文件" />
+        app:title="@string/import_title" />
 
     <RadioGroup
         android:id="@+id/rg_mode"
@@ -26,14 +27,14 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:checked="true"
-            android:text="从文件" />
+            android:text="@string/import_from_file" />
 
         <RadioButton
             android:id="@+id/rb_text"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="从输入" />
+            android:text="@string/import_from_text" />
 
     </RadioGroup>
 
@@ -44,7 +45,7 @@
         android:layout_weight="1"
         android:layout_marginTop="12dp"
         android:gravity="top"
-        android:hint='{ "profiles": { "17ef:6271": { ... } } }'
+        android:hint="@string/import_json_hint"
         android:inputType="textMultiLine"
         android:visibility="gone" />
 
@@ -54,6 +55,6 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="提交" />
+        android:text="@string/import_btn_submit" />
 
 </LinearLayout>

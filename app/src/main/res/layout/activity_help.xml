@@ -12,8 +12,8 @@
         android:layout_height="?attr/actionBarSize"
         android:elevation="4dp"
         app:navigationIcon="?attr/homeAsUpIndicator"
-        app:title="帮助文档"
-        app:subtitle="v1.0"
+        app:title="@string/help_title"
+        app:subtitle="@string/help_subtitle"
         app:titleCentered="false"
         style="@style/Widget.Material3.Toolbar.Surface" />
 

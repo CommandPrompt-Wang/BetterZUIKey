@@ -24,7 +24,7 @@ class ImportProfileActivity : AppCompatActivity() {
                 ?: return@registerForActivityResult
             importJson(json)
         } catch (e: Exception) {
-            Toast.makeText(this, "读取失败: ${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.import_toast_read_fail, e.message), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -49,13 +49,13 @@ class ImportProfileActivity : AppCompatActivity() {
             } else {
                 val text = binding.etJson.text.toString().trim()
                 if (text.isBlank()) {
-                    Toast.makeText(this, "请输入 JSON 内容", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.import_toast_input_required), Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
                 try {
                     importJson(text)
                 } catch (e: Exception) {
-                    Toast.makeText(this, "JSON 解析失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.import_toast_parse_fail, e.message), Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -65,7 +65,7 @@ class ImportProfileActivity : AppCompatActivity() {
         val type = object : TypeToken<Map<String, KeyboardProfiles.Profile>>() {}.type
         val imported: Map<String, KeyboardProfiles.Profile> = Gson().fromJson(json, type)
         if (imported.isEmpty()) {
-            Toast.makeText(this, "未找到有效的 profile 数据", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.import_toast_no_data), Toast.LENGTH_SHORT).show()
             return
         }
         val cfg = Config.load()
@@ -77,7 +77,7 @@ class ImportProfileActivity : AppCompatActivity() {
         }
         cfg.save()
         Config.syncToSharedPrefs(this, cfg)
-        Toast.makeText(this, "已导入 ${imported.size} 个配置", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, getString(R.string.import_toast_success, imported.size), Toast.LENGTH_SHORT).show()
         finish()
     }
 }

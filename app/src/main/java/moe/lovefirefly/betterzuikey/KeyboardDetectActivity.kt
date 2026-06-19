@@ -105,7 +105,7 @@ class KeyboardDetectActivity : AppCompatActivity() {
 
             // keyCode 值
             val valueTv = TextView(this).apply {
-                text = "请输入"
+                text = getString(R.string.detect_fkey_placeholder)
                 textSize = 14f
                 setPadding(dp(8))
                 setTextColor(getColor(android.R.color.tab_indicator_text))
@@ -144,7 +144,7 @@ class KeyboardDetectActivity : AppCompatActivity() {
         val keyCode = currentKeyCode ?: return
         val selIdx = radioButtons.indexOfFirst { it?.isChecked == true }
         if (selIdx < 0) {
-            Toast.makeText(this, "请先在表格中选中目标 F 键", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.detect_toast_select_fkey), Toast.LENGTH_SHORT).show()
             return
         }
         fKeyCodes[selIdx] = keyCode
@@ -185,7 +185,7 @@ class KeyboardDetectActivity : AppCompatActivity() {
                             binding.tvVidpid.text = vidPid
                             binding.tvDeviceName.text = if (dp.size >= 3) dp[2] else ""
                             binding.layoutResult.visibility = View.VISIBLE
-                            binding.tvHint.text = "选中目标 F 键 → 按键 → 获取并填入"
+                            binding.tvHint.text = getString(R.string.detect_hint_fill)
                         }
                     }
                 }
@@ -199,8 +199,8 @@ class KeyboardDetectActivity : AppCompatActivity() {
         } catch (_: Exception) {
             keyCode.toString()
         }
-        val scanCodeStr = if (scanCode > 0) "0x%x".format(scanCode) else "无"
-        binding.tvKeycodeInfo.text = "按键: $keyCode ($keyCodeStr) / 扫描码: $scanCodeStr"
+        val scanCodeStr = if (scanCode > 0) "0x%x".format(scanCode) else getString(R.string.detect_scan_none)
+        binding.tvKeycodeInfo.text = getString(R.string.detect_key_display, keyCode, keyCodeStr, scanCodeStr)
     }
 
     private fun copyVidPid() {
@@ -208,17 +208,17 @@ class KeyboardDetectActivity : AppCompatActivity() {
         if (text.isNotBlank() && text != "0000:0000") {
             val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             cm.setPrimaryClip(ClipData.newPlainText("VID:PID", text))
-            Toast.makeText(this, "已复制 $text", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.detect_toast_copied, text), Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun copyTemplate() {
         val vidPid = binding.tvVidpid.text.toString()
         if (vidPid.isBlank() || vidPid == "0000:0000") {
-            Toast.makeText(this, "请先按下键盘按键进行检测", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.detect_toast_press_first), Toast.LENGTH_SHORT).show()
             return
         }
-        val deviceName = binding.tvDeviceName.text.toString().ifBlank { "自定义键盘" }
+        val deviceName = binding.tvDeviceName.text.toString().ifBlank { getString(R.string.detect_config_default_name) }
         val sb = StringBuilder()
         sb.append("{\n")
         sb.append("  \"profiles\": {\n")
@@ -228,7 +228,7 @@ class KeyboardDetectActivity : AppCompatActivity() {
         sb.append("      \"keys\": {\n")
         for (i in 0 until 12) {
             val v = fKeyCodes[i]
-            val valStr = v?.toString() ?: "【请填写】"
+            val valStr = v?.toString() ?: getString(R.string.detect_config_placeholder)
             sb.append("        \"F${i + 1}\": { \"keyCode\": $valStr }")
             if (i < 11) sb.append(",")
             sb.append("\n")
@@ -239,7 +239,7 @@ class KeyboardDetectActivity : AppCompatActivity() {
         sb.append("}")
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         cm.setPrimaryClip(ClipData.newPlainText("配置", sb.toString()))
-        Toast.makeText(this, "已复制配置文件", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, getString(R.string.detect_toast_config_copied), Toast.LENGTH_SHORT).show()
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {

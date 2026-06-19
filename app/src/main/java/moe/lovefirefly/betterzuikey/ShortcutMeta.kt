@@ -1,21 +1,61 @@
 package moe.lovefirefly.betterzuikey
 
+import android.content.Context
+import androidx.annotation.StringRes
 import moe.lovefirefly.betterzuikey.Config.Config
+
+/**
+ * 卡片点击行为。
+ */
+enum class CardClickBehavior {
+    /** 仅播放水波纹动画，无操作 */
+    NONE,
+    /** 切换开关 */
+    SWITCH,
+    /** 展开 Spinner 下拉菜单 */
+    EXPAND_SPIN,
+    /** 自动：按 ExpandSpin → Switch → None 优先级选择 */
+    AUTO;
+
+    fun resolve(hasSpinner: Boolean, hasSwitch: Boolean): CardClickBehavior {
+        if (this != AUTO) return this
+        if (hasSpinner) return EXPAND_SPIN
+        if (hasSwitch) return SWITCH
+        return NONE
+    }
+}
+
+/**
+ * 当 Spinner 选中非默认项时的附加行为。
+ */
+enum class OnSpinSelectedNonDefault {
+    /** 不执行额外操作 */
+    NOTHING,
+    /** 打开开关（如果有） */
+    SWITCH_ON,
+    /** 关闭开关（如果有） */
+    SWITCH_OFF
+}
 
 /**
  * 快捷方式元数据 — UI 渲染所需信息。
  *
  * @param key             主 Config 字段 key（如 "winUp"）
+ * @param displayResId    显示名称的字符串资源 ID（如 R.string.shortcut_winD）
+ * @param descResId       功能描述的字符串资源 ID；0 = 无描述
  * @param groupKeys       与此项共享同一个 Settings.System 开关的其他 key
- *                        切换开关时，这些 key 对应的 Config 字段也会同步更新
  * @param hasZui          有 ZUI 专用实现
  * @param hasAosp         有 AOSP 原生实现
  * @param hasSystemSwitch 系统设置有 GUI 开关
+ * @param showAospOption  Whether to show AOSP as a selectable option in the dropdown.
+ * @param showSwitch      Whether to show the switch control.
+ * @param cardClick       卡片点击行为。默认 AUTO
+ * @param onSpinSelectedNonDefault Spinner 选中非默认项时的附加行为。
  */
 data class ShortcutMeta(
     val key: String,
-    val display: String,
-    val desc: String = "",
+    @StringRes val displayResId: Int,
+    @StringRes val descResId: Int = 0,
     val groupKeys: List<String> = emptyList(),
     val hasZui: Boolean = false,
     val hasAosp: Boolean = false,
@@ -24,77 +64,73 @@ data class ShortcutMeta(
     val showAospOption: Boolean = hasAosp,
     /** Whether to show the switch control. Defaults to hasSystemSwitch value. */
     val showSwitch: Boolean = hasSystemSwitch,
-    /** Auto switch on if there is a system switch available */
-    val autoSwitchOnIfPossible: Boolean = true,
+    /** 卡片点击行为。默认 AUTO：优先 ExpandSpin → Switch → None */
+    val cardClick: CardClickBehavior = CardClickBehavior.AUTO,
+    /** Spinner 选中非默认项时的附加行为。默认 SWITCH_ON */
+    val onSpinSelectedNonDefault: OnSpinSelectedNonDefault = OnSpinSelectedNonDefault.SWITCH_ON,
 ) {
-    // ── 预计算的显示文本（一次性计算，不在每次 bind 中动态拼接）──
-    /** 标题：快捷方式名 + 实现标注 */
-    val displayName: String by lazy {
-        val badges = mutableListOf<String>()
-        if (hasZui) badges.add("ZUI")
-        if (hasAosp) badges.add("AOSP")
-        if (badges.isNotEmpty()) "$display  [${badges.joinToString("/")}]" else display
-    }
-    /** 描述：仅功能说明 */
-    val displayDesc: String by lazy { desc }
-
     companion object {
         val ALL: List<ShortcutMeta> = listOf(
             // 一、Win/Meta + 字母
-            ShortcutMeta("winD",        "Win + D",           "回到桌面",                              hasZui = false, hasAosp = true),
-            ShortcutMeta("winS",        "Win + S",           "全局搜索",                              hasZui = true),
-            ShortcutMeta("winA",        "Win + A",           "隐藏/显示任务栏",                        hasZui = true),
-            ShortcutMeta("winBack",     "Win + Back",        "发送 ESC / 返回\n设置-实体键盘-辅助键 可改 ESC 功能", hasZui = true),
-            ShortcutMeta("winE",        "Win + E",           "打开文件管理器",                          hasZui = true),
-            ShortcutMeta("winI",        "Win + I",           "打开设置",                               hasZui = false, hasAosp = true),
-            ShortcutMeta("winL",        "Win + L",           "锁屏",                                   hasZui = true),
-            ShortcutMeta("winM",        "Win + M",           "最小化窗口",                             hasZui = false, hasAosp = true),
-            ShortcutMeta("winN",        "Win + N",           "通知面板",                               hasZui = false, hasAosp = true),
-            ShortcutMeta("winP",        "Win + P",           "切换 PC 模式",                           hasZui = true),
-            ShortcutMeta("winW",        "Win + W",           "关闭前台应用（保护5个系统进程）",            hasZui = true),
-            ShortcutMeta("winNumber",   "Win + 1~8",         "打开 Dock 栏对应位置应用",                  hasZui = true),
-            ShortcutMeta("winTab",      "Win + Tab",         "最近任务",                               hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("winD",        R.string.shortcut_winD,        R.string.shortcut_winD_desc,        hasZui = false, hasAosp = true),
+            ShortcutMeta("winS",        R.string.shortcut_winS,        R.string.shortcut_winS_desc,        hasZui = true),
+            ShortcutMeta("winA",        R.string.shortcut_winA,        R.string.shortcut_winA_desc,        hasZui = true),
+            ShortcutMeta("winBack",     R.string.shortcut_winBack,     R.string.shortcut_winBack_desc,     hasZui = true),
+            ShortcutMeta("winE",        R.string.shortcut_winE,        R.string.shortcut_winE_desc,        hasZui = true),
+            ShortcutMeta("winI",        R.string.shortcut_winI,        R.string.shortcut_winI_desc,        hasZui = false, hasAosp = true),
+            ShortcutMeta("winL",        R.string.shortcut_winL,        R.string.shortcut_winL_desc,        hasZui = true),
+            ShortcutMeta("winM",        R.string.shortcut_winM,        R.string.shortcut_winM_desc,        hasZui = false, hasAosp = true),
+            ShortcutMeta("winN",        R.string.shortcut_winN,        R.string.shortcut_winN_desc,        hasZui = false, hasAosp = true),
+            ShortcutMeta("winP",        R.string.shortcut_winP,        R.string.shortcut_winP_desc,        hasZui = true),
+            ShortcutMeta("winW",        R.string.shortcut_winW,        R.string.shortcut_winW_desc,        hasZui = true),
+            ShortcutMeta("winNumber",   R.string.shortcut_winNumber,   R.string.shortcut_winNumber_desc,   hasZui = true),
+            ShortcutMeta("winTab",      R.string.shortcut_winTab,      R.string.shortcut_winTab_desc,      hasZui = true,  hasSystemSwitch = false),
             // 二、Win+功能键（↑↓ 共用 keyboard_combo_ud_arrow，←→ 共用 keyboard_combo_lr_arrow）
-            ShortcutMeta("winUp",       "Win + ↑ / Win + ↓",   "窗口最大化 / 窗口还原\n系统开关 ↑↓ 共用",    hasZui = false, hasAosp = true,
+            ShortcutMeta("winUp",       R.string.shortcut_winUp,       R.string.shortcut_winUp_desc,       hasZui = false, hasAosp = true,
                 groupKeys = listOf("winDown")),
-            ShortcutMeta("winLeft",     "Win + ← / Win + →",   "分屏到左侧 / 分屏到右侧\n系统开关 ←→ 共用",    hasZui = true,
+            ShortcutMeta("winLeft",     R.string.shortcut_winLeft,     R.string.shortcut_winLeft_desc,     hasZui = true,
                 groupKeys = listOf("winRight")),
             // 三、Ctrl/Alt/Shift
-            ShortcutMeta("ctrlCard",       "长按 Ctrl 和 Ctrl + /",       "Ctrl 长按开关 | Ctrl+/ 行为模式\n注意：「长按 Ctrl」功能仅在开关开启且「Ctrl+/ 」为“保持默认”时有效。",  
-                         hasZui = false,  hasAosp = false, hasSystemSwitch = false, showSwitch = true, autoSwitchOnIfPossible = false),
-            ShortcutMeta("ctrlShift",       "Ctrl + Shift",      "切换输入法（仅 ROW 生效）",            hasZui = true),
-            ShortcutMeta("altShift",        "Alt + Shift",       "切换语言（仅 ROW 生效）",              hasZui = true),
-            ShortcutMeta("ctrlShiftT",      "Ctrl + Shift + T",  "切换触控板开关",                       hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("ctrlEnter",       "Ctrl + Enter",      "QQ 前台时放行给应用",                  hasZui = true),
-            ShortcutMeta("altTab",          "Alt + Tab",         "最近任务切换",                          hasZui = true,  hasAosp = true),
+            ShortcutMeta("ctrlCard",    R.string.shortcut_ctrlCard,    R.string.shortcut_ctrlCard_desc,
+                         hasZui = false,  hasAosp = false, hasSystemSwitch = false, showSwitch = true,
+                         onSpinSelectedNonDefault = OnSpinSelectedNonDefault.SWITCH_OFF),
+            ShortcutMeta("ctrlShift",   R.string.shortcut_ctrlShift,   R.string.shortcut_ctrlShift_desc,   hasZui = true),
+            ShortcutMeta("altShift",    R.string.shortcut_altShift,    R.string.shortcut_altShift_desc,    hasZui = true),
+            ShortcutMeta("ctrlShiftT",  R.string.shortcut_ctrlShiftT,  R.string.shortcut_ctrlShiftT_desc,  hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("ctrlEnter",   R.string.shortcut_ctrlEnter,   R.string.shortcut_ctrlEnter_desc,   hasZui = true),
+            ShortcutMeta("altTab",      R.string.shortcut_altTab,      R.string.shortcut_altTab_desc,      hasZui = true,  hasAosp = true),
             // 四、ZUI 物理键（无 Settings.System 开关，系统强制开启）
-            ShortcutMeta("keyMute",         "501 静音键",        "静音切换",                              hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyTouchpad",     "502 触控板",        "触控板开关",                            hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySplitScreen",  "504 分屏",          "分屏开关",                              hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySuperConnect", "505 超级互联",      "启动超级互联",                           hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyApp1",         "507 App1",          "自定义按键（短按行为 / 长按设置）",         hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyApp2",         "508 App2",          "自定义按键（短按行为 / 长按设置）",         hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySearch",       "509 搜索",          "全局搜索",                              hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySettings",     "510 设置",          "⚠ 解锁时无效（ZUI Bug）",               hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyFnLock",       "511 Fn 锁",         "Fn 锁定切换 + LED",                     hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyBacklight",    "512 背光",          "键盘背光循环",                           hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyTpUp",         "514 触控板上移",    "打开通知面板",                           hasZui = true,  hasAosp = true, hasSystemSwitch = false),
-            ShortcutMeta("keyScreenLock",   "515 锁屏",          "锁屏",                                  hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyMute",         R.string.shortcut_keyMute,         R.string.shortcut_keyMute_desc,         hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyTouchpad",     R.string.shortcut_keyTouchpad,     R.string.shortcut_keyTouchpad_desc,     hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keySplitScreen",  R.string.shortcut_keySplitScreen,  R.string.shortcut_keySplitScreen_desc,  hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keySuperConnect", R.string.shortcut_keySuperConnect, R.string.shortcut_keySuperConnect_desc, hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyApp1",         R.string.shortcut_keyApp1,         R.string.shortcut_keyApp1_desc,         hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyApp2",         R.string.shortcut_keyApp2,         R.string.shortcut_keyApp2_desc,         hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keySearch",       R.string.shortcut_keySearch,       R.string.shortcut_keySearch_desc,       hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keySettings",     R.string.shortcut_keySettings,     R.string.shortcut_keySettings_desc,     hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyFnLock",       R.string.shortcut_keyFnLock,       R.string.shortcut_keyFnLock_desc,       hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyBacklight",    R.string.shortcut_keyBacklight,    R.string.shortcut_keyBacklight_desc,    hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyTpUp",         R.string.shortcut_keyTpUp,         R.string.shortcut_keyTpUp_desc,         hasZui = true,  hasAosp = true, hasSystemSwitch = false),
+            ShortcutMeta("keyScreenLock",   R.string.shortcut_keyScreenLock,   R.string.shortcut_keyScreenLock_desc,   hasZui = true,  hasSystemSwitch = false),
             // 五、截图/特殊键（无 Settings.System 开关）
-            ShortcutMeta("printScreenShort", "Print Screen 短按", "区域截图",                             hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("printScreenLong",  "Print Screen 长按", "全屏截图",                             hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("metaSingle",       "Meta 单按",         "开始菜单",                             hasZui = true,  hasAosp = true, hasSystemSwitch = false),
-            ShortcutMeta("metaShortRow",     "Meta ROW 短按",     "切换语言（需 ROW+特殊键盘）",             hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("metaLongRow",      "Meta ROW 长按",     "语音助手（需 ROW+特殊键盘）",             hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("metaHoldNonRow",   "Meta 非ROW 按住",   "连续切语言（需非ROW+特殊键盘）",          hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyKeyboardRestore",  "520 键盘恢复",   "禁用物理键盘",                           hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyKeyboardReverse",  "521 键盘翻转",   "启用物理键盘",                           hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("altRightKR",          "Alt_RIGHT KR",   "韩国版切语言",                           hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("printScreenShort", R.string.shortcut_printScreenShort, R.string.shortcut_printScreenShort_desc, hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("printScreenLong",  R.string.shortcut_printScreenLong,  R.string.shortcut_printScreenLong_desc,  hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("metaSingle",       R.string.shortcut_metaSingle,       R.string.shortcut_metaSingle_desc,       hasZui = true,  hasAosp = true, hasSystemSwitch = false),
+            ShortcutMeta("metaShortRow",     R.string.shortcut_metaShortRow,     R.string.shortcut_metaShortRow_desc,     hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("metaLongRow",      R.string.shortcut_metaLongRow,      R.string.shortcut_metaLongRow_desc,      hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("metaHoldNonRow",   R.string.shortcut_metaHoldNonRow,   R.string.shortcut_metaHoldNonRow_desc,   hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyKeyboardRestore",  R.string.shortcut_keyKeyboardRestore,  R.string.shortcut_keyKeyboardRestore_desc,  hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyKeyboardReverse",  R.string.shortcut_keyKeyboardReverse,  R.string.shortcut_keyKeyboardReverse_desc,  hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("altRightKR",          R.string.shortcut_altRightKR,          R.string.shortcut_altRightKR_desc,          hasZui = true,  hasSystemSwitch = false),
             // 六、AOSP 辅助键（Settings.Secure 控制，非 Settings.System）
-            ShortcutMeta("aospBounceKeys",  "Win+Alt+3 防抖", "AOSP 原生防抖键",                         hasZui = false, hasAosp = true, hasSystemSwitch = false, autoSwitchOnIfPossible = false),
-            ShortcutMeta("aospMouseKeys",   "Win+Alt+4 鼠标", "AOSP 原生鼠标键",                         hasZui = false, hasAosp = true, hasSystemSwitch = false, autoSwitchOnIfPossible = false),
-            ShortcutMeta("aospStickyKeys",  "Win+Alt+5 粘滞", "AOSP 原生粘滞键",                         hasZui = false, hasAosp = true, hasSystemSwitch = false, autoSwitchOnIfPossible = false),
-            ShortcutMeta("aospSlowKeys",    "Win+Alt+6 慢速", "AOSP 原生慢速键",                         hasZui = false, hasAosp = true, hasSystemSwitch = false, autoSwitchOnIfPossible = false),
+            ShortcutMeta("aospBounceKeys",  R.string.shortcut_aospBounceKeys,  R.string.shortcut_aospBounceKeys_desc,  hasZui = false, hasAosp = true, hasSystemSwitch = false,
+                onSpinSelectedNonDefault = OnSpinSelectedNonDefault.NOTHING),
+            ShortcutMeta("aospMouseKeys",   R.string.shortcut_aospMouseKeys,   R.string.shortcut_aospMouseKeys_desc,   hasZui = false, hasAosp = true, hasSystemSwitch = false,
+                onSpinSelectedNonDefault = OnSpinSelectedNonDefault.NOTHING),
+            ShortcutMeta("aospStickyKeys",  R.string.shortcut_aospStickyKeys,  R.string.shortcut_aospStickyKeys_desc,  hasZui = false, hasAosp = true, hasSystemSwitch = false,
+                onSpinSelectedNonDefault = OnSpinSelectedNonDefault.NOTHING),
+            ShortcutMeta("aospSlowKeys",    R.string.shortcut_aospSlowKeys,    R.string.shortcut_aospSlowKeys_desc,    hasZui = false, hasAosp = true, hasSystemSwitch = false,
+                onSpinSelectedNonDefault = OnSpinSelectedNonDefault.NOTHING),
         )
 
         // ── 直接字段访问：替代不可靠的反射（Config.java 字段命名不一致导致反射失败）──
@@ -241,22 +277,51 @@ data class ShortcutMeta(
 }
 
 /**
- * OverrideMode 显示名称映射
+ * 从资源解析快捷方式显示名称（含 ZUI/AOSP 标签）。
+ */
+fun ShortcutMeta.displayName(context: Context): String {
+    val name = context.getString(displayResId)
+    val badges = mutableListOf<String>()
+    if (hasZui) badges.add(context.getString(R.string.badge_zui))
+    if (hasAosp) badges.add(context.getString(R.string.badge_aosp))
+    return if (badges.isNotEmpty()) context.getString(R.string.shortcut_badge_format, name, badges.joinToString("/")) else name
+}
+
+/**
+ * 从资源解析快捷方式功能描述。
+ */
+fun ShortcutMeta.displayDesc(context: Context): String =
+    if (descResId != 0) context.getString(descResId) else ""
+
+/**
+ * OverrideMode 显示名称映射（可从资源加载）。
+ */
+fun Config.OverrideMode.displayName(context: Context): String = when (this) {
+    Config.OverrideMode.FOLLOW_SYSTEM -> context.getString(R.string.mode_follow_system)
+    Config.OverrideMode.ZUI           -> context.getString(R.string.mode_zui)
+    Config.OverrideMode.AOSP          -> context.getString(R.string.mode_aosp)
+    Config.OverrideMode.OFF           -> context.getString(R.string.mode_off)
+    Config.OverrideMode.BLOCK         -> context.getString(R.string.mode_block)
+}
+
+/**
+ * OverrideMode 显示名称（无 Context 版本，用于宽度计算等无 Context 场景）。
+ * 默认返回英文（与 values/strings.xml 回退语言一致）。
  */
 fun Config.OverrideMode.displayName(): String = when (this) {
-    Config.OverrideMode.FOLLOW_SYSTEM -> "保持默认"
-    Config.OverrideMode.ZUI           -> "启用 ZUI 实现"
-    Config.OverrideMode.AOSP          -> "启用 AOSP 实现"
-    Config.OverrideMode.OFF           -> "关闭"
-    Config.OverrideMode.BLOCK         -> "忽略"
+    Config.OverrideMode.FOLLOW_SYSTEM -> "Keep Default"
+    Config.OverrideMode.ZUI           -> "Use ZUI"
+    Config.OverrideMode.AOSP          -> "Use AOSP"
+    Config.OverrideMode.OFF           -> "Off"
+    Config.OverrideMode.BLOCK         -> "Block"
 }
 
 fun Config.OverrideMode.displayDesc(): String = when (this) {
-    Config.OverrideMode.FOLLOW_SYSTEM -> "跟随系统开关（开启则用 ZUI，关闭则透传）"
-    Config.OverrideMode.ZUI           -> "强制启用 ZUI 快捷键行为"
-    Config.OverrideMode.AOSP          -> "禁用 ZUI，启用 Android 原生处理"
-    Config.OverrideMode.OFF           -> "禁用 ZUI 和 AOSP，事件透传给应用"
-    Config.OverrideMode.BLOCK         -> "消费事件，系统和应用都收不到"
+    Config.OverrideMode.FOLLOW_SYSTEM -> "Follow system switch (on = ZUI, off = pass-through)"
+    Config.OverrideMode.ZUI           -> "Force ZUI shortcut behavior"
+    Config.OverrideMode.AOSP          -> "Disable ZUI, use Android native handling"
+    Config.OverrideMode.OFF           -> "Disable ZUI and AOSP, pass event to app"
+    Config.OverrideMode.BLOCK         -> "Consume event; neither system nor app receives it"
 }
 
 fun Config.OverrideMode.isAvailable(meta: ShortcutMeta): Boolean = when (this) {

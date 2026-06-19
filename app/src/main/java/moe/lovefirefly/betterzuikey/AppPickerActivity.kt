@@ -78,7 +78,7 @@ class AppPickerActivity : AppCompatActivity() {
     }
 
     private fun updateCount() {
-        binding.tvSelectedCount.text = "已选择 ${selected.size} 个"
+        binding.tvSelectedCount.text = getString(R.string.app_picker_selected_count, selected.size)
     }
 
     // ── Adapter ──
@@ -128,7 +128,7 @@ class AppPickerActivity : AppCompatActivity() {
                         if (conflict != null) {
                             Toast.makeText(
                                 this@AppPickerActivity,
-                                "「$conflict」已包含此应用",
+                                getString(R.string.app_picker_conflict_toast, conflict),
                                 Toast.LENGTH_SHORT
                             ).show()
                         }

@@ -76,7 +76,7 @@ class ProfileManageActivity : AppCompatActivity() {
                 b.tvApps.text = summary
                 b.tvApps.isClickable = false
 
-                b.tvDelete.text = if (p.isCustom) "删除" else "内置(不可删)"
+                b.tvDelete.text = if (p.isCustom) getString(R.string.profile_btn_delete) else getString(R.string.profile_builtin_label)
                 b.tvDelete.isClickable = p.isCustom
                 if (!p.isCustom) b.tvDelete.alpha = 0.4f
 
@@ -92,14 +92,14 @@ class ProfileManageActivity : AppCompatActivity() {
                 b.tvDelete.setOnClickListener {
                     if (!p.isCustom) return@setOnClickListener
                     AlertDialog.Builder(this@ProfileManageActivity)
-                        .setTitle("删除配置")
-                        .setMessage("确定删除「${p.friendlyName}」？")
-                        .setPositiveButton("删除") { _, _ ->
+                        .setTitle(getString(R.string.profile_delete_title))
+                        .setMessage(getString(R.string.profile_delete_msg, p.friendlyName))
+                        .setPositiveButton(getString(R.string.profile_delete_confirm)) { _, _ ->
                             KeyboardProfiles.deleteProfile(this@ProfileManageActivity, key)
                             refresh()
-                            Toast.makeText(this@ProfileManageActivity, "已删除", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this@ProfileManageActivity, getString(R.string.profile_deleted_toast), Toast.LENGTH_SHORT).show()
                         }
-                        .setNegativeButton("取消", null)
+                        .setNegativeButton(getString(R.string.dialog_confirm_cancel), null)
                         .show()
                 }
             }
@@ -107,9 +107,9 @@ class ProfileManageActivity : AppCompatActivity() {
     }
 
     private fun formatKeyEntry(entry: KeyboardProfiles.KeyEntry?): String {
-        if (entry == null || !entry.isValid) return "(未映射)"
-        return if (entry.scan > 0) "scan:0x${Integer.toHexString(entry.scan)}"
-        else "keyCode:${entry.keyCode}"
+        if (entry == null || !entry.isValid) return getString(R.string.profile_key_unmapped)
+        return if (entry.scan > 0) getString(R.string.profile_key_scan_fmt, Integer.toHexString(entry.scan))
+        else getString(R.string.profile_key_keycode_fmt, entry.keyCode)
     }
 
     private fun showViewDialog(p: KeyboardProfiles.Profile) {
@@ -122,9 +122,9 @@ class ProfileManageActivity : AppCompatActivity() {
             }
         }
         AlertDialog.Builder(this)
-            .setTitle(p.friendlyName)
+            .setTitle(getString(R.string.profile_view_title, p.friendlyName))
             .setMessage(summary)
-            .setPositiveButton("关闭", null)
+            .setPositiveButton(getString(R.string.profile_btn_close), null)
             .show()
     }
 
@@ -138,10 +138,10 @@ class ProfileManageActivity : AppCompatActivity() {
             }
         }
         AlertDialog.Builder(this)
-            .setTitle("编辑: ${p.friendlyName}")
+            .setTitle(getString(R.string.profile_edit_title, p.friendlyName))
             .setMessage(summary)
-            .setPositiveButton("编辑键值", null) // TODO: 打开编辑器
-            .setNegativeButton("关闭", null)
+            .setPositiveButton(getString(R.string.profile_btn_edit_keys), null) // TODO: 打开编辑器
+            .setNegativeButton(getString(R.string.profile_btn_close), null)
             .show()
     }
 }

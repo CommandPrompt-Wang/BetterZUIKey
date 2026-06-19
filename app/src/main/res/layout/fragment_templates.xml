@@ -21,7 +21,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
         android:layout_margin="16dp"
-        android:text="新建模板"
+        android:text="@string/templates_new_template"
         app:icon="@android:drawable/ic_input_add" />
 
 </LinearLayout>

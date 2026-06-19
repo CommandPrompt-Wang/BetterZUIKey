@@ -19,6 +19,18 @@
         android:paddingVertical="8dp"
         android:minHeight="56dp">
 
+        <!-- 星标 — 覆写标记 / 左留白，固定宽度保留对齐 -->
+        <TextView
+            android:id="@+id/tv_star"
+            android:layout_width="24dp"
+            android:layout_height="wrap_content"
+            android:text="@string/star_marker"
+            android:textSize="16sp"
+            android:textColor="?attr/colorOnSurface"
+            android:gravity="center"
+            android:layout_marginEnd="4dp"
+            android:visibility="invisible" />
+
         <!-- 名称 + 描述 -->
         <LinearLayout
             android:layout_width="0dp"
@@ -30,16 +42,14 @@
                 android:id="@+id/tv_name"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textAppearance="?attr/textAppearanceBodyMedium"
-                android:text="Win + D" />
+                android:textAppearance="?attr/textAppearanceBodyMedium" />
 
             <TextView
                 android:id="@+id/tv_desc"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textAppearance="?attr/textAppearanceBodySmall"
-                android:textColor="?attr/colorOnSurfaceVariant"
-                android:text="描述文字" />
+                android:textColor="?attr/colorOnSurfaceVariant" />
 
         </LinearLayout>
 
@@ -70,7 +80,6 @@
             android:focusableInTouchMode="true"
             android:clickable="true"
             android:paddingVertical="6dp"
-            android:text="DEFAULT"
             android:textAppearance="?attr/textAppearanceBodySmall" />
 
         </com.google.android.material.textfield.TextInputLayout>
@@ -80,7 +89,7 @@
             android:id="@+id/iv_chevron"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="›"
+            android:text="@string/home_chevron"
             android:textSize="24sp"
             android:textColor="?attr/colorOnSurfaceVariant"
             android:layout_marginStart="4dp"
