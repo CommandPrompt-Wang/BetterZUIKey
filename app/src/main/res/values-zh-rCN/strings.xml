@@ -242,7 +242,7 @@
 
     <!-- OverrideMode 显示名 -->
     <string name="mode_follow_system">保持默认</string>
-    <string name="mode_zui">启用 ZUI 实现</string>
+    <string name="mode_zui">启用 ZUX 实现</string>
     <string name="mode_aosp">启用 AOSP 实现</string>
     <string name="mode_off">关闭</string>
     <string name="mode_block">忽略</string>

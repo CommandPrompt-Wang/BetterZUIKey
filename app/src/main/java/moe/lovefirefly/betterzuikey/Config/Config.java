@@ -368,9 +368,9 @@ public class Config {
 
     /**
      * 覆盖模式 替代旧的 Action 枚举
-     * FOLLOW_SYSTEM: 跟随系统开关（ZUI 开则用 ZUI，关则透传
-     * ZUI:          强制启用 ZUI 实现（拦截并执行 ZUI 行为
-     * AOSP:         强制启用 AOSP 原生实现（拦ZUI，放行给 AOSP
+     * FOLLOW_SYSTEM: 跟随系统开关（ZUX 开则用 ZUX，关则透传
+     * ZUI:          强制启用 ZUX 实现（拦截并执行 ZUX 行为
+     * AOSP:         强制启用 AOSP 原生实现（拦 ZUX，放行给 AOSP
      * OFF:          关闭（不拦截，事件透传给前台应用）
      * BLOCK:        忽略（消费事件，系统和应用都收不到）
      */

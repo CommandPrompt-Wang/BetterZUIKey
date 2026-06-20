@@ -310,7 +310,7 @@ fun Config.OverrideMode.displayName(context: Context): String = when (this) {
  */
 fun Config.OverrideMode.displayName(): String = when (this) {
     Config.OverrideMode.FOLLOW_SYSTEM -> "Keep Default"
-    Config.OverrideMode.ZUI           -> "Use ZUI"
+    Config.OverrideMode.ZUI           -> "Use ZUX"
     Config.OverrideMode.AOSP          -> "Use AOSP"
     Config.OverrideMode.OFF           -> "Off"
     Config.OverrideMode.BLOCK         -> "Block"

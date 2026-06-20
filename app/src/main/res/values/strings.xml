@@ -244,7 +244,7 @@
 
     <!-- OverrideMode display names -->
     <string name="mode_follow_system">Keep Default</string>
-    <string name="mode_zui">Use ZUI</string>
+    <string name="mode_zui">Use ZUX</string>
     <string name="mode_aosp">Use AOSP</string>
     <string name="mode_off">Off</string>
     <string name="mode_block">Block</string>

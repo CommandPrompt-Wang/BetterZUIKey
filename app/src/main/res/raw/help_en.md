@@ -20,9 +20,9 @@ Each shortcut can independently select one of the following override modes:
 
 | Mode | Description |
 |------|-------------|
-| **Keep Default** | Maintain ZUI original logic: ON → ZUI, OFF → pass-through |
-| **Use ZUI** | Force ZUI shortcut behavior, ignoring system switch state |
-| **Use AOSP** | Block ZUI handling, delegate to Android native implementation |
+| **Keep Default** | Maintain ZUX original logic: ON → ZUX, OFF → pass-through |
+| **Use ZUX** | Force ZUX shortcut behavior, ignoring system switch state |
+| **Use AOSP** | Block ZUX handling, delegate to Android native implementation |
 | **Off** | Completely disable interception; events pass through to the foreground app |
 | **Block** | Consume the key event without any action; neither system nor app receives it |
 
