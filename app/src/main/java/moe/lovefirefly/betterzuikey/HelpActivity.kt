@@ -68,7 +68,7 @@ class HelpActivity : AppCompatActivity() {
                 .use { BufferedReader(InputStreamReader(it)).readText() }
         }
         // 什么都没有 — 显示提示
-        return "No help document available for current language."
+        return getString(R.string.help_no_document)
     }
 
     private fun setupToolbar() {

@@ -316,14 +316,6 @@ fun Config.OverrideMode.displayName(): String = when (this) {
     Config.OverrideMode.BLOCK         -> "Block"
 }
 
-fun Config.OverrideMode.displayDesc(): String = when (this) {
-    Config.OverrideMode.FOLLOW_SYSTEM -> "Follow system switch (on = ZUI, off = pass-through)"
-    Config.OverrideMode.ZUI           -> "Force ZUI shortcut behavior"
-    Config.OverrideMode.AOSP          -> "Disable ZUI, use Android native handling"
-    Config.OverrideMode.OFF           -> "Disable ZUI and AOSP, pass event to app"
-    Config.OverrideMode.BLOCK         -> "Consume event; neither system nor app receives it"
-}
-
 fun Config.OverrideMode.isAvailable(meta: ShortcutMeta): Boolean = when (this) {
     Config.OverrideMode.FOLLOW_SYSTEM -> true
     Config.OverrideMode.ZUI           -> meta.hasZui

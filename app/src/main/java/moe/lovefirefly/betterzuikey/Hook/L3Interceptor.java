@@ -21,7 +21,6 @@ public class L3Interceptor extends XC_MethodHook {
         ctx.checkConfigChanged();
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
-        ctx.foregroundTracker.refresh();
 
         // DEBUG: confirm L3 hook is alive (writes on every gesture)
         KeyInjector.debugProp("debug.bzuikey.l3.alive", String.valueOf(System.currentTimeMillis()));

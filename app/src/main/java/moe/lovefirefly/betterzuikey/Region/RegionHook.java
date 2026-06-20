@@ -64,6 +64,21 @@ public class RegionHook {
         LogHelper.log(VerboseLevel.INFO, "RegionHook: profile updated to ", profile.name());
     }
 
+    /**
+     * 热重载 Config 引用（由 HookContext.checkConfigChanged 调用）。
+     * 避免配置同步后仍使用过期引用。
+     */
+    public static void updateConfig(Config config) {
+        sConfig = config;
+        if (config.regionOverride != null) {
+            sCurrentProfile = config.regionOverride;
+        } else {
+            sCurrentProfile = RegionProfile.DEFAULT;
+        }
+        LogHelper.log(VerboseLevel.DEBUG, "RegionHook: config hot-reloaded, profile=",
+                sCurrentProfile.name());
+    }
+
     // ----------------------------------------------------------------
     //  Hook SystemProperties.get()
     // ----------------------------------------------------------------

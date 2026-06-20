@@ -21,7 +21,6 @@ public class L4Interceptor extends XC_MethodHook {
         ctx.checkConfigChanged();
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
-        ctx.foregroundTracker.refresh();
 
         Object kgEvent = param.args[0];
         try {

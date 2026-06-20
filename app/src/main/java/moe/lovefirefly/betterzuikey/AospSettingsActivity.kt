@@ -70,11 +70,19 @@ class AospSettingsActivity : AppCompatActivity() {
         try {
             Settings.Secure.putInt(contentResolver, key, value)
         } catch (_: SecurityException) {
-            try {
-                Runtime.getRuntime().exec(arrayOf(
-                    "su", "-c", "settings put secure $key $value"
-                ))
-            } catch (_: Exception) { }
+            Thread {
+                try {
+                    val proc = Runtime.getRuntime().exec(arrayOf(
+                        "su", "-c", "settings put secure $key $value"
+                    ))
+                    // Consume stdout to prevent pipe buffer deadlock
+                    proc.inputStream.bufferedReader().use { it.readText() }
+                    proc.errorStream.bufferedReader().use { it.readText() }
+                    proc.waitFor()
+                } catch (e: Exception) {
+                    android.util.Log.e("BetterZUIKey", "su settings put secure failed: $key", e)
+                }
+            }.start()
         }
     }
 }

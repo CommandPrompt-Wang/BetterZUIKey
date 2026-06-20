@@ -25,6 +25,7 @@ class ConfigSyncProvider : ContentProvider() {
         val RELOAD_URI: Uri = Uri.parse("content://$AUTHORITY/reload")
         const val METHOD_GET_SYNC = "getSync"
         const val METHOD_NOTIFY_SYNC = "notifySync"
+        const val METHOD_SET_CONFIG = "setConfig"
         const val KEY_CONFIG_JSON = "config_json"
     }
 
@@ -40,6 +41,13 @@ class ConfigSyncProvider : ContentProvider() {
             }
             METHOD_NOTIFY_SYNC -> {
                 context?.contentResolver?.notifyChange(RELOAD_URI, null)
+                null
+            }
+            METHOD_SET_CONFIG -> {
+                val json = extras?.getString(KEY_CONFIG_JSON) ?: return@call null
+                context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    ?.edit()?.putString("config_sync", json)?.commit()
                 null
             }
             else -> null

@@ -1,5 +1,6 @@
 package moe.lovefirefly.betterzuikey
 
+import android.content.Context
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import moe.lovefirefly.betterzuikey.Config.Config
@@ -10,8 +11,8 @@ import java.util.Locale
  *
  * 语言映射表（语言代码 | 语言自称 | 英文名）：
  *   ""      → 跟随系统 (Follow System)
- *   "en-US" → English (English (US))
- *   "zh-CN" → 简体中文 (Chinese Simp.)
+ *   "en-US" → English (US)
+ *   "zh-CN" → 简体中文 (Chinese Simplified)
  *
  * 回退链：zh-HK → zh-CN → en
  * Android 7.0+ 会将 zh-HK (Hant) 和 zh-CN (Hans) 视为不同脚本，
@@ -22,17 +23,23 @@ object LocaleHelper {
 
     data class LocaleEntry(
         /** BCP-47 语言标签，"" 表示跟随系统 */
-        val tag: String,
-        /** 下拉列表显示文本：语言自称 (English Name) */
-        val displayName: String
+        val tag: String
     )
 
-    /** 支持的语言列表，按显示顺序排列 */
+    /** 支持的语言标签列表，按显示顺序排列 */
     val ENTRIES = listOf(
-        LocaleEntry("",      "跟随系统 (Follow System)"),
-        LocaleEntry("en-US", "English (English (US))"),
-        LocaleEntry("zh-CN", "简体中文 (Chinese Simp.)"),
+        LocaleEntry(""),
+        LocaleEntry("en-US"),
+        LocaleEntry("zh-CN"),
     )
+
+    /** 根据 tag 获取本地化显示名称 */
+    fun getDisplayName(context: Context, tag: String): String = when (tag) {
+        ""      -> context.getString(R.string.locale_follow_system)
+        "en-US" -> context.getString(R.string.locale_en_us)
+        "zh-CN" -> context.getString(R.string.locale_zh_cn)
+        else    -> tag
+    }
 
     /** 上次已应用的 effective tag，避免在 onCreate 入口重复 setApplicationLocales 导致循环 recreate */
     private var lastAppliedTag: String? = null
@@ -79,9 +86,9 @@ object LocaleHelper {
     }
 
     /** 获取当前 Config 设置对应的显示文本 */
-    fun currentEntryDisplay(cfg: Config): String {
-        return ENTRIES.firstOrNull { it.tag == cfg.localeOverride }?.displayName
-            ?: ENTRIES[0].displayName
+    fun currentEntryDisplay(context: Context, cfg: Config): String {
+        val tag = cfg.localeOverride
+        return getDisplayName(context, tag)
     }
 
     // ── 内部 ──

@@ -75,6 +75,30 @@ public class ConfigIPCManager {
     }
 
     /**
+     * Push the current in-memory Config to the app process via ContentProvider,
+     * so it can be persisted to SharedPreferences.  Used when system_server
+     * mutates Config directly (e.g. FnLock toggle) and needs the app to save it.
+     */
+    public void pushUpdate(Config cfg) {
+        try {
+            if (mConfigResolver == null) return;
+            String json = Config.toJson(cfg);
+            Bundle extras = new Bundle();
+            extras.putString(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_CONFIG_JSON, json);
+            mConfigResolver.call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.METHOD_SET_CONFIG,
+                null, extras);
+            mLastConfigSync = json;
+            LogHelper.log(VerboseLevel.INFO, "Config pushed to app via IPC, len=",
+                String.valueOf(json.length()));
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.ERROR, "pushConfigUpdate failed:", e.getMessage());
+        }
+    }
+
+    /**
      * Check for config changes via ContentProvider.call().
      * Called from every hook entry point (L0/L1/L3/L4).
      *

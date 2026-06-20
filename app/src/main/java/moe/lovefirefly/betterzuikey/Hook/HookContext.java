@@ -71,6 +71,9 @@ public class HookContext {
             String pkg = foregroundTracker.getForegroundPackage();
             if (pkg != null) resolver.setForegroundPackage(pkg);
         }
+        // Notify static Config holders so they don't operate on stale references
+        moe.lovefirefly.betterzuikey.Region.RegionHook.updateConfig(cfg);
+        moe.lovefirefly.betterzuikey.Region.FeatureHook.updateConfig(cfg);
         LogHelper.log(VerboseLevel.INFO, "Config hot-reloaded, templates=",
             String.valueOf(cfg.templates != null ? cfg.templates.size() : 0));
     }

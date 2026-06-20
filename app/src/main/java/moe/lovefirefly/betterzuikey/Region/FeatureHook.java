@@ -58,6 +58,16 @@ public class FeatureHook {
         sInstalled = true;
     }
 
+    /**
+     * 热重载 Config 引用（由 HookContext.checkConfigChanged 调用）。
+     * 避免配置同步后仍使用过期引用。
+     */
+    public static void updateConfig(Config config) {
+        sConfig = config;
+        LogHelper.log(VerboseLevel.DEBUG, "FeatureHook: config hot-reloaded, ai=",
+                config.aiAgent.name(), ", file=", config.fileManager.name());
+    }
+
     // ----------------------------------------------------------------
     //  AI 代理 Hook
     // ----------------------------------------------------------------
@@ -73,18 +83,20 @@ public class FeatureHook {
      */
     private static void hookAiAgent(Class<?> kscClass) {
         // Hook launchAiNow — ROW AI 代理
-        tryHookAiMethod(kscClass, "launchAiNow", "com.zui.ai.now",
+        // redirect: 拦截 launchAiNow，改为调用 launchXiaoTianAgent（联想乐语音）
+        tryHookAiMethod(kscClass, "launchAiNow", "launchXiaoTianAgent",
                 sConfig.aiAgent == Config.AiAgent.LENOVO_LE_YU_YIN,
                 sConfig.aiAgent == Config.AiAgent.NONE);
 
         // Hook launchXiaoTianAgent — 中国 AI 代理
-        tryHookAiMethod(kscClass, "launchXiaoTianAgent", "com.zui.agent",
+        // redirect: 拦截 launchXiaoTianAgent，改为调用 launchAiNow（ZUI AI Now）
+        tryHookAiMethod(kscClass, "launchXiaoTianAgent", "launchAiNow",
                 sConfig.aiAgent == Config.AiAgent.ZUI_AI_NOW,
                 sConfig.aiAgent == Config.AiAgent.NONE);
     }
 
     private static void tryHookAiMethod(Class<?> kscClass, String methodName,
-                                         String targetPkg, boolean redirect, boolean block) {
+                                         String actualTargetMethod, boolean redirect, boolean block) {
         try {
             XposedHelpers.findAndHookMethod(kscClass, methodName, new XC_MethodHook() {
                 @Override
@@ -96,10 +108,16 @@ public class FeatureHook {
                         return;
                     }
                     if (redirect) {
-                        // 替换为另一个 AI 代理——在调用前拦截，改为启动目标代理
+                        // 重定向：拦截当前 AI 代理方法，改为调用另一个 AI 代理方法
                         LogHelper.log(VerboseLevel.INFO, "FeatureHook: ", methodName,
-                                "→ redirected to ", targetPkg);
-                        // 具体的重定向由 afterHookedMethod 处理
+                                "→ redirected to ", actualTargetMethod);
+                        param.setResult(null);
+                        try {
+                            XposedHelpers.callMethod(param.thisObject, actualTargetMethod);
+                        } catch (Throwable t) {
+                            LogHelper.log(VerboseLevel.ERROR, "FeatureHook: redirect ",
+                                    methodName, "→", actualTargetMethod, " failed: ", t.getMessage());
+                        }
                     }
                 }
             });

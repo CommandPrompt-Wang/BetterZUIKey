@@ -22,7 +22,6 @@ public class L1Interceptor extends XC_MethodHook {
         ctx.checkConfigChanged();
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
-        ctx.foregroundTracker.refresh();
 
         // Detect mode: intercept all keys
         if (ctx.isDetectMode()) {
@@ -36,9 +35,9 @@ public class L1Interceptor extends XC_MethodHook {
         int repeatCount = event.getRepeatCount();
         boolean firstDown = down && repeatCount == 0;
 
-        // Ctrl+Shift+T — Toggle touchpad
+        // Ctrl+Shift+T — pure Ctrl+Shift+T only (no Meta/Alt)
         if (keyCode == KeyEvent.KEYCODE_T && firstDown
-                && event.isCtrlPressed() && event.isShiftPressed()) {
+                && KeyInjector.modifiersMatch(event, false, true, true, false)) {
             if (!ctx.r("ctrlShiftT", ctx.cfg.switchCtrlShiftT).isEnabled())
                 return;
             Config.OverrideMode cstModeL1 = ctx.ra("ctrlShiftT", ctx.cfg.overrideCtrlShiftT);
@@ -62,7 +61,7 @@ public class L1Interceptor extends XC_MethodHook {
 
         // Win+S — Global search
         if (keyCode == KeyEvent.KEYCODE_S && firstDown
-                && event.isMetaPressed()) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false)) {
             if (!ctx.r("winS", ctx.cfg.switchWinS).isEnabled())
                 return;
             Config.OverrideMode ov = ctx.ra("winS", ctx.cfg.overrideWinS);
@@ -84,7 +83,7 @@ public class L1Interceptor extends XC_MethodHook {
         // fallback)
         // Note: Win+Tab has NO system switch, skip switchWinTab check
         if (keyCode == KeyEvent.KEYCODE_TAB && firstDown
-                && event.isMetaPressed()) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false)) {
             Config.OverrideMode ov = ctx.ra("winTab", ctx.cfg.overrideWinTab);
             if (ov == Config.OverrideMode.OFF) {
                 LogHelper.log(VerboseLevel.INFO, "L1: Win+Tab → OFF (strip Meta, pass through)");
@@ -105,7 +104,7 @@ public class L1Interceptor extends XC_MethodHook {
 
         // Win+A — Hide/show taskbar (L4 type=302)
         if (keyCode == KeyEvent.KEYCODE_A && firstDown
-                && event.isMetaPressed()) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false)) {
             if (!ctx.r("winA", ctx.cfg.switchWinA).isEnabled())
                 return;
             Config.OverrideMode ov = ctx.ra("winA", ctx.cfg.overrideWinA);
@@ -125,7 +124,7 @@ public class L1Interceptor extends XC_MethodHook {
 
         // Win+D — Back to desktop (L3 AOSP PhoneWindowManager type=1 → goHome())
         if (keyCode == KeyEvent.KEYCODE_D && firstDown
-                && event.isMetaPressed()) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false)) {
             LogHelper.log(VerboseLevel.INFO, "L1: Win+D detected",
                     " switch=", ctx.r("winD", ctx.cfg.switchWinD).name(),
                     " override=", ctx.ra("winD", ctx.cfg.overrideWinD).name());
@@ -146,7 +145,7 @@ public class L1Interceptor extends XC_MethodHook {
 
         // Win+I — Open Settings
         if (keyCode == KeyEvent.KEYCODE_I && firstDown
-                && event.isMetaPressed()) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false)) {
             if (!ctx.r("winI", ctx.cfg.switchWinI).isEnabled())
                 return;
             Config.OverrideMode ov = ctx.ra("winI", ctx.cfg.overrideWinI);
@@ -167,7 +166,7 @@ public class L1Interceptor extends XC_MethodHook {
 
         // Win+E — Open file manager (L4 type=307)
         if (keyCode == KeyEvent.KEYCODE_E && firstDown
-                && event.isMetaPressed()) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false)) {
             if (!ctx.r("winE", ctx.cfg.switchWinE).isEnabled())
                 return;
             Config.OverrideMode ov = ctx.ra("winE", ctx.cfg.overrideWinE);
@@ -187,7 +186,7 @@ public class L1Interceptor extends XC_MethodHook {
 
         // Win+N — Notification panel
         if (keyCode == KeyEvent.KEYCODE_N && firstDown
-                && event.isMetaPressed()) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false)) {
             if (!ctx.r("winN", ctx.cfg.switchWinN).isEnabled())
                 return;
             Config.OverrideMode ov = ctx.ra("winN", ctx.cfg.overrideWinN);
@@ -202,7 +201,7 @@ public class L1Interceptor extends XC_MethodHook {
 
         // Win+M — Minimize freeform window (L3 AOSP type=201)
         if (keyCode == KeyEvent.KEYCODE_M && firstDown
-                && event.isMetaPressed()) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false)) {
             if (!ctx.r("winM", ctx.cfg.switchWinM).isEnabled())
                 return;
             Config.OverrideMode ov = ctx.ra("winM", ctx.cfg.overrideWinM);
@@ -223,7 +222,7 @@ public class L1Interceptor extends XC_MethodHook {
 
         // Win+↑ — Maximize window (L3 AOSP type=53)
         if (keyCode == KeyEvent.KEYCODE_DPAD_UP && firstDown
-                && event.isMetaPressed()) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false)) {
             if (!ctx.r("winUp", ctx.cfg.switchWinUp).isEnabled())
                 return;
             Config.OverrideMode ov = ctx.ra("winUp", ctx.cfg.overrideWinUp);
@@ -243,7 +242,7 @@ public class L1Interceptor extends XC_MethodHook {
 
         // Win+↓ — Restore/minimize window (L3 AOSP type=52)
         if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && firstDown
-                && event.isMetaPressed()) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false)) {
             if (!ctx.r("winDown", ctx.cfg.switchWinUp).isEnabled())
                 return;
             Config.OverrideMode ov = ctx.ra("winDown", ctx.cfg.overrideWinUp);
@@ -263,7 +262,7 @@ public class L1Interceptor extends XC_MethodHook {
 
         // Win+W — Force close foreground app (L4 type=305)
         if (keyCode == KeyEvent.KEYCODE_W && firstDown
-                && event.isMetaPressed()) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false)) {
             if (!ctx.r("winW", ctx.cfg.switchWinW).isEnabled())
                 return;
             Config.OverrideMode ov = ctx.ra("winW", ctx.cfg.overrideWinW);
@@ -282,7 +281,9 @@ public class L1Interceptor extends XC_MethodHook {
         }
 
         // Win+1~8 — Dock bar (L4 type=309)
-        if (firstDown && event.isMetaPressed()
+        // Use exact modifier match: Meta only (no Alt/Shift/Ctrl), otherwise
+        // Win+Alt+3~6 (AOSP accessibility) would be misrouted here.
+        if (firstDown && KeyInjector.modifiersMatch(event, true, false, false, false)
                 && keyCode >= KeyEvent.KEYCODE_1 && keyCode <= KeyEvent.KEYCODE_8) {
             if (!ctx.r("winNumber", ctx.cfg.switchWinNumber).isEnabled())
                 return;
@@ -303,8 +304,8 @@ public class L1Interceptor extends XC_MethodHook {
                 return;
         }
 
-        // Ctrl+Shift — Switch IME
-        if (firstDown && event.isCtrlPressed() && event.isShiftPressed()
+        // Ctrl+Shift — pure Ctrl+Shift only (no Meta/Alt)
+        if (firstDown && KeyInjector.modifiersMatch(event, false, true, true, false)
                 && keyCode != KeyEvent.KEYCODE_T) {
             if (!ctx.r("ctrlShift", ctx.cfg.switchCtrlShift).isEnabled())
                 return;
@@ -314,8 +315,8 @@ public class L1Interceptor extends XC_MethodHook {
                 return;
         }
 
-        // Alt+Shift — Switch language
-        if (firstDown && event.isAltPressed() && event.isShiftPressed()) {
+        // Alt+Shift — pure Alt+Shift only (no Meta/Ctrl)
+        if (firstDown && KeyInjector.modifiersMatch(event, false, true, false, true)) {
             if (!ctx.r("altShift", ctx.cfg.switchAltShift).isEnabled())
                 return;
             if (!ctx.cfg.rowLanguageSwitch)
@@ -333,10 +334,9 @@ public class L1Interceptor extends XC_MethodHook {
                 return;
         }
 
-        // Ctrl+/ — Shortcut menu (OFF: strip Ctrl, pass through)
-        // No Config switch — always enabled.
+        // Ctrl+/ — pure Ctrl+/ only (no Meta/Alt/Shift)
         if (keyCode == KeyEvent.KEYCODE_SLASH && firstDown
-                && event.isCtrlPressed()) {
+                && KeyInjector.modifiersMatch(event, false, false, true, false)) {
             Config.OverrideMode ov = ctx.ra("ctrlSlash", ctx.cfg.overrideCtrlSlash);
             if (ov == Config.OverrideMode.OFF) {
                 LogHelper.log(VerboseLevel.DEBUG, "L1: Ctrl+/ → OFF (strip Ctrl, pass through)");
@@ -398,6 +398,7 @@ public class L1Interceptor extends XC_MethodHook {
             if (action == Config.MetaAction.NONE) {
                 LogHelper.log(VerboseLevel.DEBUG, "L1: Meta DOWN → NONE (block)");
                 param.setResult(true);
+                ctx.fnKeyManager.setConsumeMetaUpForNone();
                 return;
             }
             if (action == Config.MetaAction.START_MENU) {

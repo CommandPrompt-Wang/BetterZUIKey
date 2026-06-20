@@ -175,13 +175,22 @@ class MainActivity : AppCompatActivity() {
         }
 
         private fun refreshStatus(view: android.view.View) {
-            val cfg = Config.load()
             val r = ZuiDetector.result
             view.findViewById<android.widget.TextView>(R.id.tv_status)?.text =
                 getString(R.string.home_version_template)
-            view.findViewById<android.widget.TextView>(R.id.tv_module_status)?.text =
-                if (r.isZux) getString(R.string.home_module_status_active, r.detail)
-                else getString(R.string.home_module_status_inactive_detail, r.detail)
+
+            val statusText = when {
+                // Module self-hook proves Xposed/LSPosed is loaded and active
+                ModuleStatus.isLoaded() ->
+                    getString(R.string.home_module_status_active, r.detail)
+                // Device is ZUXOS but module is not loaded (LSPosed not activated)
+                r.isZux ->
+                    getString(R.string.home_module_status_not_loaded)
+                // Non-ZUXOS device
+                else ->
+                    getString(R.string.home_module_status_inactive_detail, r.detail)
+            }
+            view.findViewById<android.widget.TextView>(R.id.tv_module_status)?.text = statusText
 
             view.findViewById<android.view.View>(R.id.card_help)?.setOnClickListener {
                 startActivity(android.content.Intent(requireContext(), HelpActivity::class.java))
@@ -207,12 +216,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** 在后台线程通过 su 授予 WRITE_SECURE_SETTINGS，避免阻塞 UI */
     private fun grantSecureSettings() {
-        try {
-            Runtime.getRuntime().exec(arrayOf(
-                "su", "-c",
-                "pm grant moe.lovefirefly.betterzuikey android.permission.WRITE_SECURE_SETTINGS"
-            ))
-        } catch (_: Exception) { }
+        Thread {
+            try {
+                val proc = Runtime.getRuntime().exec(arrayOf(
+                    "su", "-c",
+                    "pm grant moe.lovefirefly.betterzuikey android.permission.WRITE_SECURE_SETTINGS"
+                ))
+                // Consume stdout/stderr to prevent pipe buffer deadlock
+                proc.inputStream.bufferedReader().use { it.readText() }
+                proc.errorStream.bufferedReader().use { it.readText() }
+                val exitCode = proc.waitFor()
+                if (exitCode != 0) {
+                    android.util.Log.w("BetterZUIKey",
+                        "su pm grant failed, exit=$exitCode")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("BetterZUIKey", "su pm grant error", e)
+            }
+        }.start()
     }
 }

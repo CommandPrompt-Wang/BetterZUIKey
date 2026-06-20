@@ -22,6 +22,7 @@
     <string name="home_module_status_inactive">Inactive (requires Xposed)</string>
     <string name="home_module_status_active">✅ Active — %1$s</string>
     <string name="home_module_status_inactive_detail">❌ Inactive — %1$s</string>
+    <string name="home_module_status_not_loaded">⚠ Not Loaded — Xposed/LSPosed is present but module is not activated. Check the LSPosed manager.</string>
     <string name="home_help_title">Help</string>
     <string name="home_help_click_hint">Tap to view</string>
     <string name="home_help_warning">Please read before making changes</string>
@@ -51,7 +52,7 @@
     <string name="dialog_su_grant_uncertain_title">Grant May Not Be Effective</string>
     <string name="dialog_su_grant_uncertain_msg">su executed successfully but permission verification still failed.\n\nOutput: %1$s</string>
     <string name="dialog_su_grant_failed_title">su Grant Failed</string>
-    <string name="dialog_su_grant_failed_msg">Unable to obtain Root permission.\nPlease ensure Magisk/KSU is installed and authorized.\n\nCommand: su -c \"%1$s\"\n%2$s</string>
+    <string name="dialog_su_grant_failed_msg">Unable to obtain Root permission.\nPlease ensure Magisk/KSU is installed and authorized.\n\nCommand: su -c \"%1$s\"\nOutput: %2$s</string>
     <string name="dialog_confirm_ok">OK</string>
     <string name="dialog_confirm_cancel">Cancel</string>
 
@@ -248,13 +249,6 @@
     <string name="mode_off">Off</string>
     <string name="mode_block">Block</string>
 
-    <!-- OverrideMode descriptions -->
-    <string name="mode_follow_system_desc">Follow system switch (on = ZUI, off = pass-through)</string>
-    <string name="mode_zui_desc">Force ZUI shortcut behavior</string>
-    <string name="mode_aosp_desc">Disable ZUI, use Android native handling</string>
-    <string name="mode_off_desc">Disable ZUI and AOSP, pass event to app</string>
-    <string name="mode_block_desc">Consume the event; neither system nor app receives it</string>
-
     <!-- Shortcut display names and descriptions -->
     <string name="shortcut_winD">Win + D</string>
     <string name="shortcut_winD_desc">Go to desktop</string>
@@ -361,4 +355,19 @@
     <!-- ================================================================ -->
     <string name="zui_detect_active">ZUXOS %1$s</string>
     <string name="zui_detect_inactive">Non-ZUXOS (ro.com.zui.version is empty)</string>
+
+    <!-- ================================================================ -->
+    <!-- Locale / Language -->
+    <!-- ================================================================ -->
+    <string name="locale_follow_system">Follow System</string>
+    <string name="locale_en_us">English (US)</string>
+    <string name="locale_zh_cn">Chinese Simplified</string>
+
+    <!-- ================================================================ -->
+    <!-- Generic -->
+    <!-- ================================================================ -->
+    <string name="error_unknown">Unknown error</string>
+    <string name="label_output">Output: %1$s</string>
+    <string name="help_no_document">No help document available for current language.</string>
+    <string name="clipboard_config_label">Keyboard Config</string>
 </resources>

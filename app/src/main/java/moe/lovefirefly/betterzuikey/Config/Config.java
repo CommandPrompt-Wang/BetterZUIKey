@@ -875,25 +875,29 @@ public class Config {
             }
         }
 
-        // 方式二：回退su -c settings put（以 system UID 执行
+        // 方式二：回退su -c settings put（以 system UID 执行）
         try {
             String cmd = "settings put system " + sysKey + " " + val;
-            Process su = Runtime.getRuntime().exec(new String[]{"su", "-c", cmd});
+            // Use ProcessBuilder with merged stderr to avoid pipe buffer deadlock
+            ProcessBuilder pb = new ProcessBuilder("su", "-c", cmd);
+            pb.redirectErrorStream(true);
+            Process su = pb.start();
 
-            java.io.BufferedReader errReader = new java.io.BufferedReader(
-                new java.io.InputStreamReader(su.getErrorStream()));
-            StringBuilder errSb = new StringBuilder();
+            // Consume merged stdout+stderr to prevent pipe buffer deadlock
+            java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.InputStreamReader(su.getInputStream()));
+            StringBuilder outputSb = new StringBuilder();
             String line;
-            while ((line = errReader.readLine()) != null) errSb.append(line).append("\n");
-            errReader.close();
+            while ((line = reader.readLine()) != null) outputSb.append(line).append("\n");
+            reader.close();
 
             su.waitFor();
             if (su.exitValue() == 0) {
                 return null;
             }
-            String suErr = errSb.toString().trim();
+            String suOutput = outputSb.toString().trim();
             return "su exit=" + su.exitValue() +
-                (suErr.isEmpty() ? "" : ": " + suErr) +
+                (suOutput.isEmpty() ? "" : ": " + suOutput) +
                 (error != null ? " | ContentResolver: " + error : "");
         } catch (Throwable t) {
             return "su error: " + t.getMessage() +

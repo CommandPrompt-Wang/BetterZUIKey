@@ -15,7 +15,7 @@ import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 public class ForegroundTracker {
 
     /** Current foreground package name (updated asynchronously by event-driven hook) */
-    private String mForegroundPkg = null;
+    private volatile String mForegroundPkg = null;
 
     private ConfigResolver mResolver;
 
@@ -132,11 +132,4 @@ public class ForegroundTracker {
         if (mForegroundPkg != null) resolver.setForegroundPackage(mForegroundPkg);
     }
 
-    /**
-     * No-op in event-driven mode, retained for call-site compatibility.
-     * mForegroundPkg is updated asynchronously by the focus-change hook.
-     */
-    public void refresh() {
-        // event-driven — no polling needed
-    }
 }

@@ -24,6 +24,7 @@ public class MainHook implements IXposedHookLoadPackage {
             "com.zui.server.input.keyboard.key.policy.KeyboardShortcutController";
     private static final String CLASS_KEY_GESTURE_EVENT =
             "android.hardware.input.KeyGestureEvent";
+    private static final String OWN_PACKAGE = "moe.lovefirefly.betterzuikey";
 
     public static volatile boolean globalEnabled = false;
 
@@ -31,13 +32,28 @@ public class MainHook implements IXposedHookLoadPackage {
     private HookContext ctx;
     private Config cfg;
     private static volatile boolean sInitDone = false;
+    private static volatile boolean sSelfHookDone = false;
 
     @Override
     public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lpparam) {
         try {
             if (lpparam.processName == null) return;
 
-            LogHelper.log(VerboseLevel.DEBUG, "handleLoadPackage called, process=", lpparam.processName);
+            // ―― Self-check hook: when our own app process loads, hook ModuleStatus
+            // to prove the module is loaded.  Runs BEFORE the process-name filter
+            // (our app is not system_server).
+            if (!sSelfHookDone && OWN_PACKAGE.equals(lpparam.packageName)) {
+                sSelfHookDone = true;
+                try {
+                    XposedHelpers.findAndHookMethod(
+                        OWN_PACKAGE + ".ModuleStatus",
+                        lpparam.classLoader, "isLoaded",
+                        de.robv.android.xposed.XC_MethodReplacement.returnConstant(true));
+                    LogHelper.log(VerboseLevel.INFO, "Self-check hook installed: ModuleStatus.isLoaded() → true");
+                } catch (Throwable t) {
+                    LogHelper.log(VerboseLevel.ERROR, "Self-check hook failed:", t.getMessage());
+                }
+            }
 
             if (!lpparam.processName.equals("system_server")
                     && !lpparam.processName.equals("android")
@@ -74,9 +90,8 @@ public class MainHook implements IXposedHookLoadPackage {
                 cfg.save();
             }
 
-            ConfigResolver resolver = new ConfigResolver(cfg);
-            FnKeyManager fnKeyManager = new FnKeyManager(cfg);
-            ForegroundTracker foregroundTracker = new ForegroundTracker(resolver);
+            // Init IPC early so we can get the real config before constructing
+            // anything that captures a cfg reference (FnKeyManager, HookContext).
             ConfigIPCManager configIPC = new ConfigIPCManager();
 
             // Pull the real config via ContentProvider Binder IPC.
@@ -93,13 +108,16 @@ public class MainHook implements IXposedHookLoadPackage {
                 ipcConfig.readSystemSwitchesPublic();
                 cfg = ipcConfig;
                 LogHelper.currentLevel = cfg.verboseLevel;
-                // Re-create resolver with the real config so templates are available
-                resolver = new ConfigResolver(cfg);
-                foregroundTracker.setResolver(resolver);
                 LogHelper.log(VerboseLevel.INFO,
                     "Config replaced with ContentProvider version, templates=",
                     String.valueOf(cfg.templates != null ? cfg.templates.size() : 0));
             }
+
+            // Construct all collaborators with the real (IPC) config.
+            // Order matters: fnKeyManager and resolver must see the final cfg.
+            ConfigResolver resolver = new ConfigResolver(cfg);
+            FnKeyManager fnKeyManager = new FnKeyManager(cfg, configIPC);
+            ForegroundTracker foregroundTracker = new ForegroundTracker(resolver);
 
             ctx = new HookContext(cfg, resolver, fnKeyManager, foregroundTracker, configIPC);
 
@@ -125,10 +143,12 @@ public class MainHook implements IXposedHookLoadPackage {
 
             cfg.injected = true;
             cfg.injectError = "";
+            writeInjectedStatus(true);
             LogHelper.log(VerboseLevel.INFO, "All hooks installed successfully!");
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR, "Hook installation failed:", t.getMessage());
             setError("Injection error: " + t.toString() + "\n\n" + KeyInjector.stackTraceToString(t));
+            writeInjectedStatus(false);
         }
     }
 
@@ -138,6 +158,22 @@ public class MainHook implements IXposedHookLoadPackage {
             cfg.injected = false;
             cfg.injectError = msg;
         } catch (Exception ignored) { }
+    }
+
+    /** Write injection status to Settings.System so the app can read it cross-process. */
+    private void writeInjectedStatus(boolean injected) {
+        try {
+            Object at = Class.forName("android.app.ActivityThread")
+                    .getMethod("currentActivityThread").invoke(null);
+            android.content.Context sysCtx = (android.content.Context)
+                    at.getClass().getMethod("getSystemContext").invoke(at);
+            android.provider.Settings.System.putInt(
+                    sysCtx.getContentResolver(), "bzuikey_injected", injected ? 1 : 0);
+            LogHelper.log(VerboseLevel.INFO, "Injection status written to Settings.System: ",
+                    injected ? "1" : "0");
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR, "Failed to write injection status:", t.getMessage());
+        }
     }
 
     private void hookConstructor() {

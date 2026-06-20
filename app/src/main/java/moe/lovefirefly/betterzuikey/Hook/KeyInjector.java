@@ -67,6 +67,20 @@ public final class KeyInjector {
         }
     }
 
+    /**
+     * Exact modifier-key match: returns true only when the event's Meta / Shift /
+     * Ctrl / Alt state matches every parameter. Use this instead of bare
+     * {@code event.isMetaPressed()} to avoid accidentally catching combos that
+     * include extra modifiers (e.g. Win+Alt+4 being misrouted as Win+4).
+     */
+    public static boolean modifiersMatch(KeyEvent event, boolean meta, boolean shift,
+                                        boolean ctrl, boolean alt) {
+        return event.isMetaPressed() == meta
+            && event.isShiftPressed() == shift
+            && event.isCtrlPressed() == ctrl
+            && event.isAltPressed() == alt;
+    }
+
     // ----------------------------------------------------------------
     //  Key injection (InputManager.injectInputEvent)
     // ----------------------------------------------------------------

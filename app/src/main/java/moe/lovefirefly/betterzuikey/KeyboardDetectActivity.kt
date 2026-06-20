@@ -62,7 +62,9 @@ class KeyboardDetectActivity : AppCompatActivity() {
         try {
             val cls = Class.forName("android.os.SystemProperties")
             spGetMethod = cls.getMethod("get", String::class.java, String::class.java)
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            android.util.Log.e("BetterZUIKey", "SystemProperties reflection failed", e)
+        }
 
         // 构建 F1-F12 表格行
         buildFKeyRows()
@@ -94,7 +96,7 @@ class KeyboardDetectActivity : AppCompatActivity() {
 
             // F1-F12 标签
             val label = TextView(this).apply {
-                text = "F${i + 1}"
+                text = getString(R.string.detect_fkey_label, i + 1)
                 textSize = 14f
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -190,8 +192,16 @@ class KeyboardDetectActivity : AppCompatActivity() {
                     }
                 }
             }
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            // Rate-limit: only log once per 10s to avoid log spam from 300ms poll
+            if (lastPollErrorTime == 0L || System.currentTimeMillis() - lastPollErrorTime > 10000) {
+                lastPollErrorTime = System.currentTimeMillis()
+                android.util.Log.e("BetterZUIKey", "detect poll error", e)
+            }
+        }
     }
+
+    private var lastPollErrorTime: Long = 0L
 
     private fun updateKeycodeDisplay(keyCode: Int, scanCode: Int) {
         val keyCodeStr = try {
@@ -238,7 +248,7 @@ class KeyboardDetectActivity : AppCompatActivity() {
         sb.append("  }\n")
         sb.append("}")
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        cm.setPrimaryClip(ClipData.newPlainText("配置", sb.toString()))
+        cm.setPrimaryClip(ClipData.newPlainText(getString(R.string.clipboard_config_label), sb.toString()))
         Toast.makeText(this, getString(R.string.detect_toast_config_copied), Toast.LENGTH_SHORT).show()
     }
 
@@ -263,7 +273,7 @@ class KeyboardDetectActivity : AppCompatActivity() {
             binding.tvVidpid.text = vidPid
             binding.tvDeviceName.text = device.name
             binding.layoutResult.visibility = View.VISIBLE
-            binding.tvHint.text = "选中目标 F 键 → 按键 → 获取并填入"
+            binding.tvHint.text = getString(R.string.detect_hint_fill)
         }
 
         return true

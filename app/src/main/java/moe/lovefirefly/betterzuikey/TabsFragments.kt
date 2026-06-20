@@ -121,7 +121,9 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
                 startActivity(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
                     data = Uri.parse("package:${requireContext().packageName}")
                 })
-            } catch (_: Exception) { }
+            } catch (e: Exception) {
+                android.util.Log.e("BetterZUIKey", "Failed to open WRITE_SETTINGS activity", e)
+            }
         }
 
         // 方法二：su -c 自授权（appops）
@@ -134,14 +136,17 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
     private fun trySuGrant(view: View) {
         val pkg = requireContext().packageName
         val cmd = "appops set $pkg WRITE_SETTINGS allow"
+        val unknownError = getString(R.string.error_unknown)
 
         val thread = Thread {
             var success = false
             var output = ""
             try {
-                val su = Runtime.getRuntime().exec(arrayOf("su", "-c", cmd))
-                // 读取 stdout
-                val reader = java.io.BufferedReader(java.io.InputStreamReader(su.inputStream))
+                // Use merged stdout+stderr to avoid pipe buffer deadlock
+                val pb = ProcessBuilder("su", "-c", cmd)
+                pb.redirectErrorStream(true)
+                val su = pb.start()
+                val reader = su.inputStream.bufferedReader()
                 val sb = StringBuilder()
                 var line: String?
                 while (reader.readLine().also { line = it } != null) sb.append(line).append("\n")
@@ -149,21 +154,16 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
                 output = sb.toString().trim()
                 su.waitFor()
                 success = (su.exitValue() == 0)
-                // 读取 stderr
-                val errReader = java.io.BufferedReader(java.io.InputStreamReader(su.errorStream))
-                val errSb = StringBuilder()
-                while (errReader.readLine().also { line = it } != null) errSb.append(line).append("\n")
-                errReader.close()
-                val errOutput = errSb.toString().trim()
-                if (errOutput.isNotEmpty()) output = if (output.isEmpty()) errOutput else "$output\n$errOutput"
             } catch (e: Exception) {
-                output = e.message ?: "未知错误"
+                output = e.message ?: unknownError
             }
 
             val finalSuccess = success
             val finalOutput = output
 
-            requireActivity().runOnUiThread {
+            val activity = activity ?: return@Thread
+            activity.runOnUiThread {
+                if (!isAdded) return@runOnUiThread
                 if (finalSuccess) {
                     // 重新验证权限
                     canWriteSystemSettings = null
@@ -186,7 +186,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
                     AlertDialog.Builder(requireContext())
                         .setTitle(getString(R.string.dialog_su_grant_failed_title))
                         .setMessage(getString(R.string.dialog_su_grant_failed_msg, cmd,
-                            if (finalOutput.isNotEmpty()) "输出: $finalOutput" else ""))
+                            if (finalOutput.isNotEmpty()) finalOutput else ""))
                         .setPositiveButton(getString(R.string.dialog_confirm_ok), null)
                         .show()
                 }
@@ -275,9 +275,20 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
                             try {
                                 Settings.Secure.putInt(requireContext().contentResolver, secureKey, if (isChecked) 1 else 0)
                             } catch (_: SecurityException) {
-                                try {
-                                    Runtime.getRuntime().exec(arrayOf("su", "-c", "settings put secure $secureKey ${if (isChecked) 1 else 0}"))
-                                } catch (_: Exception) { }
+                                Thread {
+                                    try {
+                                        val proc = Runtime.getRuntime().exec(arrayOf(
+                                            "su", "-c",
+                                            "settings put secure $secureKey ${if (isChecked) 1 else 0}"
+                                        ))
+                                        proc.inputStream.bufferedReader().use { it.readText() }
+                                        proc.errorStream.bufferedReader().use { it.readText() }
+                                        proc.waitFor()
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("BetterZUIKey",
+                                            "su settings put secure failed: $secureKey", e)
+                                    }
+                                }.start()
                             }
                         }
                     } else {
@@ -539,10 +550,10 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                 ),
                 SettingItem.Combo(ctx.getString(R.string.settings_language), ctx.getString(R.string.settings_language_desc),
                     getOptions = {
-                        LocaleHelper.ENTRIES.map { it.displayName }
+                        LocaleHelper.ENTRIES.map { LocaleHelper.getDisplayName(ctx, it.tag) }
                     },
                     getCurrentText = {
-                        LocaleHelper.currentEntryDisplay(cfg)
+                        LocaleHelper.currentEntryDisplay(ctx, cfg)
                     },
                     onSelected = { idx ->
                         val tag = LocaleHelper.ENTRIES[idx].tag

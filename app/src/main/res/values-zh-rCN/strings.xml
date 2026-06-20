@@ -22,6 +22,7 @@
     <string name="home_module_status_inactive">未激活 (需 Xposed)</string>
     <string name="home_module_status_active">✅ 已激活 — %1$s</string>
     <string name="home_module_status_inactive_detail">❌ 未激活 — %1$s</string>
+    <string name="home_module_status_not_loaded">⚠ 未加载 — Xposed/LSPosed 存在但模块未激活。请在 LSPosed 管理器中勾选本模块。</string>
     <string name="home_help_title">帮助</string>
     <string name="home_help_click_hint">点击查看</string>
     <string name="home_help_warning">请务必阅读完后再进行修改</string>
@@ -51,7 +52,7 @@
     <string name="dialog_su_grant_uncertain_title">授权可能未生效</string>
     <string name="dialog_su_grant_uncertain_msg">su 执行成功但权限验证仍失败。\n\n输出: %1$s</string>
     <string name="dialog_su_grant_failed_title">su 授权失败</string>
-    <string name="dialog_su_grant_failed_msg">无法获取 Root 权限。\n请确保已安装 Magisk/KSU 并授权。\n\n命令: su -c \"%1$s\"\n%2$s</string>
+    <string name="dialog_su_grant_failed_msg">无法获取 Root 权限。\n请确保已安装 Magisk/KSU 并授权。\n\n命令: su -c \"%1$s\"\n输出: %2$s</string>
     <string name="dialog_confirm_ok">确定</string>
     <string name="dialog_confirm_cancel">取消</string>
 
@@ -246,13 +247,6 @@
     <string name="mode_off">关闭</string>
     <string name="mode_block">忽略</string>
 
-    <!-- OverrideMode 描述 -->
-    <string name="mode_follow_system_desc">跟随系统开关（开启则用 ZUI，关闭则透传）</string>
-    <string name="mode_zui_desc">强制启用 ZUI 快捷键行为</string>
-    <string name="mode_aosp_desc">禁用 ZUI，启用 Android 原生处理</string>
-    <string name="mode_off_desc">禁用 ZUI 和 AOSP，事件透传给应用</string>
-    <string name="mode_block_desc">消费事件，系统和应用都收不到</string>
-
     <!-- 各快捷方式显示名和描述 -->
     <string name="shortcut_winD">Win + D</string>
     <string name="shortcut_winD_desc">回到桌面</string>
@@ -365,4 +359,19 @@
     <!-- ================================================================ -->
     <string name="zui_detect_active">ZUXOS %1$s</string>
     <string name="zui_detect_inactive">非 ZUXOS (ro.com.zui.version 为空)</string>
+
+    <!-- ================================================================ -->
+    <!-- 语言 -->
+    <!-- ================================================================ -->
+    <string name="locale_follow_system">跟随系统</string>
+    <string name="locale_en_us">English (US)</string>
+    <string name="locale_zh_cn">简体中文</string>
+
+    <!-- ================================================================ -->
+    <!-- 通用 -->
+    <!-- ================================================================ -->
+    <string name="error_unknown">未知错误</string>
+    <string name="label_output">输出: %1$s</string>
+    <string name="help_no_document">当前语言没有帮助文档。</string>
+    <string name="clipboard_config_label">键盘配置</string>
 </resources>

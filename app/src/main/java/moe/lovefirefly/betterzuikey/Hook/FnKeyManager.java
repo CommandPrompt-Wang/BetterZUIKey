@@ -4,10 +4,10 @@ import android.view.KeyEvent;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
@@ -32,37 +32,41 @@ import static moe.lovefirefly.betterzuikey.Hook.KeyInjector.*;
 public class FnKeyManager {
 
     private final Config cfg;
+    private final ConfigIPCManager configIPC;
 
     // ---- Fn mapping state ----
 
     /** keyCodes whose DOWN was intercepted by Fn mapping, used to intercept matching UP */
-    private final Set<Integer> mFnDownKeys = new HashSet<>();
+    private final Set<Integer> mFnDownKeys = ConcurrentHashMap.newKeySet();
 
     /** physicalKeyCode → fKeyCode for Fn-mapped keys, used to inject UP */
-    private final Map<Integer, Integer> mFnDownKeyMap = new HashMap<>();
+    private final Map<Integer, Integer> mFnDownKeyMap = new ConcurrentHashMap<>();
 
     /** physicalKeyCode → metaState for Fn-mapped DOWN, used to inject UP with same modifiers */
-    private final Map<Integer, Integer> mFnDownMetaMap = new HashMap<>();
+    private final Map<Integer, Integer> mFnDownMetaMap = new ConcurrentHashMap<>();
 
     /** keyCodes whose clean DOWN was injected for restore; physical UP triggers clean UP */
-    private final Set<Integer> mRestoreDownPending = new HashSet<>();
+    private final Set<Integer> mRestoreDownPending = ConcurrentHashMap.newKeySet();
 
     /** physicalKeyCode → metaState for restore-injected keys, used to inject UP with same modifiers */
-    private final Map<Integer, Integer> mRestoreDownMeta = new HashMap<>();
+    private final Map<Integer, Integer> mRestoreDownMeta = new ConcurrentHashMap<>();
 
     /** keyCode → F-keyCode mapping cache (use keyCode because ZUI overwrites scanCode) */
-    private Map<Integer, Integer> mFnKeyCodeMap = null;
+    private volatile Map<Integer, Integer> mFnKeyCodeMap = null;
 
     /** Profile key used to build the current mFnKeyCodeMap (for cache invalidation) */
-    private String mFnMapProfileKey = null;
+    private volatile String mFnMapProfileKey = null;
 
     /** Cached set of keyboard device IDs that match known Fn profiles */
-    private final Set<Integer> mFnKeyboardDeviceIds = new HashSet<>();
+    private final Set<Integer> mFnKeyboardDeviceIds = ConcurrentHashMap.newKeySet();
 
     // ---- Combo cleanup state (set by MainHook during shortcut DOWN, consumed here on UP) ----
 
     /** Consume next Meta UP after Win+&#96; to prevent Start menu */
     private boolean mConsumeNextMetaUp = false;
+
+    /** Consume next Meta UP after MetaAction.NONE consumed the DOWN (prevents unbalanced UP) */
+    private boolean mConsumeMetaUpForNone = false;
 
     /** Win+Tab OFF mode: when true, next Tab UP with Meta must be consumed */
     private boolean mWinTabOffActive = false;
@@ -80,8 +84,9 @@ public class FnKeyManager {
     //  Construction
     // ----------------------------------------------------------------
 
-    public FnKeyManager(Config cfg) {
+    public FnKeyManager(Config cfg, ConfigIPCManager configIPC) {
         this.cfg = cfg;
+        this.configIPC = configIPC;
     }
 
     // ----------------------------------------------------------------
@@ -92,6 +97,7 @@ public class FnKeyManager {
     public void setWinTabBlockActive(boolean v) { mWinTabBlockActive = v; }
     public void setWinPOffActive(boolean v)     { mWinPOffActive = v; }
     public void setPendingBlockedWinComboUp(int keyCode) { mPendingBlockedWinComboUp = keyCode; }
+    public void setConsumeMetaUpForNone()       { mConsumeMetaUpForNone = true; }
 
     // ----------------------------------------------------------------
     //  L0 pre-shortcut UP cleanup (Win+Tab, Win+P, generic Win+combo UP)
@@ -164,15 +170,15 @@ public class FnKeyManager {
     public boolean processFnSection(int keyCode, boolean down, int repeatCount,
                                      KeyEvent event, XC_MethodHook.MethodHookParam param,
                                      Object mKscInstance) {
-        // -- Win+` → FnLock toggle --
+        // -- Win+` → FnLock toggle (pure Win+` only, no Alt/Shift/Ctrl) --
         if (keyCode == KeyEvent.KEYCODE_GRAVE
-                && event.isMetaPressed() && repeatCount == 0) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false) && repeatCount == 0) {
             if (!cfg.fnLockEnabled) return false;
             param.setResult(true);
             if (down) {
                 mConsumeNextMetaUp = true;
                 cfg.fnKeyEnabled = !cfg.fnKeyEnabled;
-                cfg.save();
+                configIPC.pushUpdate(cfg);
                 LogHelper.log(VerboseLevel.INFO, "L0: FnLock toggled -> ",
                         cfg.fnKeyEnabled ? "ON" : "OFF");
                 showToast("Fn " + (cfg.fnKeyEnabled ? "ON" : "OFF"));
@@ -188,6 +194,17 @@ public class FnKeyManager {
             param.setResult(true);
             mConsumeNextMetaUp = false;
             LogHelper.log(VerboseLevel.INFO, "L0: Meta UP consumed after Win+`");
+            return true;
+        }
+
+        // -- Consume Meta UP after MetaAction.NONE to balance DOWN consumption --
+        if (mConsumeMetaUpForNone
+                && (keyCode == KeyEvent.KEYCODE_META_LEFT
+                    || keyCode == KeyEvent.KEYCODE_META_RIGHT)
+                && !down) {
+            param.setResult(true);
+            mConsumeMetaUpForNone = false;
+            LogHelper.log(VerboseLevel.INFO, "L0: Meta UP consumed for NONE action balance");
             return true;
         }
 
@@ -218,7 +235,8 @@ public class FnKeyManager {
                 " scanCode=", String.valueOf(event.getScanCode()),
                 " fnEnabled=", String.valueOf(cfg.fnKeyEnabled));
 
-        boolean winOnly = event.isMetaPressed() && !event.isCtrlPressed();
+        // Fn mapping: only pure Win (no Alt/Shift/Ctrl) qualifies as the Fn trigger
+        boolean winOnly = KeyInjector.modifiersMatch(event, true, false, false, false);
         // XOR: FnLock ON + Win reverses; FnLock OFF + Win activates
         boolean fnActive = cfg.fnKeyEnabled ^ winOnly;
         int fKey = getFnTarget(event);

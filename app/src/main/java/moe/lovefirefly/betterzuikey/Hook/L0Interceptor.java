@@ -23,8 +23,6 @@ public class L0Interceptor extends XC_MethodHook {
         ctx.checkConfigChanged();
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
-        ctx.foregroundTracker.refresh();
-
         KeyEvent event = (KeyEvent) param.args[0];
         int keyCode = event.getKeyCode();
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
@@ -63,8 +61,9 @@ public class L0Interceptor extends XC_MethodHook {
         // Win+Tab — Recents (ZUI L0: launchRecent("wintab"))
         // Note: Win+Tab has NO system switch, so we skip switchWinTab check;
         // use overrideWinTab alone to control behavior
+        // Win+Tab — pure Meta+Tab only (no Alt/Shift/Ctrl)
         if (keyCode == KeyEvent.KEYCODE_TAB && down
-                && event.isMetaPressed() && repeatCount == 0) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false) && repeatCount == 0) {
             Config.OverrideMode ov = ctx.ra("winTab", ctx.cfg.overrideWinTab);
             KeyInjector.debugProp("debug.bzuikey.l0.wintab", "ENTER override=" + ov.name());
             if (ov == Config.OverrideMode.OFF) {
@@ -91,17 +90,17 @@ public class L0Interceptor extends XC_MethodHook {
         // Win+Tab / Win+P / generic BLOCK UP cleanup (delegated to FnKeyManager)
         if (ctx.fnKeyManager.consumeComboUp(keyCode, down, event, param))
             return;
-        // Alt+Tab — Recents switch
+        // Alt+Tab — pure Alt+Tab only (no Meta/Shift/Ctrl)
         if (keyCode == KeyEvent.KEYCODE_TAB && down
-                && event.isAltPressed() && repeatCount == 0) {
+                && KeyInjector.modifiersMatch(event, false, false, false, true) && repeatCount == 0) {
             if (!ctx.r("altTab", ctx.cfg.switchAltTab).isEnabled())
                 return;
             if (ctx.applyInterceptAction(ctx.ra("altTab", ctx.cfg.overrideAltTab), param, "L0: Alt+Tab"))
                 return;
         }
-        // Win+L — Lock screen
+        // Win+L — pure Meta+L only (no Alt/Shift/Ctrl)
         if (keyCode == KeyEvent.KEYCODE_L && down
-                && event.isMetaPressed() && repeatCount == 0) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false) && repeatCount == 0) {
             if (!ctx.r("winL", ctx.cfg.switchWinL).isEnabled())
                 return;
             Config.OverrideMode ovL = ctx.ra("winL", ctx.cfg.overrideWinL);
@@ -120,9 +119,9 @@ public class L0Interceptor extends XC_MethodHook {
             if (ctx.applyInterceptAction(ovL, param, "L0: Win+L", KeyEvent.KEYCODE_L))
                 return;
         }
-        // Win+P — PC mode (ZUI L0 直接调用 switchPcMode, 不经过 L4 KeyGestureEvent)
+        // Win+P — pure Meta+P only (no Alt/Shift/Ctrl)
         if (keyCode == KeyEvent.KEYCODE_P && down
-                && event.isMetaPressed() && repeatCount == 0) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false) && repeatCount == 0) {
             if (!ctx.r("winP", ctx.cfg.switchWinP).isEnabled())
                 return;
             Config.OverrideMode ov = ctx.ra("winP", ctx.cfg.overrideWinP);
@@ -141,9 +140,9 @@ public class L0Interceptor extends XC_MethodHook {
             if (ctx.applyInterceptAction(ov, param, "L0: Win+P", KeyEvent.KEYCODE_P))
                 return;
         }
-        // Win+Back — Send ESC
+        // Win+Back — pure Meta+Back only (no Alt/Shift/Ctrl)
         if (keyCode == KeyEvent.KEYCODE_BACK && down
-                && event.isMetaPressed() && repeatCount == 0) {
+                && KeyInjector.modifiersMatch(event, true, false, false, false) && repeatCount == 0) {
             if (!ctx.r("winBack", ctx.cfg.switchWinBack).isEnabled())
                 return;
             Config.OverrideMode ov = ctx.ra("winBack", ctx.cfg.overrideWinBack);
@@ -160,17 +159,17 @@ public class L0Interceptor extends XC_MethodHook {
             if (ctx.applyInterceptAction(ov, param, "L0: Win+Back", KeyEvent.KEYCODE_BACK))
                 return;
         }
-        // Ctrl+Space — Conditional pass-through
+        // Ctrl+Space — pure Ctrl+Space only (no Meta/Alt/Shift)
         if (keyCode == KeyEvent.KEYCODE_SPACE && down
-                && event.isCtrlPressed() && repeatCount == 0) {
+                && KeyInjector.modifiersMatch(event, false, false, true, false) && repeatCount == 0) {
             if (!ctx.r("ctrlSpace", ctx.cfg.switchCtrlSpace).isEnabled())
                 return;
             if (ctx.applyInterceptAction(ctx.ra("ctrlSpace", ctx.cfg.overrideCtrlSpace), param, "L0: Ctrl+Space"))
                 return;
         }
-        // Ctrl+Enter — QQ foreground conditional intercept
+        // Ctrl+Enter — pure Ctrl+Enter only (no Meta/Alt/Shift)
         if (keyCode == KeyEvent.KEYCODE_ENTER && down
-                && event.isCtrlPressed() && repeatCount == 0) {
+                && KeyInjector.modifiersMatch(event, false, false, true, false) && repeatCount == 0) {
             if (!ctx.r("ctrlEnter", ctx.cfg.switchCtrlEnter).isEnabled())
                 return;
             if (ctx.applyInterceptAction(ctx.ra("ctrlEnter", ctx.cfg.overrideCtrlEnter), param, "L0: Ctrl+Enter"))
@@ -179,7 +178,8 @@ public class L0Interceptor extends XC_MethodHook {
         // Ctrl+/ — OFF: strip Ctrl so ZUI doesn't recognize combo.
         // Ctrl+/ has NO system switch gate in ZUI (hardcoded),
         // and no Config switch either (always enabled).
-        if (keyCode == KeyEvent.KEYCODE_SLASH && event.isCtrlPressed()) {
+        // pure Ctrl+/ only (no Meta/Alt/Shift)
+        if (keyCode == KeyEvent.KEYCODE_SLASH && KeyInjector.modifiersMatch(event, false, false, true, false)) {
             Config.OverrideMode ov = ctx.ra("ctrlSlash", ctx.cfg.overrideCtrlSlash);
             if (ov == Config.OverrideMode.OFF) {
                 LogHelper.log(VerboseLevel.DEBUG, "L0: Ctrl+/ → OFF (strip Ctrl, no system switch)");
@@ -189,9 +189,9 @@ public class L0Interceptor extends XC_MethodHook {
             if (ctx.applyInterceptAction(ov, param, "L0: Ctrl+/", KeyEvent.KEYCODE_SLASH))
                 return;
         }
-        // Ctrl+Shift+T DOWN
+        // Ctrl+Shift+T DOWN — pure Ctrl+Shift+T only (no Meta/Alt)
         if (keyCode == KeyEvent.KEYCODE_T && down && repeatCount == 0
-                && event.isCtrlPressed() && event.isShiftPressed()) {
+                && KeyInjector.modifiersMatch(event, false, true, true, false)) {
             if (!ctx.r("ctrlShiftT", ctx.cfg.switchCtrlShiftT).isEnabled())
                 return;
             Config.OverrideMode cstMode = ctx.ra("ctrlShiftT", ctx.cfg.overrideCtrlShiftT);
@@ -213,9 +213,9 @@ public class L0Interceptor extends XC_MethodHook {
                     return;
             }
         }
-        // Ctrl+Shift+T UP — handle based on override mode
+        // Ctrl+Shift+T UP — pure Ctrl+Shift+T only (no Meta/Alt)
         if (keyCode == KeyEvent.KEYCODE_T && !down
-                && event.isCtrlPressed() && event.isShiftPressed()) {
+                && KeyInjector.modifiersMatch(event, false, true, true, false)) {
             if (!ctx.r("ctrlShiftT", ctx.cfg.switchCtrlShiftT).isEnabled())
                 return;
             Config.OverrideMode cstModeUp = ctx.ra("ctrlShiftT", ctx.cfg.overrideCtrlShiftT);
@@ -253,51 +253,45 @@ public class L0Interceptor extends XC_MethodHook {
                 return;
         }
         // Win+Alt+3 — Bounce keys (AOSP native)
+        // Settings.Secure 控制实际开关，Config.SwitchState 只是 UI 投射。
+        // Hook 行为完全由 override mode (spin) 决定，不允许 SwitchState 守卫。
         if (keyCode == KeyEvent.KEYCODE_3 && down
-                && event.isMetaPressed() && event.isAltPressed() && repeatCount == 0) {
+                && KeyInjector.modifiersMatch(event, true, false, false, true) && repeatCount == 0) {
             LogHelper.log(VerboseLevel.INFO, "L0: Win+Alt+3 reach",
                     " switch=", String.valueOf(ctx.cfg.switchAospBounceKeys),
                     " override=", String.valueOf(ctx.cfg.overrideAospBounceKeys),
                     " meta=", String.valueOf(event.isMetaPressed()),
                     " alt=", String.valueOf(event.isAltPressed()));
-            if (!ctx.r("aospBounceKeys", ctx.cfg.switchAospBounceKeys).isEnabled())
-                return;
             if (ctx.applyInterceptAction(ctx.ra("aospBounceKeys", ctx.cfg.overrideAospBounceKeys), param,
                     "L0: Win+Alt+3"))
                 return;
         }
         // Win+Alt+4 — Mouse keys (AOSP native)
         if (keyCode == KeyEvent.KEYCODE_4 && down
-                && event.isMetaPressed() && event.isAltPressed() && repeatCount == 0) {
+                && KeyInjector.modifiersMatch(event, true, false, false, true) && repeatCount == 0) {
             LogHelper.log(VerboseLevel.INFO, "L0: Win+Alt+4 reach",
                     " switch=", String.valueOf(ctx.cfg.switchAospMouseKeys),
                     " override=", String.valueOf(ctx.cfg.overrideAospMouseKeys));
-            if (!ctx.r("aospMouseKeys", ctx.cfg.switchAospMouseKeys).isEnabled())
-                return;
             if (ctx.applyInterceptAction(ctx.ra("aospMouseKeys", ctx.cfg.overrideAospMouseKeys), param,
                     "L0: Win+Alt+4"))
                 return;
         }
         // Win+Alt+5 — Sticky keys (AOSP native)
         if (keyCode == KeyEvent.KEYCODE_5 && down
-                && event.isMetaPressed() && event.isAltPressed() && repeatCount == 0) {
+                && KeyInjector.modifiersMatch(event, true, false, false, true) && repeatCount == 0) {
             LogHelper.log(VerboseLevel.INFO, "L0: Win+Alt+5 reach",
                     " switch=", String.valueOf(ctx.cfg.switchAospStickyKeys),
                     " override=", String.valueOf(ctx.cfg.overrideAospStickyKeys));
-            if (!ctx.r("aospStickyKeys", ctx.cfg.switchAospStickyKeys).isEnabled())
-                return;
             if (ctx.applyInterceptAction(ctx.ra("aospStickyKeys", ctx.cfg.overrideAospStickyKeys), param,
                     "L0: Win+Alt+5"))
                 return;
         }
         // Win+Alt+6 — Slow keys (AOSP native)
         if (keyCode == KeyEvent.KEYCODE_6 && down
-                && event.isMetaPressed() && event.isAltPressed() && repeatCount == 0) {
+                && KeyInjector.modifiersMatch(event, true, false, false, true) && repeatCount == 0) {
             LogHelper.log(VerboseLevel.INFO, "L0: Win+Alt+6 reach",
                     " switch=", String.valueOf(ctx.cfg.switchAospSlowKeys),
                     " override=", String.valueOf(ctx.cfg.overrideAospSlowKeys));
-            if (!ctx.r("aospSlowKeys", ctx.cfg.switchAospSlowKeys).isEnabled())
-                return;
             if (ctx.applyInterceptAction(ctx.ra("aospSlowKeys", ctx.cfg.overrideAospSlowKeys), param, "L0: Win+Alt+6"))
                 return;
         }
