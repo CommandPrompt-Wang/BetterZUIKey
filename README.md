@@ -89,7 +89,7 @@ system_server (MainHook)
    - 欢迎提交 [Issue](https://github.com/CommandPrompt-Wang/BetterZUIKey/issues) 和 [Pull Request](https://github.com/CommandPrompt-Wang/BetterZUIKey/pulls)
 1. 在 [Releases](https://github.com/CommandPrompt-Wang/BetterZUIKey/releases) 下载最新 APK
 2. 安装后在 LSPosed Manager 中激活模块（勾选 `system_server` 和 `android`）
-3. 重启 system_server（LSPosed 内提供软重启，无需重启设备）
+3. 重启 system_server（您的 Root 管理器内提供软重启，无需重启设备）
 4. 打开应用，主页显示 `✅ Active` 即成功
 
 ## 🔧 开发构建
