@@ -88,6 +88,30 @@ public class L3Interceptor extends XC_MethodHook {
                     action = ctx.ra("winUp", ctx.cfg.overrideWinUp);
                     label = "L3: Win+↑ (type=53)";
                     break;
+                case 21: // Meta single press → Start Menu (AOSP triggerShowAllApps)
+                    if (!ctx.r("metaSingle", ctx.cfg.switchMetaSingle).isEnabled())
+                        break;
+                    {
+                        Config.MetaAction metaAction = ctx.cfg.metaShortPressAction;
+                        Config.OverrideMode metaOverride = ctx.ra("metaSingle",
+                                ctx.cfg.overrideMetaSingle);
+                        // NONE / OFF / BLOCK: suppress AOSP Start Menu.
+                        // Meta itself passes through at L1 so App receives it.
+                        if (metaAction == Config.MetaAction.NONE
+                                || metaOverride == Config.OverrideMode.OFF
+                                || metaOverride == Config.OverrideMode.BLOCK) {
+                            LogHelper.log(VerboseLevel.INFO,
+                                    "L3: Meta (type=21) → BLOCK (Start Menu suppressed, Meta reached App via L1)");
+                            param.setResult(null);
+                            return;
+                        }
+                        // START_MENU / DEFAULT / SWITCH_LANGUAGE / VOICE_ASSIST
+                        // → pass through, let ZUI or AOSP handle normally
+                        LogHelper.log(VerboseLevel.DEBUG,
+                                "L3: Meta (type=21) → pass through (action=",
+                                metaAction.name(), ")");
+                    }
+                    break;
                 case 201: // Win+M → ovMinimizeFreeformGroup()
                     if (!ctx.r("winM", ctx.cfg.switchWinM).isEnabled())
                         break;

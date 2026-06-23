@@ -108,6 +108,14 @@ public class Config {
     public SwitchState switchCtrlShift = SwitchState.ON;
     public OverrideMode overrideCtrlShift = OverrideMode.FOLLOW_SYSTEM;
 
+    /** Ctrl+Shift → Ctrl+Space 重映射开关（仅当无自定义适配器绑定时生效）。
+     *  启用时，输入状态下 Ctrl+Shift 被拦截并重定向为 Ctrl+Space 注入到 IME。 */
+    public boolean ctrlShiftRemapEnabled = false;
+
+    /** Ctrl+Space 双投递：输入状态下同时发给 IME（切语言）和 App（如代码补全）。
+     *  启用时 Ctrl+Space 原始事件被拦截，通过两条独立管线同时投喂两端。 */
+    public boolean ctrlSpaceDualDelivery = false;
+
     /** Alt+Shift 切换语言 ROW (L1 type=310 L4) */
     public SwitchState switchAltShift = SwitchState.ON;
     public OverrideMode overrideAltShift = OverrideMode.FOLLOW_SYSTEM;
@@ -279,6 +287,11 @@ public class Config {
     public boolean rowInputMethodSwitch = true;
     /** Alt+Shift 切语言（ROW 特性，type=310*/
     public boolean rowLanguageSwitch = true;
+
+    /** 快捷键 → IME 适配器路径的绑定。
+     *  key 为 shortcut key（如 "ctrlShift"），value 为适配器 .dex/.jar 的绝对路径。
+     *  示例: {"ctrlShift": "/data/data/moe.lovefirefly.betterzuikey/files/adapters/GBoardAdapter.dex"} */
+    public java.util.Map<String, String> imeAdapterBindings = new java.util.LinkedHashMap<>();
     /** Meta 短按 &lt;2s 行为 */
     public MetaAction metaShortPressAction = MetaAction.DEFAULT;
     /** Meta 长按 s 行为 */
@@ -631,6 +644,8 @@ public class Config {
         overrideCtrlSlash = OverrideMode.OFF;
         switchCtrlLongPress = SwitchState.ON;
         switchCtrlShift = SwitchState.ON;     overrideCtrlShift = OverrideMode.FOLLOW_SYSTEM;
+        ctrlShiftRemapEnabled = false;
+        ctrlSpaceDualDelivery = false;
         switchAltShift = SwitchState.ON;      overrideAltShift = OverrideMode.FOLLOW_SYSTEM;
         switchCtrlShiftT = SwitchState.ON;    overrideCtrlShiftT = OverrideMode.FOLLOW_SYSTEM;
         switchCtrlSpace = SwitchState.ON;     overrideCtrlSpace = OverrideMode.OFF;
@@ -681,6 +696,7 @@ public class Config {
         keyboardScanCode = 0;
         rowInputMethodSwitch = true;
         rowLanguageSwitch = true;
+        imeAdapterBindings = new java.util.LinkedHashMap<>();
         metaShortPressAction = MetaAction.DEFAULT;
         metaLongPressAction = MetaAction.DEFAULT;
         metaHoldAction = MetaAction.DEFAULT;

@@ -16,6 +16,7 @@ import moe.lovefirefly.betterzuikey.Region.FeatureHook;
 import moe.lovefirefly.betterzuikey.Region.RegionHook;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import moe.lovefirefly.betterzuikey.Utils.ZuiDetector;
+import moe.lovefirefly.betterzuikey.ime.AdapterManager;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
 public class MainHook implements IXposedHookLoadPackage {
@@ -111,6 +112,19 @@ public class MainHook implements IXposedHookLoadPackage {
                 LogHelper.log(VerboseLevel.INFO,
                     "Config replaced with ContentProvider version, templates=",
                     String.valueOf(cfg.templates != null ? cfg.templates.size() : 0));
+            }
+
+            // Initialize AdapterManager with dex optimization dir from our own app.
+            // We run in system_server so we can't use our own context directly,
+            // but we can fall back to /data/local/tmp for dex opt.
+            try {
+                java.io.File dexOptDir = new java.io.File("/data/local/tmp/bzuikey_dex");
+                AdapterManager.init(dexOptDir);
+                AdapterManager.syncBindings(cfg.imeAdapterBindings);
+                LogHelper.log(VerboseLevel.INFO, "AdapterManager initialized with ",
+                        String.valueOf(cfg.imeAdapterBindings.size()), " binding(s)");
+            } catch (Throwable t) {
+                LogHelper.log(VerboseLevel.ERROR, "AdapterManager init failed:", t.getMessage());
             }
 
             // Construct all collaborators with the real (IPC) config.

@@ -63,6 +63,18 @@ Virtual Fn keys allow you to simulate F1~F12 using a keyboard's multimedia keys 
 - **Keyboard Detect** page: press a physical F-key, then fill the detected keyCode/scanCode into the F1~F12 table
 - **Copy Config** to copy the JSON template, then import it
 
+### ⚠️ System Modifier Key Remapping
+
+Android's "Modifier Keys" remapping (Settings → Physical Keyboard → Modifier keys) allows swapping Caps Lock, Ctrl, Meta, Alt, and ESC keys with each other.
+
+The built-in default profile **maps ESC (keyCode 111) to F1**. If you have enabled modifier key remapping in system settings (e.g. remapping ESC to BACK), the default Fn profile will fail to match the ESC key, breaking virtual Fn functionality.
+
+**Solutions**:
+- **Recommended**: Go to [Keyboard Detect](app://keyboarddetect), record a new profile under your current remapping state, then import and activate it
+- Or: disable system modifier key remapping and use the built-in default profile
+
+> 💡 Remapping state is stored in `/data/system/input-manager-state.xml`. The module matches by keyCode, so remapped keys no longer correspond to profile entries.
+
 ### Importing Profiles
 - **From File**: Select a `.json` file
 - **From Text**: Paste JSON directly

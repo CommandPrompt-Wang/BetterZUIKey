@@ -110,6 +110,13 @@
     <string name="fn_key_keycode_format">  F%1$d → keyCode:%2$d</string>
     <string name="fn_key_unmapped_format">  F%1$d → (unmapped)</string>
 
+    <!-- ESC→BACK remap warning -->
+    <string name="fn_esc_remap_warning_title">⚠ ESC → BACK remapping detected</string>
+    <string name="fn_esc_remap_warning_desc">Android modifier key remapping is ESC → BACK.\n\nThis is incompatible with the default Fn profile (ESC → F1). After remapping, ESC becomes BACK, and Win+Back conflicts with the F1 mapping.\n\nTip: Win+Backspace has the same effect as Back.\n\nSolutions:\n• Create a new keyboard profile (auto-dismiss this warning)\n• Or go to system Settings to restore the default modifier key layout</string>
+    <string name="fn_btn_create_profile">Create Profile</string>
+    <string name="fn_btn_modifier_keys">Open Modifier Keys</string>
+    <string name="fn_modifier_keys_failed">Unable to open modifier key settings</string>
+
     <!-- ================================================================ -->
     <!-- AOSP Accessibility (activity_aosp_settings.xml + AospSettingsActivity) -->
     <!-- ================================================================ -->
@@ -284,6 +291,8 @@
     <string name="shortcut_ctrlCard_desc">Ctrl long-press toggle | Ctrl+/ behavior mode\nNote: \"Long-press Ctrl\" only works when the switch is ON and \"Ctrl+/\" is set to \"Keep Default\".</string>
     <string name="shortcut_ctrlShift">Ctrl + Shift</string>
     <string name="shortcut_ctrlShift_desc">Switch input method (ROW only)</string>
+    <string name="shortcut_ctrlSpace">Ctrl + Space</string>
+    <string name="shortcut_ctrlSpace_desc">Dual-mode: switch IME language + pass-through to app</string>
     <string name="shortcut_altShift">Alt + Shift</string>
     <string name="shortcut_altShift_desc">Switch language (ROW only)</string>
     <string name="shortcut_ctrlShiftT">Ctrl + Shift + T</string>
@@ -321,7 +330,7 @@
     <string name="shortcut_printScreenLong">Print Screen (long)</string>
     <string name="shortcut_printScreenLong_desc">Full screen screenshot</string>
     <string name="shortcut_metaSingle">Meta (single press)</string>
-    <string name="shortcut_metaSingle_desc">Start menu</string>
+    <string name="shortcut_metaSingle_desc">Start menu\nWhen set to \"Off\" or \"Ignore\", slightly long-press (~300ms) to trigger injection; quick taps may not respond</string>
     <string name="shortcut_metaShortRow">Meta ROW (short press)</string>
     <string name="shortcut_metaShortRow_desc">Switch language (requires ROW + special keyboard)</string>
     <string name="shortcut_metaLongRow">Meta ROW (long press)</string>

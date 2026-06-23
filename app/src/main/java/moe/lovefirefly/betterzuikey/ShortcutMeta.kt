@@ -95,6 +95,8 @@ data class ShortcutMeta(
                          hasZui = false,  hasAosp = false, hasSystemSwitch = false, showSwitch = true,
                          onSpinSelectedNonDefault = OnSpinSelectedNonDefault.SWITCH_OFF),
             ShortcutMeta("ctrlShift",   R.string.shortcut_ctrlShift,   R.string.shortcut_ctrlShift_desc,   hasZui = true),
+            ShortcutMeta("ctrlSpace",   R.string.shortcut_ctrlSpace,   R.string.shortcut_ctrlSpace_desc,   hasZui = false, hasAosp = false,
+                hasSystemSwitch = false, showSwitch = true, showAospOption = false),
             ShortcutMeta("altShift",    R.string.shortcut_altShift,    R.string.shortcut_altShift_desc,    hasZui = true),
             ShortcutMeta("ctrlShiftT",  R.string.shortcut_ctrlShiftT,  R.string.shortcut_ctrlShiftT_desc,  hasZui = true,  hasSystemSwitch = false),
             ShortcutMeta("ctrlEnter",   R.string.shortcut_ctrlEnter,   R.string.shortcut_ctrlEnter_desc,   hasZui = true),
@@ -143,7 +145,8 @@ data class ShortcutMeta(
             "winP" -> cfg.switchWinP; "winW" -> cfg.switchWinW; "winNumber" -> cfg.switchWinNumber
             "winTab" -> cfg.switchWinTab; "winUp" -> cfg.switchWinUp
             "winLeft" -> cfg.switchWinLeft
-            "ctrlShift" -> cfg.switchCtrlShift; "altShift" -> cfg.switchAltShift
+            "ctrlShift" -> cfg.switchCtrlShift; "ctrlSpace" -> cfg.switchCtrlSpace
+            "altShift" -> cfg.switchAltShift
             "ctrlShiftT" -> cfg.switchCtrlShiftT; "ctrlEnter" -> cfg.switchCtrlEnter
             "altTab" -> cfg.switchAltTab
             "keyMute" -> cfg.switchKeyMute; "keyTouchpad" -> cfg.switchKeyTouchpad
@@ -175,7 +178,8 @@ data class ShortcutMeta(
                 "winTab" -> cfg.switchWinTab = value; "winUp" -> cfg.switchWinUp = value
                 "winLeft" -> cfg.switchWinLeft = value
                 "ctrlLongPress" -> cfg.switchCtrlLongPress = value
-                "ctrlShift" -> cfg.switchCtrlShift = value; "altShift" -> cfg.switchAltShift = value
+                "ctrlShift" -> cfg.switchCtrlShift = value; "ctrlSpace" -> cfg.switchCtrlSpace = value
+                "altShift" -> cfg.switchAltShift = value
                 "ctrlShiftT" -> cfg.switchCtrlShiftT = value; "ctrlEnter" -> cfg.switchCtrlEnter = value
                 "altTab" -> cfg.switchAltTab = value
                 "keyMute" -> cfg.switchKeyMute = value; "keyTouchpad" -> cfg.switchKeyTouchpad = value
@@ -213,6 +217,7 @@ data class ShortcutMeta(
             "ctrlShift" -> cfg.overrideCtrlShift; "altShift" -> cfg.overrideAltShift
             "ctrlShiftT" -> cfg.overrideCtrlShiftT
             "ctrlEnter" -> cfg.overrideCtrlEnter; "altTab" -> cfg.overrideAltTab
+            "ctrlSpace" -> cfg.overrideCtrlSpace
             // ⚠ 以下字段 Config.java 命名不带 "Key" 前缀（反射会失败）
             "keyMute" -> cfg.overrideMute; "keyTouchpad" -> cfg.overrideTouchpad
             "keySplitScreen" -> cfg.overrideSplitScreen
@@ -250,6 +255,7 @@ data class ShortcutMeta(
                 "ctrlShift" -> cfg.overrideCtrlShift = value; "altShift" -> cfg.overrideAltShift = value
                 "ctrlShiftT" -> cfg.overrideCtrlShiftT = value
                 "ctrlEnter" -> cfg.overrideCtrlEnter = value; "altTab" -> cfg.overrideAltTab = value
+                "ctrlSpace" -> cfg.overrideCtrlSpace = value
                 "keyMute" -> cfg.overrideMute = value; "keyTouchpad" -> cfg.overrideTouchpad = value
                 "keySplitScreen" -> cfg.overrideSplitScreen = value
                 "keySuperConnect" -> cfg.overrideSuperConnect = value

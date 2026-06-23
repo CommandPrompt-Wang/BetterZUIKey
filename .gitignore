@@ -32,6 +32,9 @@ bin/
 # Kotlin
 .kotlin/
 
+# Project TODO (local only)
+TODO.md
+
 # Misc
 *.log
 *~

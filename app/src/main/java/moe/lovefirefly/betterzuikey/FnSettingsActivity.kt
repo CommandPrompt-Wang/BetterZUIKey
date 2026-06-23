@@ -2,6 +2,7 @@ package moe.lovefirefly.betterzuikey
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -45,6 +46,7 @@ class FnSettingsActivity : AppCompatActivity() {
             cfg.save()
             Config.syncToSharedPrefs(this@FnSettingsActivity, cfg)
             refreshSummary()
+            refreshEscRemapWarning()
         }
 
         binding.tvImport.setOnClickListener {
@@ -57,6 +59,20 @@ class FnSettingsActivity : AppCompatActivity() {
             startActivity(Intent(this, ProfileManageActivity::class.java))
         }
 
+        // ESC→BACK warning buttons
+        binding.btnGoCreateProfile.setOnClickListener {
+            startActivity(Intent(this, KeyboardDetectActivity::class.java))
+        }
+        binding.btnGoModifierKeys.setOnClickListener {
+            try {
+                // Launch the physical keyboard page (closest deep-link available)
+                startActivity(Intent("android.settings.HARD_KEYBOARD_SETTINGS"))
+            } catch (e: Exception) {
+                Toast.makeText(this,
+                    getString(R.string.fn_modifier_keys_failed), Toast.LENGTH_SHORT).show()
+            }
+        }
+
         // 点整行切换开关 / 展开下拉
         binding.rowFnEnabled.setOnClickListener { binding.swEnabled.toggle() }
         binding.rowFnToast.setOnClickListener { binding.swFnToast.toggle() }
@@ -67,7 +83,68 @@ class FnSettingsActivity : AppCompatActivity() {
 
         refreshSpinner()
         refreshSummary()
+        checkEscToBackRemap()
     }
+
+    // ---- ESC→BACK remap detection ----
+
+    private fun checkEscToBackRemap() {
+        Thread {
+            val detected = detectEscToBack()
+            runOnUiThread {
+                escToBackDetected = detected
+                refreshEscRemapWarning()
+            }
+        }.start()
+    }
+
+    private var escToBackDetected = false
+
+    /**
+     * Run su -c abx2xml to decode /data/system/input-manager-state.xml
+     * and check for ESC(111)→BACK(4) remapping.
+     * Returns true if the remapping exists.
+     */
+    private fun detectEscToBack(): Boolean {
+        try {
+            // Step 1: decode ABX → plain XML
+            val pb = ProcessBuilder("su", "-c",
+                "abx2xml /data/system/input-manager-state.xml /data/local/tmp/bzuikey_esc_check.xml")
+            pb.redirectErrorStream(true)
+            val proc = pb.start()
+            proc.waitFor()
+
+            if (proc.exitValue() != 0) return false
+
+            // Step 2: read decoded XML
+            val pb2 = ProcessBuilder("su", "-c",
+                "cat /data/local/tmp/bzuikey_esc_check.xml")
+            pb2.redirectErrorStream(true)
+            val proc2 = pb2.start()
+            val output = proc2.inputStream.bufferedReader().readText()
+            proc2.waitFor()
+
+            // Step 3: check for ESC(111)→BACK(4)
+            return output.contains("from-key=\"111\"") && output.contains("to-key=\"4\"")
+        } catch (e: Exception) {
+            return false
+        }
+    }
+
+    /**
+     * Show the ESC→BACK warning only when:
+     * - ESC→BACK remapping is detected
+     * - User is NOT using a custom profile (i.e. on auto-detect or built-in default)
+     *   Custom profile = user explicitly selected a non-empty profile key
+     */
+    private fun refreshEscRemapWarning() {
+        val cfg = Config.load()
+        val hasCustomProfile = cfg.fnProfileKey.isNotEmpty()
+        val show = escToBackDetected && !hasCustomProfile
+        binding.cardEscRemapWarning.visibility = if (show) View.VISIBLE else View.GONE
+    }
+
+    // ---- existing ----
 
     private var spinnerUpdating = false
 

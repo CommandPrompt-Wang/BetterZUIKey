@@ -6,6 +6,7 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
 import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
+import moe.lovefirefly.betterzuikey.ime.AdapterManager;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
 public class L4Interceptor extends XC_MethodHook {
@@ -110,11 +111,39 @@ public class L4Interceptor extends XC_MethodHook {
                     if (ctx.applyL4BlockAction(ctx.ra("altShift", ctx.cfg.overrideAltShift), "L4: Alt+Shift (310)"))
                         blocked = true;
                     break;
-                case 311: // Ctrl+Shift — Switch IME
+                case 311: // Ctrl+Shift — Switch IME (or remap → Ctrl+Space)
                     if (!ctx.r("ctrlShift", ctx.cfg.switchCtrlShift).isEnabled())
                         break;
-                    if (ctx.applyL4BlockAction(ctx.ra("ctrlShift", ctx.cfg.overrideCtrlShift), "L4: Ctrl+Shift (311)"))
-                        blocked = true;
+                    // Guard: skip injected events
+                    if (ctx.isInjecting()) break;
+
+                    // Only remap/adapt when IME is accepting text input.
+                    // Outside text input, fall through to native ZUI behavior.
+                    if (ctx.isAcceptingText()) {
+                        // 1) Custom adapter binding
+                        if (AdapterManager.getAdapterForShortcut("ctrlShift") != null) {
+                            LogHelper.log(VerboseLevel.INFO, "L4: Ctrl+Shift (311) → IME adapter");
+                            blocked = true;
+                            ctx.triggerIMEAdapter("ctrlShift", false);
+                        }
+                        // 2) Built-in remap: Ctrl+Shift → Ctrl+Space
+                        else if (ctx.cfg.ctrlShiftRemapEnabled) {
+                            LogHelper.log(VerboseLevel.INFO, "L4: Ctrl+Shift (311) → remap Ctrl+Space");
+                            blocked = true;
+                            ctx.injectCtrlSpace();
+                        }
+                        // 3) Native OverrideMode logic (FOLLOW_SYSTEM / BLOCK / ZUI / OFF / AOSP)
+                        else {
+                            if (ctx.applyL4BlockAction(ctx.ra("ctrlShift", ctx.cfg.overrideCtrlShift),
+                                    "L4: Ctrl+Shift (311)"))
+                                blocked = true;
+                        }
+                    } else {
+                        // Not in text input — native behavior
+                        if (ctx.applyL4BlockAction(ctx.ra("ctrlShift", ctx.cfg.overrideCtrlShift),
+                                "L4: Ctrl+Shift (311)"))
+                            blocked = true;
+                    }
                     break;
                 case 312: // Win+Left/Right — Split screen
                     if (!ctx.r("winLeft", ctx.cfg.switchWinLeft).isEnabled())

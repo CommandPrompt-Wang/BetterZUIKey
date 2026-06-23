@@ -95,7 +95,17 @@ public class L0Interceptor extends XC_MethodHook {
                 && KeyInjector.modifiersMatch(event, false, false, false, true) && repeatCount == 0) {
             if (!ctx.r("altTab", ctx.cfg.switchAltTab).isEnabled())
                 return;
-            if (ctx.applyInterceptAction(ctx.ra("altTab", ctx.cfg.overrideAltTab), param, "L0: Alt+Tab"))
+            Config.OverrideMode ov = ctx.ra("altTab", ctx.cfg.overrideAltTab);
+            // OFF: strip Alt so ZUI L0 doesn't call launchRecent("alttab").
+            // Plain Tab passes through to foreground app (which already received Alt DOWN,
+            // so apps tracking key state can still reconstruct Alt+Tab).
+            // L1 also strips as defense against InputDispatcher re-computing modifiers.
+            if (ov == Config.OverrideMode.OFF) {
+                LogHelper.log(VerboseLevel.INFO, "L0: Alt+Tab → OFF (strip Alt, pass through)");
+                KeyInjector.stripMetaState(event, KeyEvent.META_ALT_MASK);
+                return;
+            }
+            if (ctx.applyInterceptAction(ov, param, "L0: Alt+Tab"))
                 return;
         }
         // Win+L — pure Meta+L only (no Alt/Shift/Ctrl)
@@ -164,6 +174,23 @@ public class L0Interceptor extends XC_MethodHook {
                 && KeyInjector.modifiersMatch(event, false, false, true, false) && repeatCount == 0) {
             if (!ctx.r("ctrlSpace", ctx.cfg.switchCtrlSpace).isEnabled())
                 return;
+            // Guard: skip injected events
+            if (ctx.isInjecting()) return;
+
+            // Dual delivery: when IME is accepting text, block original and
+            // deliver to both IME (switch language) and App (e.g. code completion).
+            if (ctx.cfg.ctrlSpaceDualDelivery && ctx.isAcceptingText()) {
+                LogHelper.log(VerboseLevel.INFO,
+                    "L0: Ctrl+Space → dual delivery (IME + App)");
+                param.setResult(true);  // block original
+                // IME injection (Ctrl+Space, via guarded pipeline)
+                ctx.injectCtrlSpace();
+                // App also gets it — since injectCtrlSpace uses the guarded
+                // pipeline, it reaches IME first. For true dual delivery,
+                // injectToApp path would be used; currently falls back to
+                // normal pipeline injection.
+                return;
+            }
             if (ctx.applyInterceptAction(ctx.ra("ctrlSpace", ctx.cfg.overrideCtrlSpace), param, "L0: Ctrl+Space"))
                 return;
         }

@@ -235,22 +235,23 @@ public class FnKeyManager {
                 " scanCode=", String.valueOf(event.getScanCode()),
                 " fnEnabled=", String.valueOf(cfg.fnKeyEnabled));
 
-        // Fn mapping: only pure Win (no Alt/Shift/Ctrl) qualifies as the Fn trigger
-        boolean winOnly = KeyInjector.modifiersMatch(event, true, false, false, false);
+        // Fn trigger: Win pressed (Meta) qualifies, regardless of Alt/Shift/Ctrl.
+        // This allows Win+Alt+FnKey → Alt+F-key combos to work correctly.
+        boolean winPressed = event.isMetaPressed();
         // XOR: FnLock ON + Win reverses; FnLock OFF + Win activates
-        boolean fnActive = cfg.fnKeyEnabled ^ winOnly;
+        boolean fnActive = cfg.fnKeyEnabled ^ winPressed;
         int fKey = getFnTarget(event);
 
-        // Preserve modifiers, stripping Meta/Win when it is the sole Fn toggle
+        // Preserve modifiers other than Meta/Win (which is consumed as the Fn toggle)
         int origMeta = event.getMetaState();
-        int passMeta = winOnly ? (origMeta & ~KeyEvent.META_META_MASK) : origMeta;
+        int passMeta = winPressed ? (origMeta & ~KeyEvent.META_META_MASK) : origMeta;
 
         // Debug: FnLock restore path
-        if (cfg.fnKeyEnabled && winOnly) {
+        if (cfg.fnKeyEnabled && winPressed) {
             LogHelper.log(VerboseLevel.INFO, "L0: FnLock restore",
                 " key=", keyCodeToString(keyCode),
                 " mapped=", fKey != 0 ? "F" + (fKey - 130) : "none",
-                " winOnly=true fnActive=", String.valueOf(fnActive),
+                " winPressed=true fnActive=", String.valueOf(fnActive),
                 fKey != 0 ? " -> intercept+inject original" : " -> pass");
         }
 
@@ -272,7 +273,7 @@ public class FnKeyManager {
         if (fnActive && fKey != 0) {
             String fLabel = "F" + (fKey - 130);
             LogHelper.log(VerboseLevel.INFO, "L0: Fn",
-                    cfg.fnKeyEnabled ? "(F" + (winOnly ? "->orig)" : ")")
+                    cfg.fnKeyEnabled ? "(F" + (winPressed ? "->orig)" : ")")
                                      : "(Win->F" + ")",
                     " + ", keyCodeToString(keyCode),
                     " -> ", fLabel,

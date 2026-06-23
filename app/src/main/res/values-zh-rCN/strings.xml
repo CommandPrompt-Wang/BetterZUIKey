@@ -110,6 +110,13 @@
     <string name="fn_key_keycode_format">  F%1$d → keyCode:%2$d</string>
     <string name="fn_key_unmapped_format">  F%1$d → (未映射)</string>
 
+    <!-- ESC→BACK remap warning -->
+    <string name="fn_esc_remap_warning_title">⚠ 检测到 ESC→BACK 辅助键重映射</string>
+    <string name="fn_esc_remap_warning_desc">Android 辅助键重映射中，ESC 被映射为 BACK。\n\n这与默认 Fn 配置文件（ESC→F1）不兼容。重映射后，ESC 按键变为 BACK，而 Win+Back 快捷键恰好与 F1 映射冲突。\n\n提示：Win+Backspace（退格键）效果等同于 Back。\n\n解决方案：\n• 创建新的键盘配置文件（警告将自动消失）\n• 或前往系统设置 → 实体键盘 → 辅助键，恢复默认映射</string>
+    <string name="fn_btn_create_profile">制作配置文件</string>
+    <string name="fn_btn_modifier_keys">前往辅助键设置</string>
+    <string name="fn_modifier_keys_failed">无法打开辅助键设置</string>
+
     <!-- ================================================================ -->
     <!-- AOSP 辅助功能开关 (activity_aosp_settings.xml + AospSettingsActivity) -->
     <!-- ================================================================ -->
@@ -282,6 +289,8 @@
     <string name="shortcut_ctrlCard_desc">Ctrl 长按开关 | Ctrl+/ 行为模式\n注意：「长按 Ctrl」功能仅在开关开启且「Ctrl+/ 」为“保持默认”时有效。</string>
     <string name="shortcut_ctrlShift">Ctrl + Shift</string>
     <string name="shortcut_ctrlShift_desc">切换输入法（仅 ROW 生效）</string>
+    <string name="shortcut_ctrlSpace">Ctrl + Space</string>
+    <string name="shortcut_ctrlSpace_desc">双重模式：切换输入法语言 + 透传给应用</string>
     <string name="shortcut_altShift">Alt + Shift</string>
     <string name="shortcut_altShift_desc">切换语言（仅 ROW 生效）</string>
     <string name="shortcut_ctrlShiftT">Ctrl + Shift + T</string>
@@ -319,7 +328,7 @@
     <string name="shortcut_printScreenLong">Print Screen 长按</string>
     <string name="shortcut_printScreenLong_desc">全屏截图</string>
     <string name="shortcut_metaSingle">Meta 单按</string>
-    <string name="shortcut_metaSingle_desc">开始菜单</string>
+    <string name="shortcut_metaSingle_desc">开始菜单\n「关闭/忽略」时需稍长按（约300ms）以触发注入，短按可能不响应</string>
     <string name="shortcut_metaShortRow">Meta ROW 短按</string>
     <string name="shortcut_metaShortRow_desc">切换语言（需 ROW+特殊键盘）</string>
     <string name="shortcut_metaLongRow">Meta ROW 长按</string>

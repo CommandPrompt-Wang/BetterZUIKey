@@ -6,6 +6,7 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
 import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
+import moe.lovefirefly.betterzuikey.ime.AdapterManager;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
 public class L1Interceptor extends XC_MethodHook {
@@ -23,6 +24,9 @@ public class L1Interceptor extends XC_MethodHook {
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
 
+        // Guard: skip injected events to avoid recursive re-processing
+        if (ctx.isInjecting()) return;
+
         // Detect mode: intercept all keys
         if (ctx.isDetectMode()) {
             param.setResult(true);
@@ -34,6 +38,23 @@ public class L1Interceptor extends XC_MethodHook {
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
         int repeatCount = event.getRepeatCount();
         boolean firstDown = down && repeatCount == 0;
+
+        // Alt+Tab OFF mode: strip Alt at L1 (closest to dispatch).
+        // L0 also strips, but input system may re-add modifiers between
+        // queue and dispatch; this is the authoritative stripping point.
+        // Plain Tab passes through to foreground app — Alt DOWN/UP already reached
+        // the app, so apps tracking key state can still reconstruct Alt+Tab.
+        if (keyCode == KeyEvent.KEYCODE_TAB && firstDown
+                && KeyInjector.modifiersMatch(event, false, false, false, true)) {
+            if (!ctx.r("altTab", ctx.cfg.switchAltTab).isEnabled())
+                return;
+            Config.OverrideMode ov = ctx.ra("altTab", ctx.cfg.overrideAltTab);
+            if (ov == Config.OverrideMode.OFF) {
+                LogHelper.log(VerboseLevel.INFO, "L1: Alt+Tab → OFF (strip Alt, pass through)");
+                KeyInjector.stripMetaState(event, KeyEvent.META_ALT_MASK);
+                return;
+            }
+        }
 
         // Ctrl+Shift+T — pure Ctrl+Shift+T only (no Meta/Alt)
         if (keyCode == KeyEvent.KEYCODE_T && firstDown
@@ -311,6 +332,17 @@ public class L1Interceptor extends XC_MethodHook {
                 return;
             if (!ctx.cfg.rowInputMethodSwitch)
                 return;
+
+            // Adapter/remap path: only active when IME is accepting text.
+            // BLOCK at L1 so L4 can do the actual injection.
+            if (ctx.isAcceptingText()
+                    && (AdapterManager.getAdapterForShortcut("ctrlShift") != null
+                        || ctx.cfg.ctrlShiftRemapEnabled)) {
+                LogHelper.log(VerboseLevel.INFO,
+                    "L1: Ctrl+Shift → BLOCK (adapter/remap, letting L4 inject)");
+                param.setResult(true);
+                return;
+            }
             if (ctx.applyInterceptAction(ctx.ra("ctrlShift", ctx.cfg.overrideCtrlShift), param, "L1: Ctrl+Shift"))
                 return;
         }
@@ -392,18 +424,24 @@ public class L1Interceptor extends XC_MethodHook {
                 && down && repeatCount == 0) {
             if (!ctx.r("metaSingle", ctx.cfg.switchMetaSingle).isEnabled())
                 return;
-            // 根据 MetaAction 配置分发（短按行为由 ZUI 长按计时器决定，
-            // 此处仅控制是否放行到 AOSP type=21 开始菜单）
             Config.MetaAction action = ctx.cfg.metaShortPressAction;
-            if (action == Config.MetaAction.NONE) {
-                LogHelper.log(VerboseLevel.DEBUG, "L1: Meta DOWN → NONE (block)");
+            Config.OverrideMode override = ctx.ra("metaSingle",
+                    ctx.cfg.overrideMetaSingle);
+            if (action == Config.MetaAction.NONE
+                    || override == Config.OverrideMode.OFF
+                    || override == Config.OverrideMode.BLOCK) {
+                // Block ZUI from consuming Meta, then inject raw Meta to App.
+                // L3 also blocks type=21 (Start Menu gesture).
+                LogHelper.log(VerboseLevel.INFO,
+                        "L1: Meta DOWN → BLOCK ZUI + inject Meta to App (action=",
+                        action.name(), " override=", override.name(), ")");
                 param.setResult(true);
                 ctx.fnKeyManager.setConsumeMetaUpForNone();
+                ctx.injectMetaToApp(event.getDeviceId());
                 return;
             }
             if (action == Config.MetaAction.START_MENU) {
                 LogHelper.log(VerboseLevel.DEBUG, "L1: Meta DOWN → START_MENU (AOSP type=21)");
-                // 不拦截，事件自然流向 AOSP
                 return;
             }
             // DEFAULT / SWITCH_LANGUAGE / VOICE_ASSIST / HOLD_SWITCH_LANGUAGE
