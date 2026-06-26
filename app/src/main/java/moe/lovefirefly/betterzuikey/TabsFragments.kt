@@ -10,6 +10,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.CheckBox
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -46,6 +48,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
     }
 
     private lateinit var adapter: ShortcutAdapter
+    private lateinit var binding: FragmentRecyclerBinding
     private var cachedConfig: Config? = null
     /** 首次初始化标志 — 只设一次 LayoutManager/Adapter/SwipeRefresh/PermissionCheck */
     private var firstInitDone = false
@@ -61,7 +64,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        val binding = FragmentRecyclerBinding.bind(view)
+        binding = FragmentRecyclerBinding.bind(view)
         val recycler = binding.recycler
 
         if (!firstInitDone) {
@@ -74,18 +77,76 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
                 canWriteSystemSettings = null
                 checkWritePermission(view)
                 reloadConfig()
-                adapter.notifyDataSetChanged()
+                adapter.applyFilters(binding.searchView.query?.toString() ?: "")
                 if (canWriteSystemSettings == true) {
                     view.findViewById<CardView>(R.id.cardWriteWarning)?.visibility = View.GONE
                 }
                 binding.swipeRefresh.isRefreshing = false
             }
 
+            // Search
+            binding.searchView.setOnQueryTextListener(object : android.widget.SearchView.OnQueryTextListener {
+                override fun onQueryTextSubmit(q: String?): Boolean { adapter.applyFilters(q ?: ""); return true }
+                override fun onQueryTextChange(q: String?): Boolean { adapter.applyFilters(q ?: ""); return true }
+            })
+
+            // Filter button
+            binding.btnFilter.setOnClickListener { showFilterDialog() }
+
             checkWritePermission(view)
         }
 
         reloadConfig()
-        adapter.notifyDataSetChanged()
+        adapter.applyFilters(binding.searchView.query?.toString() ?: "")
+    }
+
+    // ── Filter state ──
+    private var filterSwitchOff = true
+    private var filterSwitchOn = true
+    private var filterNoSwitch = true
+    private var filterModeDefault = true
+    private var filterModeAOSP = true
+    private var filterModeZUI = true
+    private var filterModeOFF = true
+    private var filterModeBLOCK = true
+
+    private fun showFilterDialog() {
+        val ctx = requireContext()
+        val items = arrayOf(
+            "系统开关关", "系统开关开", "无系统开关",  // group 0-2
+            "默认", "AOSP", "ZUI", "关闭", "忽略"     // group 3-7
+        )
+        val checked = booleanArrayOf(
+            filterSwitchOff, filterSwitchOn, filterNoSwitch,
+            filterModeDefault, filterModeAOSP, filterModeZUI, filterModeOFF, filterModeBLOCK
+        )
+        val groupNames = arrayOf("系统开关状态", "覆写模式")
+        val groupSizes = intArrayOf(3, 5)
+
+        AlertDialog.Builder(ctx)
+            .setTitle("筛选快捷键")
+            .setMultiChoiceItems(items, checked) { _, which, isChecked ->
+                when (which) {
+                    0 -> filterSwitchOff = isChecked
+                    1 -> filterSwitchOn = isChecked
+                    2 -> filterNoSwitch = isChecked
+                    3 -> filterModeDefault = isChecked
+                    4 -> filterModeAOSP = isChecked
+                    5 -> filterModeZUI = isChecked
+                    6 -> filterModeOFF = isChecked
+                    7 -> filterModeBLOCK = isChecked
+                }
+            }
+            .setPositiveButton("确定") { _, _ ->
+                adapter.applyFilters(binding.searchView.query?.toString() ?: "")
+            }
+            .setNegativeButton("重置") { _, _ ->
+                filterSwitchOff = true; filterSwitchOn = true; filterNoSwitch = true
+                filterModeDefault = true; filterModeAOSP = true; filterModeZUI = true
+                filterModeOFF = true; filterModeBLOCK = true
+                adapter.applyFilters(binding.searchView.query?.toString() ?: "")
+            }
+            .show()
     }
 
     /** 切回此 Tab 时统一刷新（开关状态可能已通过系统或其他途径变化） */
@@ -93,7 +154,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
         super.onResume()
         if (::adapter.isInitialized) {
             reloadConfig()
-            adapter.notifyDataSetChanged()
+            adapter.applyFilters(binding.searchView.query?.toString() ?: "")
         }
     }
 
@@ -203,8 +264,53 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
         private var spinnerFixedMinWidth: Int = 0
         /** 当前展开的 Spinner 所在 position，-1 表示无 */
         private var openSpinnerPos = -1
+        /** 搜索过滤后的列表 */
+        private var filtered: List<ShortcutMeta> = ShortcutMeta.ALL
+        /** 当前搜索关键词 */
+        private var searchQuery: String = ""
 
-        override fun getItemCount() = ShortcutMeta.ALL.size
+        fun applyFilters(query: String) {
+            searchQuery = query.trim()
+            val cfg = cachedConfig
+            filtered = ShortcutMeta.ALL.filter { meta ->
+                // ── Text search (AND tokens) ──
+                val tokens = searchQuery.split("+", " ", "\t").map { it.trim() }.filter { it.isNotEmpty() }
+                val text = meta.displayName(requireContext()) +
+                    (if (meta.descResId != 0) " " + requireContext().getString(meta.descResId) else "")
+                val textOk = tokens.isEmpty() || tokens.all { token -> text.contains(token, ignoreCase = true) }
+                if (!textOk) return@filter false
+
+                // ── Switch state filter (OR within group) ──
+                val isAospSecure = meta.key in AOSP_SECURE_KEY_MAP
+                val hasSwitch = meta.showSwitch || meta.hasSystemSwitch || isAospSecure
+                val switchOn = if (cfg != null) {
+                    if (isAospSecure) try {
+                        Settings.Secure.getInt(requireContext().contentResolver, AOSP_SECURE_KEY_MAP[meta.key]!!) == 1
+                    } catch (_: Exception) { false }
+                    else ShortcutMeta.getSwitch(cfg, meta.key).isEnabled
+                } else false
+                val switchOk = (filterSwitchOn && hasSwitch && switchOn) ||
+                               (filterSwitchOff && hasSwitch && !switchOn) ||
+                               (filterNoSwitch && !hasSwitch)
+                if (!switchOk) return@filter false
+
+                // ── Override mode filter (OR within group) ──
+                val mode = if (cfg != null) {
+                    val overrideKey = if (meta.key == "ctrlCard") "ctrlSlash" else meta.key
+                    ShortcutMeta.getOverride(cfg, overrideKey)
+                } else Config.OverrideMode.FOLLOW_SYSTEM
+                val modeOk = (filterModeDefault && (mode == Config.OverrideMode.FOLLOW_SYSTEM || mode == Config.OverrideMode.ZUI)) ||
+                             (filterModeAOSP && mode == Config.OverrideMode.AOSP) ||
+                             (filterModeZUI && mode == Config.OverrideMode.ZUI) ||
+                             (filterModeOFF && mode == Config.OverrideMode.OFF) ||
+                             (filterModeBLOCK && mode == Config.OverrideMode.BLOCK)
+                modeOk
+            }
+            openSpinnerPos = -1
+            notifyDataSetChanged()
+        }
+
+        override fun getItemCount() = filtered.size
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
             val b = ItemShortcutRowBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -237,7 +343,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
         }
 
         override fun onBindViewHolder(holder: VH, position: Int) {
-            holder.bind(ShortcutMeta.ALL[position], position)
+            holder.bind(filtered[position], position)
         }
 
         inner class VH(private val b: ItemShortcutRowBinding) : RecyclerView.ViewHolder(b.root) {
@@ -646,6 +752,7 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
  */
 class TemplatesFragment : Fragment(R.layout.fragment_templates) {
 
+    private lateinit var binding: FragmentTemplatesBinding
     private lateinit var adapter: TemplateAdapter
     private var pendingPickerPos = -1
 
@@ -676,14 +783,80 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        val binding = moe.lovefirefly.betterzuikey.databinding.FragmentTemplatesBinding.bind(view)
+        binding = FragmentTemplatesBinding.bind(view)
 
         adapter = TemplateAdapter()
         binding.recycler.layoutManager = LinearLayoutManager(requireContext())
         binding.recycler.adapter = adapter
 
+        // Long-press drag to reorder
+        val touchHelper = androidx.recyclerview.widget.ItemTouchHelper(
+            object : androidx.recyclerview.widget.ItemTouchHelper.SimpleCallback(
+                androidx.recyclerview.widget.ItemTouchHelper.UP or
+                androidx.recyclerview.widget.ItemTouchHelper.DOWN, 0
+            ) {
+                override fun onMove(
+                    recyclerView: RecyclerView, src: RecyclerView.ViewHolder,
+                    target: RecyclerView.ViewHolder
+                ): Boolean {
+                    val from = src.adapterPosition
+                    val to = target.adapterPosition
+                    if (from == to) return false
+                    // Swap in-memory without full refresh to keep drag alive
+                    val temp = adapter.filtered[from]
+                    adapter.filtered[from] = adapter.filtered[to]
+                    adapter.filtered[to] = temp
+                    adapter.notifyItemMoved(from, to)
+                    return true
+                }
+
+                override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {}
+                override fun isLongPressDragEnabled() = true
+
+                override fun onChildDraw(
+                    canvas: android.graphics.Canvas, recyclerView: RecyclerView,
+                    viewHolder: RecyclerView.ViewHolder,
+                    dX: Float, dY: Float, actionState: Int, isCurrentlyActive: Boolean
+                ) {
+                    if (actionState == androidx.recyclerview.widget.ItemTouchHelper.ACTION_STATE_DRAG && isCurrentlyActive) {
+                        viewHolder.itemView.apply {
+                            elevation = 12f
+                            scaleX = 0.98f
+                            scaleY = 0.98f
+                            translationZ = 12f
+                        }
+                    }
+                    super.onChildDraw(canvas, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
+                }
+
+                override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+                    viewHolder.itemView.apply {
+                        elevation = 0f
+                        scaleX = 1f
+                        scaleY = 1f
+                        translationZ = 0f
+                    }
+                    super.clearView(recyclerView, viewHolder)
+                    // Persist the new order to config
+                    val ids = adapter.filtered.map { it.id }
+                    mutateConfig { c ->
+                        val old = c.templates.toList()
+                        c.templates.clear()
+                        for (id in ids) {
+                            old.firstOrNull { it.id == id }?.let { c.templates.add(it) }
+                        }
+                    }
+                }
+            })
+        touchHelper.attachToRecyclerView(binding.recycler)
+
+        binding.searchView.setOnQueryTextListener(object : android.widget.SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(q: String?): Boolean { adapter.filter(q ?: ""); return true }
+            override fun onQueryTextChange(q: String?): Boolean { adapter.filter(q ?: ""); return true }
+        })
+
         binding.fabAddTemplate.setOnClickListener {
-            showNameDialog(getString(R.string.templates_create_title)) { name ->
+            showNameDialog("") { name ->
                 mutateConfig { cfg -> cfg.templates.add(KeyTemplate(name)) }
                 adapter.refresh()
             }
@@ -701,16 +874,31 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
 
     inner class TemplateAdapter : RecyclerView.Adapter<TemplateAdapter.VH>() {
 
-        private var items: List<KeyTemplate> = emptyList()
+        private var allItems: List<KeyTemplate> = emptyList()
+        internal val filtered: MutableList<KeyTemplate> = mutableListOf()
+        internal var searchQuery: String = ""
 
         init { refresh() }
 
         fun refresh() {
-            items = Config.load().templates.toList()
+            allItems = Config.load().templates.toList()
+            // Fix null IDs for old templates
+            for (t in allItems) {
+                if (t.id == null) t.id = java.util.UUID.randomUUID().toString()
+            }
+            filter(searchQuery)
+            binding.tvEmpty.visibility = if (allItems.isEmpty()) View.VISIBLE else View.GONE
+        }
+
+        fun filter(query: String?) {
+            searchQuery = (query ?: "").trim()
+            filtered.clear()
+            filtered.addAll(if (searchQuery.isEmpty()) allItems
+            else allItems.filter { it.name.contains(searchQuery, ignoreCase = true) })
             notifyDataSetChanged()
         }
 
-        override fun getItemCount() = items.size
+        override fun getItemCount() = filtered.size
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
             val b = ItemTemplateRowBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -718,7 +906,9 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
         }
 
         override fun onBindViewHolder(holder: VH, position: Int) {
-            holder.bind(items[position], position)
+            val t = filtered[position]
+            val realPos = allItems.indexOf(t)
+            holder.bind(t, realPos)
         }
 
         inner class VH(private val b: ItemTemplateRowBinding) : RecyclerView.ViewHolder(b.root) {
@@ -759,6 +949,95 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                     appPickerLauncher.launch(intent)
                 }
 
+                b.etMoveCount.setText("1")
+                b.etMoveCount2.setText("1")
+                b.tvMoveUp.setOnClickListener {
+                    val n = b.etMoveCount.text.toString().toIntOrNull()?.takeIf { it > 0 } ?: 1
+                    val oldPos = allItems.indexOfFirst { it.id == t.id }
+                    if (oldPos < 0) return@setOnClickListener
+                    val newPos = (oldPos - n).coerceAtLeast(0)
+                    if (oldPos != newPos) {
+                        mutateConfig { cfg ->
+                            cfg.templates.add(newPos, cfg.templates.removeAt(oldPos))
+                        }
+                        allItems = Config.load().templates.toList()
+                        if (searchQuery.isEmpty()) {
+                            filtered.clear(); filtered.addAll(allItems)
+                            notifyItemMoved(oldPos, newPos)
+                        } else {
+                            filter(searchQuery)
+                        }
+                    }
+                }
+                b.tvMoveDown.setOnClickListener {
+                    val n = b.etMoveCount2.text.toString().toIntOrNull()?.takeIf { it > 0 } ?: 1
+                    val oldPos = allItems.indexOfFirst { it.id == t.id }
+                    if (oldPos < 0) return@setOnClickListener
+                    val newPos = (oldPos + n).coerceAtMost(allItems.size - 1)
+                    if (oldPos != newPos) {
+                        mutateConfig { cfg ->
+                            cfg.templates.add(newPos, cfg.templates.removeAt(oldPos))
+                        }
+                        allItems = Config.load().templates.toList()
+                        if (searchQuery.isEmpty()) {
+                            filtered.clear(); filtered.addAll(allItems)
+                            notifyItemMoved(oldPos, newPos)
+                        } else {
+                            filter(searchQuery)
+                        }
+                    }
+                }
+
+                b.tvCopy.setOnClickListener {
+                    val ctx = requireContext()
+                    val cbLayout = LinearLayout(ctx).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(48, 16, 48, 8)
+                    }
+                    val cb = android.widget.CheckBox(ctx).apply {
+                        text = getString(R.string.templates_copy_apps)
+                        isChecked = true
+                    }
+                    cbLayout.addView(cb)
+                    val warn = TextView(ctx).apply {
+                        text = getString(R.string.templates_copy_warn_dup)
+                        setTextColor(0xFFB8860B.toInt()) // dark goldenrod
+                        textSize = 12f
+                        setPadding(0, 8, 0, 0)
+                    }
+                    cbLayout.addView(warn)
+                    AlertDialog.Builder(ctx)
+                        .setTitle(getString(R.string.templates_copy_title))
+                        .setMessage(getString(R.string.templates_copy_msg, t.name))
+                        .setView(cbLayout)
+                        .setPositiveButton(getString(R.string.dialog_confirm_ok)) { _, _ ->
+                            mutateConfig { cfg ->
+                                // Auto-name: "a" → "a-2", "a-2" → "a-3", etc.
+                                var copyName = t.name
+                                val m = Regex("^(.*)-(\\d+)$", RegexOption.IGNORE_CASE).find(copyName)
+                                val base = m?.groupValues?.get(1) ?: copyName
+                                val pattern = Regex("^" + Regex.escape(base) + "-(\\d+)$", RegexOption.IGNORE_CASE)
+                                val maxN = cfg.templates
+                                    .mapNotNull { pattern.find(it.name)?.groupValues?.get(1)?.toIntOrNull() }
+                                    .maxOrNull() ?: 1
+                                copyName = "$base-${maxN + 1}"
+                                val copy = KeyTemplate(copyName)
+                                copy.enabled = t.enabled
+                                copy.overrides.putAll(t.overrides.mapValues {
+                                    PerKeyOverride().apply {
+                                        overrideMode = it.value.overrideMode
+                                        switchState = it.value.switchState
+                                    }
+                                })
+                                if (cb.isChecked) copy.packages.addAll(t.packages)
+                                cfg.templates.add(copy) // append to end
+                            }
+                            adapter.refresh()
+                        }
+                        .setNegativeButton(getString(R.string.dialog_confirm_cancel), null)
+                        .show()
+                }
+
                 b.tvDelete.setOnClickListener {
                     AlertDialog.Builder(requireContext())
                         .setTitle(getString(R.string.templates_delete_title))
@@ -780,13 +1059,36 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
         val input = android.widget.EditText(requireContext()).apply {
             setText(current)
             setSingleLine()
+            selectAll()
         }
         AlertDialog.Builder(requireContext())
             .setTitle(getString(R.string.templates_name_dialog_title))
             .setView(input)
             .setPositiveButton(getString(R.string.dialog_confirm_ok)) { _, _ ->
-                val name = input.text.toString().trim()
-                if (name.isNotEmpty()) onOk(name)
+                val rawName = input.text.toString().trim()
+                if (rawName.isEmpty()) return@setPositiveButton
+                // Auto-suffix duplicate names: a → a-2, a-3, …
+                val cfg = Config.load()
+                var name = rawName
+                val exists: (String) -> Boolean = { n ->
+                    cfg.templates.any { it.name.equals(n, ignoreCase = true) && it.name != current }
+                }
+                if (exists(name)) {
+                    // Extract base name: "a-2" → base="a", "a" → base="a"
+                    val m = Regex("^(.*)-(\\d+)$", RegexOption.IGNORE_CASE).find(name)
+                    val base = m?.groupValues?.get(1) ?: name
+                    val pattern = Regex("^" + Regex.escape(base) + "-(\\d+)$", RegexOption.IGNORE_CASE)
+                    val maxN = cfg.templates
+                        .mapNotNull { pattern.find(it.name)?.groupValues?.get(1)?.toIntOrNull() }
+                        .maxOrNull() ?: 1
+                    name = "$base-${maxN + 1}"
+                }
+                if (name != rawName) {
+                    android.widget.Toast.makeText(requireContext(),
+                        getString(R.string.templates_name_duplicate, rawName, name),
+                        android.widget.Toast.LENGTH_SHORT).show()
+                }
+                onOk(name)
             }
             .setNegativeButton(getString(R.string.dialog_confirm_cancel), null)
             .show()

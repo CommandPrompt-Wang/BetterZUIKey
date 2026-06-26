@@ -71,60 +71,69 @@ data class ShortcutMeta(
 ) {
     companion object {
         val ALL: List<ShortcutMeta> = listOf(
-            // 一、Win/Meta + 字母
+            // ═══ Win/Meta + 字母 ═══
             ShortcutMeta("winD",        R.string.shortcut_winD,        R.string.shortcut_winD_desc,        hasZui = false, hasAosp = true),
+            ShortcutMeta("winE",        R.string.shortcut_winE,        R.string.shortcut_winE_desc,        hasZui = true),
             ShortcutMeta("winS",        R.string.shortcut_winS,        R.string.shortcut_winS_desc,        hasZui = true),
             ShortcutMeta("winA",        R.string.shortcut_winA,        R.string.shortcut_winA_desc,        hasZui = true),
-            ShortcutMeta("winBack",     R.string.shortcut_winBack,     R.string.shortcut_winBack_desc,     hasZui = true),
-            ShortcutMeta("winE",        R.string.shortcut_winE,        R.string.shortcut_winE_desc,        hasZui = true),
+            ShortcutMeta("winW",        R.string.shortcut_winW,        R.string.shortcut_winW_desc,        hasZui = true),
             ShortcutMeta("winI",        R.string.shortcut_winI,        R.string.shortcut_winI_desc,        hasZui = false, hasAosp = true),
             ShortcutMeta("winL",        R.string.shortcut_winL,        R.string.shortcut_winL_desc,        hasZui = true),
             ShortcutMeta("winM",        R.string.shortcut_winM,        R.string.shortcut_winM_desc,        hasZui = false, hasAosp = true),
             ShortcutMeta("winN",        R.string.shortcut_winN,        R.string.shortcut_winN_desc,        hasZui = false, hasAosp = true),
             ShortcutMeta("winP",        R.string.shortcut_winP,        R.string.shortcut_winP_desc,        hasZui = true),
-            ShortcutMeta("winW",        R.string.shortcut_winW,        R.string.shortcut_winW_desc,        hasZui = true),
             ShortcutMeta("winNumber",   R.string.shortcut_winNumber,   R.string.shortcut_winNumber_desc,   hasZui = true),
             ShortcutMeta("winTab",      R.string.shortcut_winTab,      R.string.shortcut_winTab_desc,      hasZui = true,  hasSystemSwitch = false),
-            // 二、Win+功能键（↑↓ 共用 keyboard_combo_ud_arrow，←→ 共用 keyboard_combo_lr_arrow）
+            ShortcutMeta("winBack",     R.string.shortcut_winBack,     R.string.shortcut_winBack_desc,     hasZui = true),
+
+            // ═══ Win+方向键 ═══
             ShortcutMeta("winUp",       R.string.shortcut_winUp,       R.string.shortcut_winUp_desc,       hasZui = false, hasAosp = true,
                 groupKeys = listOf("winDown")),
             ShortcutMeta("winLeft",     R.string.shortcut_winLeft,     R.string.shortcut_winLeft_desc,     hasZui = true,
                 groupKeys = listOf("winRight")),
-            // 三、Ctrl/Alt/Shift
+
+            // ═══ Ctrl ═══
             ShortcutMeta("ctrlCard",    R.string.shortcut_ctrlCard,    R.string.shortcut_ctrlCard_desc,
                          hasZui = false,  hasAosp = false, hasSystemSwitch = false, showSwitch = true,
                          onSpinSelectedNonDefault = OnSpinSelectedNonDefault.SWITCH_OFF),
             ShortcutMeta("ctrlShift",   R.string.shortcut_ctrlShift,   R.string.shortcut_ctrlShift_desc,   hasZui = true),
+            ShortcutMeta("ctrlShiftT",  R.string.shortcut_ctrlShiftT,  R.string.shortcut_ctrlShiftT_desc,  hasZui = true,  hasSystemSwitch = false),
             ShortcutMeta("ctrlSpace",   R.string.shortcut_ctrlSpace,   R.string.shortcut_ctrlSpace_desc,   hasZui = false, hasAosp = false,
                 hasSystemSwitch = false, showSwitch = true, showAospOption = false),
-            ShortcutMeta("altShift",    R.string.shortcut_altShift,    R.string.shortcut_altShift_desc,    hasZui = true),
-            ShortcutMeta("ctrlShiftT",  R.string.shortcut_ctrlShiftT,  R.string.shortcut_ctrlShiftT_desc,  hasZui = true,  hasSystemSwitch = false),
             ShortcutMeta("ctrlEnter",   R.string.shortcut_ctrlEnter,   R.string.shortcut_ctrlEnter_desc,   hasZui = true),
+
+            // ═══ Alt ═══
             ShortcutMeta("altTab",      R.string.shortcut_altTab,      R.string.shortcut_altTab_desc,      hasZui = true,  hasAosp = true),
-            // 四、ZUI 物理键（无 Settings.System 开关，系统强制开启）
-            ShortcutMeta("keyMute",         R.string.shortcut_keyMute,         R.string.shortcut_keyMute_desc,         hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyTouchpad",     R.string.shortcut_keyTouchpad,     R.string.shortcut_keyTouchpad_desc,     hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySplitScreen",  R.string.shortcut_keySplitScreen,  R.string.shortcut_keySplitScreen_desc,  hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySuperConnect", R.string.shortcut_keySuperConnect, R.string.shortcut_keySuperConnect_desc, hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyApp1",         R.string.shortcut_keyApp1,         R.string.shortcut_keyApp1_desc,         hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyApp2",         R.string.shortcut_keyApp2,         R.string.shortcut_keyApp2_desc,         hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySearch",       R.string.shortcut_keySearch,       R.string.shortcut_keySearch_desc,       hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySettings",     R.string.shortcut_keySettings,     R.string.shortcut_keySettings_desc,     hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyFnLock",       R.string.shortcut_keyFnLock,       R.string.shortcut_keyFnLock_desc,       hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyBacklight",    R.string.shortcut_keyBacklight,    R.string.shortcut_keyBacklight_desc,    hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyTpUp",         R.string.shortcut_keyTpUp,         R.string.shortcut_keyTpUp_desc,         hasZui = true,  hasAosp = true, hasSystemSwitch = false),
-            ShortcutMeta("keyScreenLock",   R.string.shortcut_keyScreenLock,   R.string.shortcut_keyScreenLock_desc,   hasZui = true,  hasSystemSwitch = false),
-            // 五、截图/特殊键（无 Settings.System 开关）
-            ShortcutMeta("printScreenShort", R.string.shortcut_printScreenShort, R.string.shortcut_printScreenShort_desc, hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("printScreenLong",  R.string.shortcut_printScreenLong,  R.string.shortcut_printScreenLong_desc,  hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("altShift",    R.string.shortcut_altShift,    R.string.shortcut_altShift_desc,    hasZui = true),
+            ShortcutMeta("altRightKR",  R.string.shortcut_altRightKR,  R.string.shortcut_altRightKR_desc,  hasZui = true,  hasSystemSwitch = false),
+
+            // ═══ Meta 单按 ═══
             ShortcutMeta("metaSingle",       R.string.shortcut_metaSingle,       R.string.shortcut_metaSingle_desc,       hasZui = true,  hasAosp = true, hasSystemSwitch = false),
             ShortcutMeta("metaShortRow",     R.string.shortcut_metaShortRow,     R.string.shortcut_metaShortRow_desc,     hasZui = true,  hasSystemSwitch = false),
             ShortcutMeta("metaLongRow",      R.string.shortcut_metaLongRow,      R.string.shortcut_metaLongRow_desc,      hasZui = true,  hasSystemSwitch = false),
             ShortcutMeta("metaHoldNonRow",   R.string.shortcut_metaHoldNonRow,   R.string.shortcut_metaHoldNonRow_desc,   hasZui = true,  hasSystemSwitch = false),
+
+            // ═══ 功能键 ═══
+            ShortcutMeta("keyMute",         R.string.shortcut_keyMute,         R.string.shortcut_keyMute_desc,         hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyTouchpad",     R.string.shortcut_keyTouchpad,     R.string.shortcut_keyTouchpad_desc,     hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keySplitScreen",  R.string.shortcut_keySplitScreen,  R.string.shortcut_keySplitScreen_desc,  hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keySuperConnect", R.string.shortcut_keySuperConnect, R.string.shortcut_keySuperConnect_desc, hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keySearch",       R.string.shortcut_keySearch,       R.string.shortcut_keySearch_desc,       hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keySettings",     R.string.shortcut_keySettings,     R.string.shortcut_keySettings_desc,     hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyApp1",         R.string.shortcut_keyApp1,         R.string.shortcut_keyApp1_desc,         hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyApp2",         R.string.shortcut_keyApp2,         R.string.shortcut_keyApp2_desc,         hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyFnLock",       R.string.shortcut_keyFnLock,       R.string.shortcut_keyFnLock_desc,       hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyBacklight",    R.string.shortcut_keyBacklight,    R.string.shortcut_keyBacklight_desc,    hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyTpUp",         R.string.shortcut_keyTpUp,         R.string.shortcut_keyTpUp_desc,         hasZui = true,  hasAosp = true, hasSystemSwitch = false),
+            ShortcutMeta("keyScreenLock",   R.string.shortcut_keyScreenLock,   R.string.shortcut_keyScreenLock_desc,   hasZui = true,  hasSystemSwitch = false),
+
+            // ═══ 截图 & 键盘 ═══
+            ShortcutMeta("printScreenShort", R.string.shortcut_printScreenShort, R.string.shortcut_printScreenShort_desc, hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("printScreenLong",  R.string.shortcut_printScreenLong,  R.string.shortcut_printScreenLong_desc,  hasZui = true,  hasSystemSwitch = false),
             ShortcutMeta("keyKeyboardRestore",  R.string.shortcut_keyKeyboardRestore,  R.string.shortcut_keyKeyboardRestore_desc,  hasZui = true,  hasSystemSwitch = false),
             ShortcutMeta("keyKeyboardReverse",  R.string.shortcut_keyKeyboardReverse,  R.string.shortcut_keyKeyboardReverse_desc,  hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("altRightKR",          R.string.shortcut_altRightKR,          R.string.shortcut_altRightKR_desc,          hasZui = true,  hasSystemSwitch = false),
-            // 六、AOSP 辅助键（Settings.Secure 控制，非 Settings.System）
+
+            // ═══ AOSP 辅助键 ═══
             ShortcutMeta("aospBounceKeys",  R.string.shortcut_aospBounceKeys,  R.string.shortcut_aospBounceKeys_desc,  hasZui = false, hasAosp = true, hasSystemSwitch = false,
                 onSpinSelectedNonDefault = OnSpinSelectedNonDefault.NOTHING),
             ShortcutMeta("aospMouseKeys",   R.string.shortcut_aospMouseKeys,   R.string.shortcut_aospMouseKeys_desc,   hasZui = false, hasAosp = true, hasSystemSwitch = false,

@@ -15,6 +15,34 @@
         app:layout_constraintTop_toTopOf="parent"
         app:title="@string/editor_title" />
 
+    <LinearLayout
+        android:id="@+id/searchBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_margin="8dp"
+        app:layout_constraintTop_toBottomOf="@id/toolbar">
+
+        <SearchView
+            android:id="@+id/searchView"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:iconifiedByDefault="false"
+            android:queryHint="搜索快捷键..." />
+
+        <Button
+            android:id="@+id/btnFilter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="筛选"
+            android:textSize="12sp"
+            android:minHeight="0dp"
+            style="?android:attr/buttonBarButtonStyle" />
+    </LinearLayout>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler"
         android:layout_width="match_parent"
@@ -23,6 +51,6 @@
         android:paddingTop="8dp"
         android:paddingBottom="8dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/toolbar" />
+        app:layout_constraintTop_toBottomOf="@id/searchBar" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

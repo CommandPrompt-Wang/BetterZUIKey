@@ -155,6 +155,9 @@ public class MainHook implements IXposedHookLoadPackage {
             LogHelper.log(VerboseLevel.INFO, "Installing L3 hook (PhoneWindowManager)...");
             hookL3_PhoneWindowManager();
 
+            LogHelper.log(VerboseLevel.INFO, "Installing L2 debug hook (PhoneWindowManager.interceptKeyBeforeDispatching)...");
+            hookL2_DebugInterceptBeforeDispatching();
+
             cfg.injected = true;
             cfg.injectError = "";
             writeInjectedStatus(true);
@@ -272,5 +275,32 @@ public class MainHook implements IXposedHookLoadPackage {
         }
         LogHelper.log(VerboseLevel.WARNING,
                 "L3 hook: PhoneWindowManager not found, AOSP shortcuts cannot be blocked");
+    }
+
+    /** Debug hook: timestamp Meta events at AOSP interceptKeyBeforeDispatching. */
+    private void hookL2_DebugInterceptBeforeDispatching() {
+        try {
+            XposedHelpers.findAndHookMethod(
+                    "com.android.server.policy.PhoneWindowManager", mClassLoader,
+                    "interceptKeyBeforeDispatching",
+                    IBinder.class, KeyEvent.class, int.class,
+                    new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            KeyEvent event = (KeyEvent) param.args[1];
+                            int kc = event.getKeyCode();
+                            if (kc == KeyEvent.KEYCODE_META_LEFT
+                                    || kc == KeyEvent.KEYCODE_META_RIGHT) {
+                                LogHelper.log(VerboseLevel.INFO, "[L2] ",
+                                        (event.getAction() == KeyEvent.ACTION_DOWN ? "D" : "U"),
+                                        " sc=", String.valueOf(event.getScanCode()),
+                                        " r=", String.valueOf(event.getRepeatCount()));
+                            }
+                        }
+                    });
+            LogHelper.log(VerboseLevel.INFO, "L2 debug hook installed: PhoneWindowManager.interceptKeyBeforeDispatching");
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR, "L2 hook failed:", t.getMessage());
+        }
     }
 }

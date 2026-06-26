@@ -28,10 +28,12 @@ public class L0Interceptor extends XC_MethodHook {
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
         int repeatCount = event.getRepeatCount();
 
-        // DEBUG: log any Meta+key combo to trace L0 hook activity
-        if (down && repeatCount == 0 && event.isMetaPressed()) {
-            KeyInjector.debugProp("debug.bzuikey.l0.meta", keyCode + ":" + event.getScanCode()
-                    + " metaState=0x" + Integer.toHexString(event.getMetaState()));
+        // TRACE: log every Meta event at L0
+        if (keyCode == KeyEvent.KEYCODE_META_LEFT
+                || keyCode == KeyEvent.KEYCODE_META_RIGHT) {
+            LogHelper.log(VerboseLevel.INFO, "[L0] ", (down ? "D" : "U"),
+                    " sc=", String.valueOf(event.getScanCode()),
+                    " r=", String.valueOf(repeatCount));
         }
 
         // Keyboard detect mode: intercept all keys, prevent ZUI function key

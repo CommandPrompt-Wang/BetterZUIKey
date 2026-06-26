@@ -12,6 +12,8 @@ import java.util.Map;
  * JSON 序列化由 Gson 自动处理。
  */
 public class KeyTemplate {
+    /** 不可变唯一 ID，防止重名。创建时由 UUID 生成，之后不改。 */
+    public String id = java.util.UUID.randomUUID().toString();
     /** 模板名称，如 "游戏模式"、"视频模式" */
     public String name;
     /** 此模板是否启用 */
@@ -26,9 +28,12 @@ public class KeyTemplate {
      */
     public Map<String, PerKeyOverride> overrides = new LinkedHashMap<>();
 
-    public KeyTemplate() {}
+    public KeyTemplate() {
+        this.id = java.util.UUID.randomUUID().toString();
+    }
 
     public KeyTemplate(String name) {
+        this.id = java.util.UUID.randomUUID().toString();
         this.name = name;
     }
 

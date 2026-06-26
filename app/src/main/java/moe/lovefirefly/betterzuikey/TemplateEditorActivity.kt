@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -23,6 +24,7 @@ class TemplateEditorActivity : AppCompatActivity() {
     private var templateIndex = -1
     private lateinit var template: KeyTemplate
     private lateinit var globalCfg: Config
+    private lateinit var adapter: EditorAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,7 +46,60 @@ class TemplateEditorActivity : AppCompatActivity() {
         binding.toolbar.setNavigationOnClickListener { finish() }
 
         binding.recycler.layoutManager = LinearLayoutManager(this)
-        binding.recycler.adapter = EditorAdapter()
+        adapter = EditorAdapter()
+        binding.recycler.adapter = adapter
+
+        binding.searchView.setOnQueryTextListener(object : android.widget.SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(q: String?): Boolean { adapter.applyFilters(q ?: ""); return true }
+            override fun onQueryTextChange(q: String?): Boolean { adapter.applyFilters(q ?: ""); return true }
+        })
+
+        binding.btnFilter.setOnClickListener { showFilterDialog() }
+    }
+
+    // ── Filter state ──
+    private var filterSwitchOff = true
+    private var filterSwitchOn = true
+    private var filterNoSwitch = true
+    private var filterModeDefault = true
+    private var filterModeAOSP = true
+    private var filterModeZUI = true
+    private var filterModeOFF = true
+    private var filterModeBLOCK = true
+    private var filterModeInherit = true
+
+    private fun showFilterDialog() {
+        val items = arrayOf(
+            "系统开关关", "系统开关开", "无系统开关",
+            "继承全局", "默认", "AOSP", "ZUI", "关闭", "忽略"
+        )
+        val checked = booleanArrayOf(
+            filterSwitchOff, filterSwitchOn, filterNoSwitch,
+            filterModeInherit, filterModeDefault, filterModeAOSP, filterModeZUI, filterModeOFF, filterModeBLOCK
+        )
+        AlertDialog.Builder(this)
+            .setTitle("筛选快捷键")
+            .setMultiChoiceItems(items, checked) { _, which, isChecked ->
+                when (which) {
+                    0 -> filterSwitchOff = isChecked
+                    1 -> filterSwitchOn = isChecked
+                    2 -> filterNoSwitch = isChecked
+                    3 -> filterModeInherit = isChecked
+                    4 -> filterModeDefault = isChecked
+                    5 -> filterModeAOSP = isChecked
+                    6 -> filterModeZUI = isChecked
+                    7 -> filterModeOFF = isChecked
+                    8 -> filterModeBLOCK = isChecked
+                }
+            }
+            .setPositiveButton("确定") { _, _ -> adapter.applyFilters(binding.searchView.query?.toString() ?: "") }
+            .setNegativeButton("重置") { _, _ ->
+                filterSwitchOff = true; filterSwitchOn = true; filterNoSwitch = true
+                filterModeInherit = true; filterModeDefault = true; filterModeAOSP = true
+                filterModeZUI = true; filterModeOFF = true; filterModeBLOCK = true
+                adapter.applyFilters(binding.searchView.query?.toString() ?: "")
+            }
+            .show()
     }
 
     override fun onPause() {
@@ -60,7 +115,44 @@ class TemplateEditorActivity : AppCompatActivity() {
         private var openSpinnerPos = -1
         /** Spinner 统一固定最小宽度（px） */
         private var spinnerFixedMinWidth: Int = 0
-        override fun getItemCount() = ShortcutMeta.ALL.size
+        /** 搜索过滤后的列表 */
+        private var filtered: List<ShortcutMeta> = ShortcutMeta.ALL
+
+        fun applyFilters(query: String) {
+            val q = query.trim()
+            filtered = ShortcutMeta.ALL.filter { meta ->
+                // ── Text search (AND tokens) ──
+                val tokens = q.split("+", " ", "\t").map { it.trim() }.filter { it.isNotEmpty() }
+                val text = meta.displayName(this@TemplateEditorActivity) +
+                    (if (meta.descResId != 0) " " + this@TemplateEditorActivity.getString(meta.descResId) else "")
+                val textOk = tokens.isEmpty() || tokens.all { token -> text.contains(token, ignoreCase = true) }
+                if (!textOk) return@filter false
+
+                // ── Switch state filter ──
+                val hasSwitch = meta.showSwitch || meta.hasSystemSwitch
+                val switchOn = hasSwitch && ShortcutMeta.getSwitch(globalCfg, meta.key).isEnabled
+                val switchOk = (filterSwitchOn && hasSwitch && switchOn) ||
+                               (filterSwitchOff && hasSwitch && !switchOn) ||
+                               (filterNoSwitch && !hasSwitch)
+                if (!switchOk) return@filter false
+
+                // ── Override mode filter (template override or global fallback) ──
+                val ov = template.get(meta.key)
+                val isInherit = ov == null || ov.isInherit()
+                val mode = ov?.overrideMode ?: ShortcutMeta.getOverride(globalCfg, meta.key)
+                val modeOk = (filterModeInherit && isInherit) ||
+                             (filterModeDefault && !isInherit && (mode == Config.OverrideMode.FOLLOW_SYSTEM || mode == Config.OverrideMode.ZUI)) ||
+                             (filterModeAOSP && !isInherit && mode == Config.OverrideMode.AOSP) ||
+                             (filterModeZUI && !isInherit && mode == Config.OverrideMode.ZUI) ||
+                             (filterModeOFF && !isInherit && mode == Config.OverrideMode.OFF) ||
+                             (filterModeBLOCK && !isInherit && mode == Config.OverrideMode.BLOCK)
+                modeOk
+            }
+            openSpinnerPos = -1
+            notifyDataSetChanged()
+        }
+
+        override fun getItemCount() = filtered.size
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
             val b = ItemShortcutRowBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -93,7 +185,7 @@ class TemplateEditorActivity : AppCompatActivity() {
         }
 
         override fun onBindViewHolder(holder: VH, position: Int) {
-            holder.bind(ShortcutMeta.ALL[position], position)
+            holder.bind(filtered[position], position)
         }
 
         inner class VH(private val b: ItemShortcutRowBinding) : RecyclerView.ViewHolder(b.root) {

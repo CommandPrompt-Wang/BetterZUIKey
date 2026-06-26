@@ -28,6 +28,12 @@ public class L4Interceptor extends XC_MethodHook {
             int type = (int) kgEvent.getClass()
                     .getMethod("getKeyGestureType").invoke(kgEvent);
             LogHelper.log(VerboseLevel.DEBUG, "L4: type=", String.valueOf(type));
+            // DEBUG: timestamp type=21 gesture
+            if (type == 21) {
+                KeyInjector.debugProp("debug.bzuikey.time.l4",
+                        "type=21 t=" + System.currentTimeMillis()
+                        + " up=" + android.os.SystemClock.uptimeMillis());
+            }
 
             boolean blocked = false;
             switch (type) {
@@ -157,6 +163,29 @@ public class L4Interceptor extends XC_MethodHook {
                     if (ctx.applyL4BlockAction(ctx.ra("keySuperConnect", ctx.cfg.overrideSuperConnect),
                             "L4: SuperConnect (313)"))
                         blocked = true;
+                    break;
+                case 21: // Meta single press → Start Menu
+                    if (!ctx.r("metaSingle", ctx.cfg.switchMetaSingle).isEnabled())
+                        break;
+                    {
+                        Config.MetaAction action = ctx.cfg.metaShortPressAction;
+                        Config.OverrideMode override = ctx.ra("metaSingle",
+                                ctx.cfg.overrideMetaSingle);
+                        if (override == Config.OverrideMode.OFF
+                                || action == Config.MetaAction.NONE) {
+                            LogHelper.log(VerboseLevel.INFO,
+                                    "L4: Meta (type=21) → OFF → inject Meta to App");
+                            ctx.injectMetaToApp(0, ctx.lastMetaScanCode);
+                            param.setResult(-1);
+                            return;
+                        }
+                        if (override == Config.OverrideMode.BLOCK) {
+                            LogHelper.log(VerboseLevel.INFO,
+                                    "L4: Meta (type=21) → BLOCK → consume");
+                            param.setResult(-1);
+                            return;
+                        }
+                    }
                     break;
             }
 

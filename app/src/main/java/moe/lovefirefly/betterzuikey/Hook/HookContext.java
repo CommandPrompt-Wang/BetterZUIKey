@@ -27,6 +27,9 @@ public class HookContext {
     public Object kscInstance;
     public Object policyInstance;
 
+    /** ScanCode of the last physical Meta DOWN, stored by L1 for L4 injection. */
+    public int lastMetaScanCode = 0;
+
     // ---- Immutable collaborators ----
 
     public final FnKeyManager fnKeyManager;
@@ -275,19 +278,26 @@ public class HookContext {
      * @param deviceId the input device ID from the original physical event,
      *                 passed through to keep the synthetic event credible
      */
-    public void injectMetaToApp(int deviceId) {
-        // Match KeyInjector.injectKeyDown pattern — proper constructor
+    public void injectMetaToApp(int deviceId, int scanCode) {
         long now = android.os.SystemClock.uptimeMillis();
         KeyEvent down = new KeyEvent(now, now,
                 KeyEvent.ACTION_DOWN,
                 KeyEvent.KEYCODE_META_LEFT,
-                0, 0, deviceId, 0, 0);
-        KeyEvent up = new KeyEvent(now + 50, now + 50,
+                0, 0, 0, scanCode, 0, 0);
+        KeyEvent up = new KeyEvent(now, now + 50,
                 KeyEvent.ACTION_UP,
                 KeyEvent.KEYCODE_META_LEFT,
-                0, 0, deviceId, 0, 0);
-        IMEDispatcher.injectKeyEvents(java.util.Arrays.asList(down, up));
-        LogHelper.log(VerboseLevel.INFO, "Meta → injected to App via IMEDispatcher (deviceId=",
-                String.valueOf(deviceId), ")");
+                0, 0, 0, scanCode, 0, 0);
+        try {
+            Object im = de.robv.android.xposed.XposedHelpers.callStaticMethod(
+                    android.hardware.input.InputManager.class, "getInstance");
+            de.robv.android.xposed.XposedHelpers.callMethod(im,
+                    "injectInputEvent", (android.view.InputEvent) down, 0);
+            de.robv.android.xposed.XposedHelpers.callMethod(im,
+                    "injectInputEvent", (android.view.InputEvent) up, 0);
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR, "injectMetaToApp failed:", t.getMessage());
+        }
+        LogHelper.log(VerboseLevel.INFO, "[INJ] D+U up=", String.valueOf(now));
     }
 }

@@ -61,12 +61,23 @@
     <!-- ================================================================ -->
     <string name="templates_new_template">新建模板</string>
     <string name="templates_name_dialog_title">模板名称</string>
+    <string name="templates_name_duplicate">名称 \"%s\" 已存在，自动重命名为 \"%s\"</string>
     <string name="templates_select_apps">选择应用（已选择 %1$d 个）</string>
     <string name="templates_delete_title">删除模板</string>
     <string name="templates_delete_msg">确定删除「%1$s」？</string>
     <string name="templates_btn_rename">重命名</string>
     <string name="templates_btn_delete">删除模板</string>
     <string name="templates_btn_delete_confirm">删除</string>
+    <string name="templates_btn_copy">复制</string>
+    <string name="templates_copy_title">复制模板</string>
+    <string name="templates_copy_msg">创建「%s」的副本？</string>
+    <string name="templates_copy_apps">同时复制应用列表</string>
+    <string name="templates_copy_warn_dup">注意：同一应用匹配多个模板时，仅第一个生效</string>
+    <string name="templates_btn_move_up">↑上移</string>
+    <string name="templates_btn_move_down">↓下移</string>
+    <string name="templates_btn_move_suffix">项</string>
+    <string name="templates_drag_hint">长按拖动可重新排序</string>
+    <string name="templates_empty">暂无模板</string>
     <string name="templates_default_name">游戏模式</string>
     <string name="templates_create_title">新建模板</string>
 

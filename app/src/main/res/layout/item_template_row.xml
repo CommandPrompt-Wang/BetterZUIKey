@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 模板卡片: [名称 + Switch] [重命名] [选择应用 (n个) >] -->
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -13,9 +12,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="12dp">
 
-        <!-- 模板名 + 启用开关 -->
+        <!-- Row 1: Name + Switch -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -37,45 +36,73 @@
 
         </LinearLayout>
 
-        <!-- 重命名 -->
-        <TextView
-            android:id="@+id/tv_rename"
-            android:layout_width="wrap_content"
+        <!-- Row 2: Left buttons + Right move up -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:padding="8dp"
-            android:text="@string/templates_btn_rename"
-            android:textAppearance="?attr/textAppearanceBodyMedium"
-            android:textColor="?attr/colorPrimary"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?attr/selectableItemBackground" />
+            android:layout_marginTop="6dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-        <!-- 选择应用 -->
-        <TextView
-            android:id="@+id/tv_apps"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:padding="8dp"
-            android:text="@string/templates_select_apps"
-            android:textAppearance="?attr/textAppearanceBodyMedium"
-            android:textColor="?attr/colorPrimary"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?attr/selectableItemBackground" />
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal">
 
-        <!-- 删除 -->
-        <TextView
-            android:id="@+id/tv_delete"
-            android:layout_width="wrap_content"
+                <TextView android:id="@+id/tv_rename" android:layout_width="wrap_content" android:layout_height="wrap_content" android:padding="6dp" android:text="@string/templates_btn_rename" android:textAppearance="?attr/textAppearanceBodySmall" android:textColor="?attr/colorPrimary" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground" />
+                <TextView android:id="@+id/tv_copy" android:layout_width="wrap_content" android:layout_height="wrap_content" android:padding="6dp" android:text="@string/templates_btn_copy" android:textAppearance="?attr/textAppearanceBodySmall" android:textColor="?attr/colorPrimary" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground" />
+                <TextView android:id="@+id/tv_delete" android:layout_width="wrap_content" android:layout_height="wrap_content" android:padding="6dp" android:text="@string/templates_btn_delete" android:textAppearance="?attr/textAppearanceBodySmall" android:textColor="?attr/colorError" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical">
+
+                <TextView android:id="@+id/tv_move_up" android:layout_width="wrap_content" android:layout_height="wrap_content" android:padding="4dp" android:text="@string/templates_btn_move_up" android:textAppearance="?attr/textAppearanceBodySmall" android:textColor="?attr/colorPrimary" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="[" android:textSize="12sp" />
+                <EditText android:id="@+id/et_move_count" android:layout_width="28dp" android:layout_height="wrap_content" android:inputType="number" android:maxLength="2" android:text="1" android:textAlignment="center" android:textSize="12sp" android:background="@null" android:padding="0dp" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="]" android:textSize="12sp" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="2dp" android:text="@string/templates_btn_move_suffix" android:textSize="12sp" />
+
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Row 3: Left apps + Right move down -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="8dp"
-            android:text="@string/templates_btn_delete"
-            android:textAppearance="?attr/textAppearanceBodyMedium"
-            android:textColor="?attr/colorError"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="?attr/selectableItemBackground" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tv_apps"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:padding="6dp"
+                android:text="@string/templates_select_apps"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="?attr/colorPrimary"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical">
+
+                <TextView android:id="@+id/tv_move_down" android:layout_width="wrap_content" android:layout_height="wrap_content" android:padding="4dp" android:text="@string/templates_btn_move_down" android:textAppearance="?attr/textAppearanceBodySmall" android:textColor="?attr/colorPrimary" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="[" android:textSize="12sp" />
+                <EditText android:id="@+id/et_move_count2" android:layout_width="28dp" android:layout_height="wrap_content" android:inputType="number" android:maxLength="2" android:text="1" android:textAlignment="center" android:textSize="12sp" android:background="@null" android:padding="0dp" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="]" android:textSize="12sp" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="2dp" android:text="@string/templates_btn_move_suffix" android:textSize="12sp" />
+
+            </LinearLayout>
+        </LinearLayout>
 
     </LinearLayout>
 

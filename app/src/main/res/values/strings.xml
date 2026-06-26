@@ -61,12 +61,23 @@
     <!-- ================================================================ -->
     <string name="templates_new_template">New Template</string>
     <string name="templates_name_dialog_title">Template Name</string>
+    <string name="templates_name_duplicate">Name \"%s\" already exists, auto-renamed to \"%s\"</string>
     <string name="templates_select_apps">Select apps (%1$d selected)</string>
     <string name="templates_delete_title">Delete Template</string>
     <string name="templates_delete_msg">Delete \"%1$s\"?</string>
     <string name="templates_btn_rename">Rename</string>
     <string name="templates_btn_delete">Delete Template</string>
     <string name="templates_btn_delete_confirm">Delete</string>
+    <string name="templates_btn_copy">Copy</string>
+    <string name="templates_copy_title">Copy Template</string>
+    <string name="templates_copy_msg">Create a copy of \"%s\"?</string>
+    <string name="templates_copy_apps">Also copy the app list</string>
+    <string name="templates_copy_warn_dup">Note: if multiple templates match the same app, only the first one takes effect.</string>
+    <string name="templates_btn_move_up">↑Move</string>
+    <string name="templates_btn_move_down">↓Move</string>
+    <string name="templates_btn_move_suffix">items</string>
+    <string name="templates_drag_hint">Long-press to drag and reorder</string>
+    <string name="templates_empty">No templates yet</string>
     <string name="templates_default_name">Gaming Mode</string>
     <string name="templates_create_title">New Template</string>
 

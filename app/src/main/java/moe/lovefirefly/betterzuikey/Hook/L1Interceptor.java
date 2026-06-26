@@ -418,10 +418,21 @@ public class L1Interceptor extends XC_MethodHook {
                 return;
         }
 
+        // TRACE: log every Meta event at L1
+        if (keyCode == KeyEvent.KEYCODE_META_LEFT
+                || keyCode == KeyEvent.KEYCODE_META_RIGHT) {
+            LogHelper.log(VerboseLevel.INFO, "[L1] ", (down ? "D" : "U"),
+                    " sc=", String.valueOf(event.getScanCode()),
+                    " r=", String.valueOf(repeatCount),
+                    " inj=", ctx.isInjecting() ? "1" : "0");
+        }
+
         // Meta single press — Start menu
+        // scanCode!=0 guard: skip injected events (scanCode=0) to avoid feedback loop
         if ((keyCode == KeyEvent.KEYCODE_META_LEFT
                 || keyCode == KeyEvent.KEYCODE_META_RIGHT)
-                && down && repeatCount == 0) {
+                && down && repeatCount == 0
+                && event.getScanCode() != 0) {
             if (!ctx.r("metaSingle", ctx.cfg.switchMetaSingle).isEnabled())
                 return;
             Config.MetaAction action = ctx.cfg.metaShortPressAction;
@@ -430,14 +441,14 @@ public class L1Interceptor extends XC_MethodHook {
             if (action == Config.MetaAction.NONE
                     || override == Config.OverrideMode.OFF
                     || override == Config.OverrideMode.BLOCK) {
-                // Block ZUI from consuming Meta, then inject raw Meta to App.
-                // L3 also blocks type=21 (Start Menu gesture).
+                // Block ZUI from consuming Meta. Injection moved to L4.
+                ctx.lastMetaScanCode = event.getScanCode();
                 LogHelper.log(VerboseLevel.INFO,
-                        "L1: Meta DOWN → BLOCK ZUI + inject Meta to App (action=",
+                        "L1: Meta DOWN → BLOCK ZUI (injection via L4, sc=",
+                        String.valueOf(ctx.lastMetaScanCode), ") (action=",
                         action.name(), " override=", override.name(), ")");
                 param.setResult(true);
                 ctx.fnKeyManager.setConsumeMetaUpForNone();
-                ctx.injectMetaToApp(event.getDeviceId());
                 return;
             }
             if (action == Config.MetaAction.START_MENU) {
