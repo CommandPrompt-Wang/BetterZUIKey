@@ -104,6 +104,8 @@ cd BetterZUIKey
 需要 Android Studio + JDK 17 + Android SDK 34+。
 - 模块通过反射调用 Xposed 框架因此本身不依赖任何特定版本的 Xposed API
 
+> **致开发者**：`dev` 分支提交信息以 `[Nightly]` 开头时，CI 会自动触发 Debug 构建并上传 artifact。
+
 ## 📖 使用方法
 
 1. **快捷键** — 每条快捷键有一张卡片

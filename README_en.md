@@ -104,6 +104,8 @@ cd BetterZUIKey
 Requires Android Studio + JDK 17 + Android SDK 34+.
 - The module invokes the Xposed framework via reflection and has no compile-time dependency on any specific Xposed API version.
 
+> **For developers**: Commits on the `dev` branch prefixed with `[Nightly]` will automatically trigger a CI build and upload the debug artifact.
+
 ## 📖 Usage
 
 1. **Shortcuts** — Each shortcut has a card
