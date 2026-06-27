@@ -339,10 +339,10 @@ public class Config {
     // 键盘映射res/raw/keyboard_profiles.json 加载
     // ================================================================
 
-    /** 虚拟 Fn 功能启用（默认关闭，需 Win+` 开启） */
+    /** 虚拟 Fn 功能总开关（默认开启；FnSettings “启用”控制） */
+    public boolean fnMasterEnabled = true;
+    /** FnLock 状态（Win+` 切换；false=需Win激活，true=F键优先） */
     public boolean fnKeyEnabled = false;
-    /** FnLock 启用（Win+` 切换*/
-    public boolean fnLockEnabled = true;
     /** 当前使用的键profile key（如 "17ef:6271"），自动检*/
     public String fnProfileKey = "";
     /** 用户导入的自定义键盘配置 */
@@ -711,9 +711,9 @@ public class Config {
         switchAospSlowKeys = SwitchState.OFF;     overrideAospSlowKeys = OverrideMode.AOSP;
         // 十、模
         templates = new ArrayList<>();
-        // 十一、虚Fn 键（默认关闭
+        // 十一、虚Fn 键
+        fnMasterEnabled = true;
         fnKeyEnabled = false;
-        fnLockEnabled = true;
         fnProfileKey = "";
         fnCustomProfiles = new java.util.LinkedHashMap<>();
         fnToastEnabled = true;

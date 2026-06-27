@@ -33,7 +33,7 @@ import moe.lovefirefly.betterzuikey.databinding.ItemTemplateRowBinding
  * 全局配置 Tab — 显示所有快捷键的系统开关。
  * 支持下拉刷新和 su 自授权。
  */
-class GlobalFragment : Fragment(R.layout.fragment_recycler) {
+class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refreshable {
 
     /** 系统设置写入权限状态：null=未检测, true=可写, false=不可写 */
     companion object {
@@ -74,14 +74,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
             recycler.adapter = adapter
 
             binding.swipeRefresh.setOnRefreshListener {
-                canWriteSystemSettings = null
-                checkWritePermission(view)
-                reloadConfig()
-                adapter.applyFilters(binding.searchView.query?.toString() ?: "")
-                if (canWriteSystemSettings == true) {
-                    view.findViewById<CardView>(R.id.cardWriteWarning)?.visibility = View.GONE
-                }
-                binding.swipeRefresh.isRefreshing = false
+                triggerRefresh()
             }
 
             // Search
@@ -147,6 +140,22 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler) {
                 adapter.applyFilters(binding.searchView.query?.toString() ?: "")
             }
             .show()
+    }
+
+    /** 实现 Refreshable 接口 —— 供页面切换 / 应用恢复时自动刷新 */
+    override fun triggerRefresh() {
+        val v = view ?: return
+        binding.swipeRefresh.isRefreshing = true
+        canWriteSystemSettings = null
+        checkWritePermission(v)
+        reloadConfig()
+        if (::adapter.isInitialized) {
+            adapter.applyFilters(binding.searchView.query?.toString() ?: "")
+        }
+        if (canWriteSystemSettings == true) {
+            v.findViewById<CardView>(R.id.cardWriteWarning)?.visibility = View.GONE
+        }
+        binding.swipeRefresh.isRefreshing = false
     }
 
     /** 切回此 Tab 时统一刷新（开关状态可能已通过系统或其他途径变化） */
@@ -494,11 +503,16 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
         super.onViewCreated(view, savedInstanceState)
         val binding = FragmentRecyclerBinding.bind(view)
         binding.swipeRefresh.isEnabled = false  // 设置页不需要下拉刷新
+        binding.searchView.visibility = View.GONE   // 设置页不需要搜索
+        binding.btnFilter.visibility = View.GONE    // 设置页不需要筛选
         binding.recycler.layoutManager = LinearLayoutManager(requireContext())
         binding.recycler.adapter = SettingsAdapter(this)
     }
 
     class SettingsAdapter(private val host: Fragment) : RecyclerView.Adapter<SettingsAdapter.VH>() {
+
+        /** 当前展开的 Combo 位置，-1 表示全部收起。卡片点击时用于 toggle。 */
+        private var openComboPos = -1
 
         // ── 卡片类型：Tap=点击跳转, Switch=开关, Combo=下拉多选 ──
         sealed class SettingItem(val label: String, val desc: String = "") {
@@ -720,7 +734,7 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                         }
                     }
                     is SettingItem.Combo -> {
-                        // ── Combo 型：右侧显示下拉菜单，点击卡片展开 ──
+                        // ── Combo 型：右侧显示下拉菜单，点击卡片展开/收回 ──
                         b.tilAction.visibility = View.VISIBLE
                         b.swEnabled.visibility = View.GONE
                         b.ivChevron.visibility = View.GONE
@@ -733,12 +747,20 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                         b.spAction.threshold = Int.MAX_VALUE
                         b.spAction.setText(curText, false)
                         b.spAction.setOnItemClickListener { _, _, pos, _ ->
+                            openComboPos = -1
                             item.onSelected(pos)
                             b.spAction.setText(options[pos], false)
                         }
                         b.root.setOnClickListener {
-                            b.spAction.requestFocus()
-                            b.spAction.post { b.spAction.showDropDown() }
+                            if (openComboPos == position) {
+                                // 同一张 card：收回
+                                openComboPos = -1
+                                b.spAction.dismissDropDown()
+                            } else {
+                                openComboPos = position
+                                b.spAction.requestFocus()
+                                b.spAction.post { b.spAction.showDropDown() }
+                            }
                         }
                     }
                 }
@@ -1060,6 +1082,9 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
             setText(current)
             setSingleLine()
             selectAll()
+            if (current.isEmpty()) {
+                setHint(getString(R.string.templates_new_template_hint))
+            }
         }
         AlertDialog.Builder(requireContext())
             .setTitle(getString(R.string.templates_name_dialog_title))

@@ -28,6 +28,9 @@
     <string name="home_help_warning">Please read before making changes</string>
     <string name="home_chevron">›</string>
     <string name="home_version_template">BetterZUIKey v1.0</string>
+    <string name="home_warning_open_lsposed_failed">Unable to open LSPosed Manager automatically. Please open it manually.</string>
+    <string name="home_warning_copy_error">Copy error info</string>
+    <string name="home_status_click_hint">Tap to try opening the manager</string>
 
     <!-- ================================================================ -->
     <!-- Agreement Dialog (MainActivity) -->
@@ -67,7 +70,6 @@
     <string name="templates_btn_rename">Rename</string>
     <string name="templates_btn_delete">Delete Template</string>
     <string name="templates_btn_delete_confirm">Delete</string>
-    <string name="templates_default_name">Gaming Mode</string>
     <string name="templates_create_title">New Template</string>
 
     <!-- ================================================================ -->

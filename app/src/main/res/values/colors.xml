@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <color name="status_green_bg">#E8F5E9</color>
+    <color name="status_green_fg">#4CAF50</color>
+    <color name="status_amber_bg">#FFF8E1</color>
+    <color name="status_amber_fg">#FF9800</color>
+    <color name="status_orange_bg">#FFF0EC</color>
+    <color name="status_orange_fg">#FF7F50</color>
+    <color name="status_red_bg">#FFEBEE</color>
+    <color name="status_red_fg">#F44336</color>
 </resources>

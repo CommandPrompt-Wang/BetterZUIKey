@@ -26,7 +26,11 @@ class ConfigSyncProvider : ContentProvider() {
         const val METHOD_GET_SYNC = "getSync"
         const val METHOD_NOTIFY_SYNC = "notifySync"
         const val METHOD_SET_CONFIG = "setConfig"
+        const val METHOD_BOOT_MARK = "bootMark"
+        const val METHOD_BOOT_MARK_APP = "bootMarkApp"
         const val KEY_CONFIG_JSON = "config_json"
+        const val KEY_BOOT_TIME = "boot_time"
+        const val KEY_BOOT_TIME_APP = "boot_time_app"
     }
 
     override fun onCreate(): Boolean = true
@@ -48,6 +52,22 @@ class ConfigSyncProvider : ContentProvider() {
                 context?.getSharedPreferences(
                     RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.putString("config_sync", json)?.commit()
+                null
+            }
+            METHOD_BOOT_MARK -> {
+                val bootTime = System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()
+                context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    ?.edit()?.putLong(KEY_BOOT_TIME, bootTime)?.commit()
+                null
+            }
+            METHOD_BOOT_MARK_APP -> {
+                // Written when hooks run in a non-system_server process (wrong scope).
+                // Lets the UI show yellow instead of red.
+                val bootTime = System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()
+                context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    ?.edit()?.putLong(KEY_BOOT_TIME_APP, bootTime)?.commit()
                 null
             }
             else -> null

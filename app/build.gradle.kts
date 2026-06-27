@@ -10,8 +10,8 @@ android {
         applicationId = "moe.lovefirefly.betterzuikey"
         minSdk = 27
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 4
+        versionName = "1.0.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -69,5 +69,6 @@ dependencies {
         exclude(group = "org.jetbrains", module = "annotations-java5")
     }
 
-    compileOnly("de.robv.android.xposed:api:82")
+    compileOnly("io.github.libxposed:api:101.0.0")
+    implementation("io.github.libxposed:service:101.0.0")
 }

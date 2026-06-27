@@ -9,8 +9,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedHelpers;
+import moe.lovefirefly.betterzuikey.Hook.HookCompat;
+
 
 import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
@@ -31,7 +31,7 @@ import static moe.lovefirefly.betterzuikey.Hook.KeyInjector.*;
  */
 public class FnKeyManager {
 
-    private final Config cfg;
+    private Config cfg;
     private final ConfigIPCManager configIPC;
 
     // ---- Fn mapping state ----
@@ -89,6 +89,11 @@ public class FnKeyManager {
         this.configIPC = configIPC;
     }
 
+    /** Update the Config reference after a hot-reload. Called from HookContext.checkConfigChanged(). */
+    public void setConfig(Config cfg) {
+        this.cfg = cfg;
+    }
+
     // ----------------------------------------------------------------
     //  State setters (called by MainHook during shortcut DOWN handling)
     // ----------------------------------------------------------------
@@ -111,7 +116,7 @@ public class FnKeyManager {
      * @return true if the event was consumed (caller must return immediately)
      */
     public boolean consumeComboUp(int keyCode, boolean down,
-                                   KeyEvent event, XC_MethodHook.MethodHookParam param) {
+                                   KeyEvent event, HookCompat.HookParam param) {
         // Win+Tab OFF/BLOCK mode — consume Tab UP (prevent leak)
         // Must come BEFORE Fn keyboard processing which also handles Tab UP
         if (keyCode == KeyEvent.KEYCODE_TAB && !down && event.isMetaPressed()) {
@@ -168,12 +173,14 @@ public class FnKeyManager {
      * @return true if the event was consumed (caller must return immediately)
      */
     public boolean processFnSection(int keyCode, boolean down, int repeatCount,
-                                     KeyEvent event, XC_MethodHook.MethodHookParam param,
+                                     KeyEvent event, HookCompat.HookParam param,
                                      Object mKscInstance) {
+        // Master gate: Fn entirely disabled via FnSettings
+        if (!cfg.fnMasterEnabled) return false;
+
         // -- Win+` → FnLock toggle (pure Win+` only, no Alt/Shift/Ctrl) --
         if (keyCode == KeyEvent.KEYCODE_GRAVE
                 && KeyInjector.modifiersMatch(event, true, false, false, false) && repeatCount == 0) {
-            if (!cfg.fnLockEnabled) return false;
             param.setResult(true);
             if (down) {
                 mConsumeNextMetaUp = true;
@@ -226,7 +233,7 @@ public class FnKeyManager {
      * @return true if consumed
      */
     private boolean processFnKeyDown(int keyCode, KeyEvent event,
-                                      XC_MethodHook.MethodHookParam param) {
+                                      HookCompat.HookParam param) {
         // Skip clean DOWN injected by restore path (avoid re-mapping loop)
         if (mRestoreDownPending.contains(keyCode)) return false;
 
@@ -300,7 +307,7 @@ public class FnKeyManager {
      * @return true if consumed
      */
     private boolean processFnKeyUp(int keyCode, boolean down,
-                                    KeyEvent event, XC_MethodHook.MethodHookParam param) {
+                                    KeyEvent event, HookCompat.HookParam param) {
         // Restore keys UP: block physical UP, inject clean UP
         if (!down && mRestoreDownPending.remove(keyCode)) {
             param.setResult(true);

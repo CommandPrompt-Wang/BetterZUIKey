@@ -6,7 +6,7 @@ import android.view.InputEvent;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-import de.robv.android.xposed.XposedHelpers;
+
 
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
@@ -92,8 +92,8 @@ public final class KeyInjector {
     public static void injectKey(int keyCode, Object mKscInstance) {
         if (keyCode <= 0 || mKscInstance == null) return;
         try {
-            Object policy = XposedHelpers.getObjectField(mKscInstance, "mPolicy");
-            XposedHelpers.callMethod(policy, "injectKeyEvent", keyCode);
+            Object policy = HookCompat.getObjectField(mKscInstance, "mPolicy");
+            HookCompat.callMethod(policy, "injectKeyEvent", keyCode);
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR, "injectKey failed (keyCode=",
                     String.valueOf(keyCode), "):", t.getMessage());
@@ -117,9 +117,9 @@ public final class KeyInjector {
             long now = android.os.SystemClock.uptimeMillis();
             KeyEvent ev = new KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode,
                     0, metaState, deviceId, 0, 0);
-            Object im = XposedHelpers.callStaticMethod(
+            Object im = HookCompat.callStaticMethod(
                     android.hardware.input.InputManager.class, "getInstance");
-            XposedHelpers.callMethod(im, "injectInputEvent", (InputEvent) ev, 0);
+            HookCompat.callMethod(im, "injectInputEvent", (InputEvent) ev, 0);
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR, "injectKeyDown failed (keyCode=",
                     String.valueOf(keyCode), " deviceId=", String.valueOf(deviceId),
@@ -143,9 +143,9 @@ public final class KeyInjector {
             long now = android.os.SystemClock.uptimeMillis();
             KeyEvent ev = new KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode,
                     0, metaState, deviceId, 0, 0);
-            Object im = XposedHelpers.callStaticMethod(
+            Object im = HookCompat.callStaticMethod(
                     android.hardware.input.InputManager.class, "getInstance");
-            XposedHelpers.callMethod(im, "injectInputEvent", (InputEvent) ev, 0);
+            HookCompat.callMethod(im, "injectInputEvent", (InputEvent) ev, 0);
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR, "injectKeyUp failed (keyCode=",
                     String.valueOf(keyCode), " deviceId=", String.valueOf(deviceId),

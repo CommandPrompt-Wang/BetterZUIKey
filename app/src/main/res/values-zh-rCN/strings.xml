@@ -17,6 +17,9 @@
     <!-- ================================================================ -->
     <string name="home_app_icon_desc">应用图标</string>
     <string name="home_app_title">BetterZUIKey</string>
+    <string name="home_version">版本：v%1$s</string>
+    <string name="home_app_description">面向联想 ZUXOS 设备的 LSPosed 键盘快捷键覆写模块</string>
+    <string name="home_project_url">github.com/CommandPrompt-Wang/BetterZUIKey</string>
     <string name="home_status_loading">状态: 等待加载…</string>
     <string name="home_module_status_title">模块状态</string>
     <string name="home_module_status_inactive">未激活 (需 Xposed)</string>
@@ -27,6 +30,24 @@
     <string name="home_help_click_hint">点击查看</string>
     <string name="home_help_warning">请务必阅读完后再进行修改</string>
     <string name="home_chevron">›</string>
+    <string name="home_status_icon_desc">状态图标</string>
+    <string name="home_status_checking">检查中…</string>
+    <string name="home_status_checking_sub">正在检测模块与 Root 状态</string>
+    <string name="home_status_active_root_ok">模块已激活</string>
+    <string name="home_status_active_root_ok_sub">已获得 Root 权限</string>
+    <string name="home_status_active_no_root">模块已激活，但未获得 Root 权限</string>
+    <string name="home_status_active_no_root_sub">部分功能可能无法正常工作。如刚获得 Root 权限，可能需要重启应用</string>
+    <string name="home_status_wrong_scope">作用域错误 — 未作用于系统框架</string>
+    <string name="home_status_wrong_scope_sub">模块已加载但不在 system_server 中。请在 LSPosed 中将作用域设为「系统框架」。</string>
+    <string name="home_status_inactive">模块未激活</string>
+    <string name="home_status_inactive_sub">请检查 LSPosed 管理器</string>
+    <string name="home_warning_open_lsposed_failed">无法自动打开 LSPosed 管理器，请手动打开</string>
+    <string name="home_warning_copy_error">复制错误信息</string>
+    <string name="home_status_click_hint">点击可尝试打开管理器</string>
+    <string name="home_root_status_title">Root 权限</string>
+    <string name="home_root_status_checking">检查中…</string>
+    <string name="home_root_status_granted">✓ 已获得 Root 权限</string>
+    <string name="home_root_status_denied">✗ 未获得 Root 权限 — 部分功能需要 su</string>
     <string name="home_version_template">BetterZUIKey v1.0</string>
 
     <!-- ================================================================ -->
@@ -78,8 +99,8 @@
     <string name="templates_btn_move_suffix">项</string>
     <string name="templates_drag_hint">长按拖动可重新排序</string>
     <string name="templates_empty">暂无模板</string>
-    <string name="templates_default_name">游戏模式</string>
     <string name="templates_create_title">新建模板</string>
+    <string name="templates_new_template_hint">新建应用模板</string>
 
     <!-- ================================================================ -->
     <!-- 模板编辑器 (activity_template_editor.xml + TemplateEditorActivity) -->

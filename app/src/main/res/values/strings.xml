@@ -17,6 +17,9 @@
     <!-- ================================================================ -->
     <string name="home_app_icon_desc">App icon</string>
     <string name="home_app_title">BetterZUIKey</string>
+    <string name="home_version">Version: v%1$s</string>
+    <string name="home_app_description">LSPosed keyboard shortcut override module for Lenovo ZUXOS devices</string>
+    <string name="home_project_url">github.com/CommandPrompt-Wang/BetterZUIKey</string>
     <string name="home_status_loading">Status: Loading…</string>
     <string name="home_module_status_title">Module Status</string>
     <string name="home_module_status_inactive">Inactive (requires Xposed)</string>
@@ -27,6 +30,24 @@
     <string name="home_help_click_hint">Tap to view</string>
     <string name="home_help_warning">Please read before making changes</string>
     <string name="home_chevron">›</string>
+    <string name="home_status_icon_desc">Status icon</string>
+    <string name="home_status_checking">Checking…</string>
+    <string name="home_status_checking_sub">Detecting module and root status</string>
+    <string name="home_status_active_root_ok">Module active</string>
+    <string name="home_status_active_root_ok_sub">Root access granted</string>
+    <string name="home_status_active_no_root">Module active, but root not granted</string>
+    <string name="home_status_active_no_root_sub">Some features may not work. If root was just granted, try restarting the app.</string>
+    <string name="home_status_wrong_scope">Wrong scope — not in system framework</string>
+    <string name="home_status_wrong_scope_sub">Hooks are loaded but not in system_server. Set scope to \"System Framework\" in LSPosed.</string>
+    <string name="home_status_inactive">Module not active</string>
+    <string name="home_status_inactive_sub">Please check LSPosed Manager</string>
+    <string name="home_warning_open_lsposed_failed">Unable to open LSPosed Manager automatically. Please open it manually.</string>
+    <string name="home_warning_copy_error">Copy error info</string>
+    <string name="home_status_click_hint">Tap to try opening the manager</string>
+    <string name="home_root_status_title">Root Status</string>
+    <string name="home_root_status_checking">Checking…</string>
+    <string name="home_root_status_granted">✓ Root granted</string>
+    <string name="home_root_status_denied">✗ Root denied — some features require su</string>
     <string name="home_version_template">BetterZUIKey v1.0</string>
 
     <!-- ================================================================ -->
@@ -78,8 +99,8 @@
     <string name="templates_btn_move_suffix">items</string>
     <string name="templates_drag_hint">Long-press to drag and reorder</string>
     <string name="templates_empty">No templates yet</string>
-    <string name="templates_default_name">Gaming Mode</string>
     <string name="templates_create_title">New Template</string>
+    <string name="templates_new_template_hint">New Template</string>
 
     <!-- ================================================================ -->
     <!-- Template Editor (activity_template_editor.xml + TemplateEditorActivity) -->

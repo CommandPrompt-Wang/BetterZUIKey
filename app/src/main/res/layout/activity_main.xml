@@ -24,6 +24,55 @@
         app:layout_constraintTop_toBottomOf="@id/toolbar"
         app:layout_constraintBottom_toTopOf="@id/bottom_nav" />
 
+    <!-- 悬浮警告条 —— 浮在底部导航上方 -->
+    <LinearLayout
+        android:id="@+id/warning_banner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="12dp"
+        android:background="@color/status_amber_bg"
+        android:elevation="8dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/bottom_nav"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="8dp"
+            android:src="@android:drawable/ic_dialog_alert"
+            android:contentDescription="@string/home_status_icon_desc" />
+
+        <TextView
+            android:id="@+id/tv_warning_text"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/home_warning_open_lsposed_failed"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="@color/status_amber_fg" />
+
+        <TextView
+            android:id="@+id/btn_copy_error"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:text="@string/home_warning_copy_error"
+            android:textAppearance="?attr/textAppearanceLabelSmall"
+            android:textColor="@color/status_amber_fg"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true" />
+
+    </LinearLayout>
+
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottom_nav"
         android:layout_width="match_parent"

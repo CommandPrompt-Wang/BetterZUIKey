@@ -2,7 +2,7 @@ package moe.lovefirefly.betterzuikey.Hook;
 
 import android.view.KeyEvent;
 
-import de.robv.android.xposed.XC_MethodHook;
+import moe.lovefirefly.betterzuikey.Hook.HookCompat;
 
 import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
@@ -12,7 +12,7 @@ import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
  * ZUI 专用物理键 (501-521) 拦截处理
  * 根据 Config 中的启用开关决定是否拦截
  */
-public class ZUIKeyHook extends XC_MethodHook {
+public class ZUIKeyHook  {
 
     private final Config mConfig;
 
@@ -20,10 +20,7 @@ public class ZUIKeyHook extends XC_MethodHook {
         this.mConfig = config;
     }
 
-    @Override
-    protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-        super.beforeHookedMethod(param);
-
+    public void intercept(HookCompat.HookParam param) {
         // 全局开关检查
         if (mConfig == null || !mConfig.zuxKeyboardFuncEnabled) return;
 

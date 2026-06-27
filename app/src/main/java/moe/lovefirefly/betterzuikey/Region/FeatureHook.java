@@ -2,8 +2,8 @@ package moe.lovefirefly.betterzuikey.Region;
 
 import android.content.Intent;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedHelpers;
+import io.github.libxposed.api.XposedModule;
+import moe.lovefirefly.betterzuikey.Hook.HookCompat;
 
 import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
@@ -11,26 +11,21 @@ import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
 /**
  * 区域差异化功能 Hook — AI 代理 & 文件管理器。
- *
- * 在 ZUI 框架内，这些功能根据区域（ROW / 中国）分发到不同的实现。
- * 本 Hook 允许用户强制指定使用哪个实现。
  */
 public class FeatureHook {
 
     private static Config sConfig;
     private static boolean sInstalled = false;
+    private static XposedModule sModule;
 
     private static final String CLASS_KSC =
             "com.zui.server.input.keyboard.key.policy.KeyboardShortcutController";
 
-    /**
-     * 安装功能 Hook。
-     */
-    public static void install(ClassLoader classLoader, Config config) {
+    public static void install(XposedModule module, ClassLoader classLoader, Config config) {
         if (sInstalled) return;
+        sModule = module;
         sConfig = config;
 
-        // 仅当用户主动覆写了默认值时安装
         boolean needAiHook = config.aiAgent != Config.AiAgent.DEFAULT;
         boolean needFileHook = config.fileManager != Config.FileManager.DEFAULT;
 
@@ -58,10 +53,6 @@ public class FeatureHook {
         sInstalled = true;
     }
 
-    /**
-     * 热重载 Config 引用（由 HookContext.checkConfigChanged 调用）。
-     * 避免配置同步后仍使用过期引用。
-     */
     public static void updateConfig(Config config) {
         sConfig = config;
         LogHelper.log(VerboseLevel.DEBUG, "FeatureHook: config hot-reloaded, ai=",
@@ -72,24 +63,11 @@ public class FeatureHook {
     //  AI 代理 Hook
     // ----------------------------------------------------------------
 
-    /**
-     * Hook AI 代理的启动方法。
-     *
-     * ZUI 分发逻辑（triggerAppKeyBehavior 中）：
-     *   ROW 产品 → launchAiNow()  → com.zui.ai.now
-     *   非 ROW   → launchXiaoTianAgent() → 联想乐语音
-     *
-     * 我们 Hook 这两个方法，根据用户配置重定向或拦截。
-     */
     private static void hookAiAgent(Class<?> kscClass) {
-        // Hook launchAiNow — ROW AI 代理
-        // redirect: 拦截 launchAiNow，改为调用 launchXiaoTianAgent（联想乐语音）
         tryHookAiMethod(kscClass, "launchAiNow", "launchXiaoTianAgent",
                 sConfig.aiAgent == Config.AiAgent.LENOVO_LE_YU_YIN,
                 sConfig.aiAgent == Config.AiAgent.NONE);
 
-        // Hook launchXiaoTianAgent — 中国 AI 代理
-        // redirect: 拦截 launchXiaoTianAgent，改为调用 launchAiNow（ZUI AI Now）
         tryHookAiMethod(kscClass, "launchXiaoTianAgent", "launchAiNow",
                 sConfig.aiAgent == Config.AiAgent.ZUI_AI_NOW,
                 sConfig.aiAgent == Config.AiAgent.NONE);
@@ -98,29 +76,29 @@ public class FeatureHook {
     private static void tryHookAiMethod(Class<?> kscClass, String methodName,
                                          String actualTargetMethod, boolean redirect, boolean block) {
         try {
-            XposedHelpers.findAndHookMethod(kscClass, methodName, new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) {
-                    if (!moe.lovefirefly.betterzuikey.Hook.MainHook.globalEnabled) return;
-                    if (block) {
-                        LogHelper.log(VerboseLevel.INFO, "FeatureHook: ", methodName, "→ BLOCKED");
-                        param.setResult(null);
-                        return;
-                    }
-                    if (redirect) {
-                        // 重定向：拦截当前 AI 代理方法，改为调用另一个 AI 代理方法
-                        LogHelper.log(VerboseLevel.INFO, "FeatureHook: ", methodName,
-                                "→ redirected to ", actualTargetMethod);
-                        param.setResult(null);
-                        try {
-                            XposedHelpers.callMethod(param.thisObject, actualTargetMethod);
-                        } catch (Throwable t) {
-                            LogHelper.log(VerboseLevel.ERROR, "FeatureHook: redirect ",
-                                    methodName, "→", actualTargetMethod, " failed: ", t.getMessage());
+            HookCompat.hookMethod(sModule, kscClass, methodName,
+                    new HookCompat.HookCallback() {
+                        @Override
+                        protected void beforeHookedMethod(HookCompat.HookParam param) {
+                            if (!moe.lovefirefly.betterzuikey.Hook.MainHook.globalEnabled) return;
+                            if (block) {
+                                LogHelper.log(VerboseLevel.INFO, "FeatureHook: ", methodName, "→ BLOCKED");
+                                param.setResult(null);
+                                return;
+                            }
+                            if (redirect) {
+                                LogHelper.log(VerboseLevel.INFO, "FeatureHook: ", methodName,
+                                        "→ redirected to ", actualTargetMethod);
+                                param.setResult(null);
+                                try {
+                                    HookCompat.callMethod(param.thisObject, actualTargetMethod);
+                                } catch (Throwable t) {
+                                    LogHelper.log(VerboseLevel.ERROR, "FeatureHook: redirect ",
+                                            methodName, "→", actualTargetMethod, " failed: ", t.getMessage());
+                                }
+                            }
                         }
-                    }
-                }
-            });
+                    });
             LogHelper.log(VerboseLevel.INFO, "FeatureHook: hooked ", methodName);
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.DEBUG, "FeatureHook: ", methodName,
@@ -132,15 +110,6 @@ public class FeatureHook {
     //  文件管理器 Hook
     // ----------------------------------------------------------------
 
-    /**
-     * Hook 文件管理器启动。
-     *
-     * Win+E → L4 type=307 → startActivityByPkgName(pkgName)
-     *   ROW:   Google Files (com.google.android.apps.nbu.files)
-     *   非 ROW: ZUI 文件管理器
-     *
-     * 我们 Hook startActivityByPkgName 来替换包名。
-     */
     private static void hookFileManager(Class<?> kscClass) {
         final String targetPkg;
         switch (sConfig.fileManager) {
@@ -148,27 +117,26 @@ public class FeatureHook {
                 targetPkg = "com.google.android.apps.nbu.files";
                 break;
             case ZUI_FILES:
-                targetPkg = "com.zui.filemanager"; // 实际包名待确认
+                targetPkg = "com.zui.filemanager";
                 break;
             case NONE:
-                targetPkg = null; // 拦截
+                targetPkg = null;
                 break;
             default:
                 return;
         }
 
         try {
-            XposedHelpers.findAndHookMethod(kscClass, "startActivityByPkgName",
-                    String.class, new XC_MethodHook() {
+            HookCompat.hookMethod(sModule, kscClass, "startActivityByPkgName",
+                    new HookCompat.HookCallback() {
                         @Override
-                        protected void beforeHookedMethod(MethodHookParam param) {
+                        protected void beforeHookedMethod(HookCompat.HookParam param) {
                             if (!moe.lovefirefly.betterzuikey.Hook.MainHook.globalEnabled) return;
                             if (targetPkg == null) {
                                 LogHelper.log(VerboseLevel.INFO, "FeatureHook: fileManager → BLOCKED");
                                 param.setResult(null);
                                 return;
                             }
-                            // 替换包名
                             String original = (String) param.args[0];
                             if (!targetPkg.equals(original)) {
                                 LogHelper.log(VerboseLevel.INFO, "FeatureHook: fileManager ",
@@ -176,7 +144,8 @@ public class FeatureHook {
                                 param.args[0] = targetPkg;
                             }
                         }
-                    });
+                    },
+                    String.class);
             LogHelper.log(VerboseLevel.INFO, "FeatureHook: hooked startActivityByPkgName");
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.DEBUG, "FeatureHook: startActivityByPkgName not found (",

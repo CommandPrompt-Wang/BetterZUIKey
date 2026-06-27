@@ -4,8 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:orientation="vertical">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
@@ -14,73 +13,86 @@
         app:navigationIcon="?attr/homeAsUpIndicator"
         app:title="@string/appearance_title" />
 
-    <LinearLayout
-        android:id="@+id/row_night_mode"
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingVertical="12dp"
-        android:paddingHorizontal="4dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:foreground="?attr/selectableItemBackground">
+        android:layout_height="match_parent"
+        android:fitsSystemWindows="true"
+        android:fillViewport="true">
 
-        <TextView
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/appearance_night_mode"
-            android:textAppearance="?attr/textAppearanceBodyLarge" />
+            android:orientation="vertical"
+            android:padding="16dp">
 
-        <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-            android:layout_width="wrap_content"
-            android:minWidth="150dp"
-            android:layout_height="wrap_content"
-            app:boxBackgroundColor="?attr/colorSurfaceContainerHighest"
-            app:hintEnabled="false"
-            app:endIconMode="dropdown_menu">
-
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/sp_night_mode"
-                android:dropDownWidth="wrap_content"
+            <LinearLayout
+                android:id="@+id/row_night_mode"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="none"
-                android:focusable="true"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp"
                 android:clickable="true"
-                android:text="@string/appearance_night_auto" />
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
 
-        </com.google.android.material.textfield.TextInputLayout>
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/appearance_night_mode"
+                    android:textAppearance="?attr/textAppearanceBodyLarge" />
 
-    </LinearLayout>
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                    android:layout_width="wrap_content"
+                    android:minWidth="150dp"
+                    android:layout_height="wrap_content"
+                    app:boxBackgroundColor="?attr/colorSurfaceContainerHighest"
+                    app:hintEnabled="false"
+                    app:endIconMode="dropdown_menu">
 
-    <LinearLayout
-        android:id="@+id/row_dynamic_color"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingVertical="4dp"
-        android:paddingHorizontal="4dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:foreground="?attr/selectableItemBackground">
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                        android:id="@+id/sp_night_mode"
+                        android:dropDownWidth="wrap_content"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="none"
+                        android:focusable="true"
+                        android:clickable="true"
+                        android:text="@string/appearance_night_auto" />
 
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/appearance_dynamic_color"
-            android:textAppearance="?attr/textAppearanceBodyLarge" />
+                </com.google.android.material.textfield.TextInputLayout>
 
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/sw_dynamic_color"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
+            </LinearLayout>
 
-    </LinearLayout>
+            <LinearLayout
+                android:id="@+id/row_dynamic_color"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="12dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/appearance_dynamic_color"
+                    android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/sw_dynamic_color"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
 
 </LinearLayout>

@@ -99,6 +99,38 @@ public class ConfigIPCManager {
     }
 
     /**
+     * Write the current boot time to SharedPreferences so the UI can verify
+     * that hooks were installed in system_server this boot cycle.
+     */
+    public void sendBootMark() {
+        sendBootMarkInternal(moe.lovefirefly.betterzuikey.ConfigSyncProvider.METHOD_BOOT_MARK);
+    }
+
+    /**
+     * Write a boot-time marker for a NON-system_server process (wrong scope).
+     * The UI shows yellow instead of red when only this marker exists.
+     */
+    public void sendBootMarkApp() {
+        sendBootMarkInternal(moe.lovefirefly.betterzuikey.ConfigSyncProvider.METHOD_BOOT_MARK_APP);
+    }
+
+    private void sendBootMarkInternal(String method) {
+        if (mConfigResolver == null) {
+            LogHelper.log(VerboseLevel.WARNING, "sendBootMark(", method, "): mConfigResolver is null");
+            return;
+        }
+        try {
+            android.os.Bundle result = mConfigResolver.call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                method, null, null);
+            LogHelper.log(VerboseLevel.INFO, "Boot mark (", method, ") sent, result=",
+                    result != null ? "ok" : "null");
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.WARNING, "sendBootMark(", method, ") failed:", e.getMessage());
+        }
+    }
+
+    /**
      * Check for config changes via ContentProvider.call().
      * Called from every hook entry point (L0/L1/L3/L4).
      *

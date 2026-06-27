@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- tab "主页": 状态概览 -->
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.swiperefreshlayout.widget.SwipeRefreshLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/swipe_refresh"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:layout_height="match_parent">
+
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -16,8 +21,90 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
             app:cardCornerRadius="12dp"
             app:cardElevation="2dp">
+            <androidx.constraintlayout.widget.ConstraintLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp">
+
+                <ImageView
+                    android:id="@+id/iv_app_icon"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:src="@drawable/ic_liuying"
+                    android:scaleType="fitCenter"
+                    android:adjustViewBounds="true"
+                    android:contentDescription="@string/home_app_icon_desc"
+                    app:layout_constraintTop_toTopOf="@id/tv_title"
+                    app:layout_constraintBottom_toBottomOf="@id/tv_project_url"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintDimensionRatio="1:1" />
+
+                <TextView
+                    android:id="@+id/tv_title"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/home_app_title"
+                    android:textAppearance="?attr/textAppearanceHeadlineSmall"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintStart_toEndOf="@id/iv_app_icon"
+                    android:layout_marginStart="16dp"
+                    app:layout_constraintEnd_toEndOf="parent" />
+
+                <TextView
+                    android:id="@+id/tv_version"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    app:layout_constraintTop_toBottomOf="@id/tv_title"
+                    app:layout_constraintStart_toStartOf="@id/tv_title"
+                    app:layout_constraintEnd_toEndOf="@id/tv_title" />
+
+                <TextView
+                    android:id="@+id/tv_description"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/home_app_description"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    app:layout_constraintTop_toBottomOf="@id/tv_version"
+                    app:layout_constraintStart_toStartOf="@id/tv_title"
+                    app:layout_constraintEnd_toEndOf="@id/tv_title" />
+
+                <TextView
+                    android:id="@+id/tv_project_url"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/home_project_url"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?attr/colorPrimary"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackground"
+                    app:layout_constraintTop_toBottomOf="@id/tv_description"
+                    app:layout_constraintStart_toStartOf="@id/tv_title"
+                    app:layout_constraintEnd_toEndOf="@id/tv_title" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_module_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:strokeWidth="0dp">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -26,11 +113,12 @@
                 android:padding="16dp">
 
                 <ImageView
-                    android:layout_width="64dp"
-                    android:layout_height="64dp"
-                    android:layout_marginEnd="16dp"
-                    android:src="@drawable/ic_liuying"
-                    android:contentDescription="@string/home_app_icon_desc" />
+                    android:id="@+id/iv_status_icon"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_marginEnd="12dp"
+                    android:src="@android:drawable/ic_dialog_info"
+                    android:contentDescription="@string/home_status_icon_desc" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -39,45 +127,33 @@
                     android:orientation="vertical">
 
                     <TextView
+                        android:id="@+id/tv_status_title"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/home_app_title"
-                        android:textAppearance="?attr/textAppearanceHeadlineSmall" />
+                        android:text="@string/home_status_checking"
+                        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
                     <TextView
-                        android:id="@+id/tv_status"
+                        android:id="@+id/tv_status_subtitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="@string/home_status_checking_sub"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="?attr/colorOnSurfaceVariant" />
+
+                    <TextView
+                        android:id="@+id/tv_status_click_hint"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="@string/home_status_loading"
-                        android:textAppearance="?attr/textAppearanceBodyMedium" />
+                        android:text="@string/home_status_click_hint"
+                        android:textAppearance="?attr/textAppearanceLabelSmall"
+                        android:textColor="?attr/colorPrimary"
+                        android:alpha="0.7" />
 
                 </LinearLayout>
 
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp">
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/home_module_status_title"
-                    android:textAppearance="?attr/textAppearanceTitleMedium" />
-                <TextView
-                    android:id="@+id/tv_module_status"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/home_module_status_inactive"
-                    android:textAppearance="?attr/textAppearanceBodyMedium" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -139,4 +215,6 @@
 
     </LinearLayout>
 
-</androidx.core.widget.NestedScrollView>
+    </androidx.core.widget.NestedScrollView>
+
+</androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

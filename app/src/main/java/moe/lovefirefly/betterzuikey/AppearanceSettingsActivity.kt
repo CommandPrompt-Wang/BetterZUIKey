@@ -11,6 +11,7 @@ import moe.lovefirefly.betterzuikey.databinding.ActivityAppearanceSettingsBindin
 class AppearanceSettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityAppearanceSettingsBinding
+    private var spinnerOpen = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,6 +34,7 @@ class AppearanceSettingsActivity : AppCompatActivity() {
         binding.spNightMode.threshold = Int.MAX_VALUE
         binding.spNightMode.setText(nightModes[cfg.nightMode], false)
         binding.spNightMode.setOnItemClickListener { _, _, pos, _ ->
+            spinnerOpen = false
             if (pos == cfg.nightMode) return@setOnItemClickListener
             cfg.nightMode = pos
             cfg.save()
@@ -60,10 +62,16 @@ class AppearanceSettingsActivity : AppCompatActivity() {
             recreate()
         }
 
-        // 点整行展开下拉/切换开关
+        // 点整行展开/收回下拉
         binding.rowNightMode.setOnClickListener {
-            binding.spNightMode.requestFocus()
-            binding.spNightMode.post { binding.spNightMode.showDropDown() }
+            if (spinnerOpen) {
+                spinnerOpen = false
+                binding.spNightMode.dismissDropDown()
+            } else {
+                spinnerOpen = true
+                binding.spNightMode.requestFocus()
+                binding.spNightMode.post { binding.spNightMode.showDropDown() }
+            }
         }
         binding.rowDynamicColor.setOnClickListener { binding.swDynamicColor.toggle() }
     }

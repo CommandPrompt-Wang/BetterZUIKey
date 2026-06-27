@@ -95,7 +95,7 @@ data class ShortcutMeta(
             // ═══ Ctrl ═══
             ShortcutMeta("ctrlCard",    R.string.shortcut_ctrlCard,    R.string.shortcut_ctrlCard_desc,
                          hasZui = false,  hasAosp = false, hasSystemSwitch = false, showSwitch = true,
-                         onSpinSelectedNonDefault = OnSpinSelectedNonDefault.SWITCH_OFF),
+                         onSpinSelectedNonDefault = OnSpinSelectedNonDefault.NOTHING),
             ShortcutMeta("ctrlShift",   R.string.shortcut_ctrlShift,   R.string.shortcut_ctrlShift_desc,   hasZui = true),
             ShortcutMeta("ctrlShiftT",  R.string.shortcut_ctrlShiftT,  R.string.shortcut_ctrlShiftT_desc,  hasZui = true,  hasSystemSwitch = false),
             ShortcutMeta("ctrlSpace",   R.string.shortcut_ctrlSpace,   R.string.shortcut_ctrlSpace_desc,   hasZui = false, hasAosp = false,

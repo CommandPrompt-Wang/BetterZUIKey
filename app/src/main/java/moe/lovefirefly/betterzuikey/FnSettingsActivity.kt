@@ -12,6 +12,7 @@ import moe.lovefirefly.betterzuikey.databinding.ActivityFnSettingsBinding
 class FnSettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityFnSettingsBinding
+    private var spinnerOpen = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,9 +26,9 @@ class FnSettingsActivity : AppCompatActivity() {
 
         val cfg = Config.load()
 
-        binding.swEnabled.isChecked = cfg.fnKeyEnabled
+        binding.swEnabled.isChecked = cfg.fnMasterEnabled
         binding.swEnabled.setOnCheckedChangeListener { _, checked ->
-            cfg.fnKeyEnabled = checked
+            cfg.fnMasterEnabled = checked
             cfg.save()
             Config.syncToSharedPrefs(this@FnSettingsActivity, cfg)
         }
@@ -40,6 +41,7 @@ class FnSettingsActivity : AppCompatActivity() {
         }
 
         binding.spProfile.setOnItemClickListener { _, _, pos, _ ->
+            spinnerOpen = false
             if (spinnerUpdating) return@setOnItemClickListener
             val keys = KeyboardProfiles.getProfileNames(this@FnSettingsActivity).map { it.first }
             cfg.fnProfileKey = if (pos == 0) "" else keys.getOrElse(pos - 1) { "" }
@@ -77,8 +79,14 @@ class FnSettingsActivity : AppCompatActivity() {
         binding.rowFnEnabled.setOnClickListener { binding.swEnabled.toggle() }
         binding.rowFnToast.setOnClickListener { binding.swFnToast.toggle() }
         binding.rowProfile.setOnClickListener {
-            binding.spProfile.requestFocus()
-            binding.spProfile.post { binding.spProfile.showDropDown() }
+            if (spinnerOpen) {
+                spinnerOpen = false
+                binding.spProfile.dismissDropDown()
+            } else {
+                spinnerOpen = true
+                binding.spProfile.requestFocus()
+                binding.spProfile.post { binding.spProfile.showDropDown() }
+            }
         }
 
         refreshSpinner()

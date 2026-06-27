@@ -3,8 +3,8 @@ package moe.lovefirefly.betterzuikey.Hook;
 import android.os.SystemClock;
 import android.view.KeyEvent;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedHelpers;
+import moe.lovefirefly.betterzuikey.Hook.HookCompat;
+
 
 import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Config.ConfigResolver;
@@ -72,6 +72,10 @@ public class HookContext {
         MainHook.globalEnabled = cfg.zuxKeyboardFuncEnabled;
         LogHelper.currentLevel = cfg.verboseLevel;
         resolver = new ConfigResolver(cfg);
+        // Sync FnKeyManager with new Config (was holding stale ref → master switch broken)
+        if (fnKeyManager != null) {
+            fnKeyManager.setConfig(cfg);
+        }
         // Resync: ForegroundTracker holds old resolver ref + new resolver needs current foreground pkg
         if (foregroundTracker != null) {
             foregroundTracker.setResolver(resolver);
@@ -97,7 +101,7 @@ public class HookContext {
      * @return true means caller should return immediately
      */
     public boolean applyInterceptAction(Config.OverrideMode mode,
-                                         XC_MethodHook.MethodHookParam param,
+                                         HookCompat.HookParam param,
                                          String logLabel, int blockKeyCode) {
         if (mode == Config.OverrideMode.BLOCK && blockKeyCode != 0) {
             fnKeyManager.setPendingBlockedWinComboUp(blockKeyCode);
@@ -107,7 +111,7 @@ public class HookContext {
 
     /** L0/L1 override dispatch (no BLOCK UP cleanup). */
     public boolean applyInterceptAction(Config.OverrideMode mode,
-                                         XC_MethodHook.MethodHookParam param,
+                                         HookCompat.HookParam param,
                                          String logLabel) {
         switch (mode) {
             case BLOCK:
@@ -160,7 +164,7 @@ public class HookContext {
         if (kscInstance == null) return false;
         try {
             android.content.Context ctx = (android.content.Context)
-                    XposedHelpers.getObjectField(kscInstance, "mContext");
+                    HookCompat.getObjectField(kscInstance, "mContext");
             android.app.ActivityManager am = (android.app.ActivityManager)
                     ctx.getSystemService(android.content.Context.ACTIVITY_SERVICE);
             java.util.List<android.app.ActivityManager.RunningTaskInfo> tasks =
@@ -289,11 +293,11 @@ public class HookContext {
                 KeyEvent.KEYCODE_META_LEFT,
                 0, 0, 0, scanCode, 0, 0);
         try {
-            Object im = de.robv.android.xposed.XposedHelpers.callStaticMethod(
+            Object im = moe.lovefirefly.betterzuikey.Hook.HookCompat.callStaticMethod(
                     android.hardware.input.InputManager.class, "getInstance");
-            de.robv.android.xposed.XposedHelpers.callMethod(im,
+            moe.lovefirefly.betterzuikey.Hook.HookCompat.callMethod(im,
                     "injectInputEvent", (android.view.InputEvent) down, 0);
-            de.robv.android.xposed.XposedHelpers.callMethod(im,
+            moe.lovefirefly.betterzuikey.Hook.HookCompat.callMethod(im,
                     "injectInputEvent", (android.view.InputEvent) up, 0);
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR, "injectMetaToApp failed:", t.getMessage());

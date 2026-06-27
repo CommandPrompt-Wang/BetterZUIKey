@@ -2,14 +2,14 @@ package moe.lovefirefly.betterzuikey.Hook;
 
 import android.os.IBinder;
 import android.view.KeyEvent;
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedHelpers;
+import moe.lovefirefly.betterzuikey.Hook.HookCompat;
+
 import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import moe.lovefirefly.betterzuikey.ime.AdapterManager;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
-public class L1Interceptor extends XC_MethodHook {
+public class L1Interceptor  {
 
     private final HookContext ctx;
 
@@ -17,8 +17,7 @@ public class L1Interceptor extends XC_MethodHook {
         this.ctx = ctx;
     }
 
-    @Override
-    protected void beforeHookedMethod(MethodHookParam param) {
+        public void intercept(HookCompat.HookParam param) {
         // checkConfigChanged MUST be before enabled check
         ctx.checkConfigChanged();
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
