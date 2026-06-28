@@ -117,6 +117,19 @@ public class FnKeyManager {
      */
     public boolean consumeComboUp(int keyCode, boolean down,
                                    KeyEvent event, HookCompat.HookParam param) {
+        // Meta UP → reset all Win+combo flags (safety: Meta released before combo key)
+        if ((keyCode == KeyEvent.KEYCODE_META_LEFT
+                || keyCode == KeyEvent.KEYCODE_META_RIGHT) && !down) {
+            if (mWinTabOffActive || mWinTabBlockActive || mWinPOffActive
+                    || mPendingBlockedWinComboUp != 0) {
+                mWinTabOffActive = false;
+                mWinTabBlockActive = false;
+                mWinPOffActive = false;
+                mPendingBlockedWinComboUp = 0;
+                LogHelper.log(VerboseLevel.DEBUG, "FnKeyManager: Meta UP → reset all combo flags");
+            }
+        }
+
         // Win+Tab OFF/BLOCK mode — consume Tab UP (prevent leak)
         // Must come BEFORE Fn keyboard processing which also handles Tab UP
         if (keyCode == KeyEvent.KEYCODE_TAB && !down && event.isMetaPressed()) {
@@ -356,7 +369,7 @@ public class FnKeyManager {
                 mFnKeyboardDeviceIds.add(deviceId);
                 return true;
             }
-        } catch (Throwable ignored) { }
+        } catch (Exception ignored) { }
         return false;
     }
 

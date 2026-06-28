@@ -73,10 +73,6 @@
             android:label="配置文件管理" />
 
         <activity
-            android:name=".AospSettingsActivity"
-            android:label="辅助功能开关" />
-
-        <activity
             android:name=".HelpActivity"
             android:label="帮助" />
 

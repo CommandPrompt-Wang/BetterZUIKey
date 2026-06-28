@@ -15,6 +15,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -505,6 +506,7 @@ public class Config {
      */
     public static Config load() {
         Config cfg;
+        lastLoadError = null;
         try (FileReader reader = new FileReader(CONFIG_PATH)) {
             cfg = GSON.fromJson(reader, Config.class);
         } catch (FileNotFoundException e) {
@@ -514,6 +516,14 @@ public class Config {
             cfg.save();
         } catch (IOException e) {
             // 读取失败，回退默认
+            lastLoadError = "Config read failed: " + e.getMessage();
+            cfg = new Config();
+            cfg.resetToDefault();
+        } catch (Exception e) {
+            // JSON 解析失败（JsonSyntaxException 等），回退默认，避免崩溃
+            lastLoadError = "Config parse error: " + e.getMessage();
+            LogHelper.log(LogHelper.VerboseLevel.WARNING,
+                    "Config parse failed, resetting to default:", e.getMessage());
             cfg = new Config();
             cfg.resetToDefault();
         }
@@ -580,7 +590,7 @@ public class Config {
             android.content.SharedPreferences prefs = ctx.getSharedPreferences(
                     moe.lovefirefly.betterzuikey.RemotePrefProvider.PREF_FILE,
                     android.content.Context.MODE_PRIVATE);
-            prefs.edit().putString("config_sync", json).commit();
+            prefs.edit().putString("config_sync", json).apply();
 
             // GravityBox WorldReadablePrefs pattern: fix entire directory chain
             // so system_server (uid=1000) can traverse and read the prefs file.
@@ -767,6 +777,9 @@ public class Config {
         systemDetected = true;
     }
 
+    /** 最近一次 load() 是否因错误而回退到默认值（null=无错误, 否则为错误信息） */
+    public static String lastLoadError = null;
+
     /** 是否已完成系统能力检*/
     private boolean systemDetected = false;
 
@@ -776,7 +789,9 @@ public class Config {
      * 共享的 shortKey → Settings.System key 映射表
      * 供 readSystemSwitches / writeSystemSwitch / syncSwitchesFromSystem 共用
      */
-    private static java.util.Map<String, String> getSwitchKeyMap() {
+    /** Exposed for system_server to look up sysKey without loading Config. */
+    public static final java.util.Map<String, String> SWITCH_KEY_MAP;
+    static {
         java.util.Map<String, String> map = new java.util.LinkedHashMap<>();
         map.put("winD",        "keyboard_combo_win_d");
         map.put("winS",        "keyboard_combo_win_s");
@@ -799,7 +814,7 @@ public class Config {
         map.put("altTab",      "keyboard_combo_alt_tab");
         map.put("ctrlEnter",   "keyboard_combo_ctrl_enter");
         map.put("ctrlSpace",   "keyboard_combo_ctrl_space");
-        return map;
+        SWITCH_KEY_MAP = Collections.unmodifiableMap(map);
     }
 
     /**
@@ -832,7 +847,7 @@ public class Config {
     /** 从 ContentResolver 读取所有系统开关并更新 SwitchState */
     private void readSwitchStatesFromResolver(android.content.ContentResolver cr) {
         int readOk = 0, readFail = 0;
-        java.util.Map<String, String> map = getSwitchKeyMap();
+        java.util.Map<String, String> map = SWITCH_KEY_MAP;
 
         for (java.util.Map.Entry<String, String> e : map.entrySet()) {
             String key = e.getKey();
@@ -875,23 +890,12 @@ public class Config {
      * @return null 表示成功，否则返回错误信
      */
     public static String writeSystemSwitch(android.content.Context ctx, String shortKey, boolean enabled) {
-        String sysKey = getSwitchKeyMap().get(shortKey);
+        String sysKey = SWITCH_KEY_MAP.get(shortKey);
         if (sysKey == null) return "Unknown shortcut key: " + shortKey;
 
         int val = enabled ? 1 : 0;
-        String error = null;
 
-        // 方式一：尝试通过 ContentResolver 直接写入（需WRITE_SETTINGS
-        if (ctx != null) {
-            try {
-                android.provider.Settings.System.putInt(ctx.getContentResolver(), sysKey, val);
-                return null;
-            } catch (Throwable t) {
-                error = t.getMessage();
-            }
-        }
-
-        // 方式二：回退su -c settings put（以 system UID 执行）
+        // su -c settings put (ZUI SettingsProvider blocks putInt, skip directly)
         try {
             String cmd = "settings put system " + sysKey + " " + val;
             // Use ProcessBuilder with merged stderr to avoid pipe buffer deadlock
@@ -913,11 +917,9 @@ public class Config {
             }
             String suOutput = outputSb.toString().trim();
             return "su exit=" + su.exitValue() +
-                (suOutput.isEmpty() ? "" : ": " + suOutput) +
-                (error != null ? " | ContentResolver: " + error : "");
+                (suOutput.isEmpty() ? "" : ": " + suOutput);
         } catch (Throwable t) {
-            return "su error: " + t.getMessage() +
-                (error != null ? " | ContentResolver: " + error : "");
+            return "su error: " + t.getMessage();
         }
     }
 

@@ -154,6 +154,7 @@ data class ShortcutMeta(
             "winP" -> cfg.switchWinP; "winW" -> cfg.switchWinW; "winNumber" -> cfg.switchWinNumber
             "winTab" -> cfg.switchWinTab; "winUp" -> cfg.switchWinUp
             "winLeft" -> cfg.switchWinLeft
+            "ctrlLongPress" -> cfg.switchCtrlLongPress
             "ctrlShift" -> cfg.switchCtrlShift; "ctrlSpace" -> cfg.switchCtrlSpace
             "altShift" -> cfg.switchAltShift
             "ctrlShiftT" -> cfg.switchCtrlShiftT; "ctrlEnter" -> cfg.switchCtrlEnter
@@ -172,7 +173,7 @@ data class ShortcutMeta(
             "altRightKR" -> cfg.switchAltRightKR
             "aospBounceKeys" -> cfg.switchAospBounceKeys; "aospMouseKeys" -> cfg.switchAospMouseKeys
             "aospStickyKeys" -> cfg.switchAospStickyKeys; "aospSlowKeys" -> cfg.switchAospSlowKeys
-            else -> Config.SwitchState.ON // fallback
+            else -> Config.SwitchState.OFF // fallback: unknown keys default to off
         }
 
         /** 向 Config 写入 SwitchState */

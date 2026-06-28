@@ -35,8 +35,8 @@
     <string name="home_status_checking_sub">正在检测模块与 Root 状态</string>
     <string name="home_status_active_root_ok">模块已激活</string>
     <string name="home_status_active_root_ok_sub">已获得 Root 权限</string>
-    <string name="home_status_active_no_root">模块已激活，但未获得 Root 权限</string>
-    <string name="home_status_active_no_root_sub">部分功能可能无法正常工作。如刚获得 Root 权限，可能需要重启应用</string>
+    <string name="home_status_active_no_root">模块已激活（无 Root）</string>
+    <string name="home_status_active_no_root_sub">部分写入操作会稍有延迟</string>
     <string name="home_status_wrong_scope">作用域错误 — 未作用于系统框架</string>
     <string name="home_status_wrong_scope_sub">模块已加载但不在 system_server 中。请在 LSPosed 中将作用域设为「系统框架」。</string>
     <string name="home_status_inactive">模块未激活</string>
@@ -64,6 +64,14 @@
     <!-- 系统设置写入警告卡片 (fragment_recycler.xml) -->
     <!-- ================================================================ -->
     <string name="warn_cannot_write_settings">⚠ 无法写入系统设置</string>
+    <string name="warn_write_deferred">请稍等</string>
+    <string name="warn_queue_injection">⚠ 检测到写入队列被篡改，系统可能已受攻击</string>
+    <string name="secure_perm_card_title">缺少 WRITE_SECURE_SETTINGS 权限</string>
+    <string name="secure_perm_card_msg">缺少 WRITE_SECURE_SETTINGS 权限，操作可能有延迟\n\n要消除延迟，可以：\n1. 点击下方「尝试获取」，自动获取相关权限\n2. 授予应用 root 权限\n3. 在有权限的命令行执行下面命令之一（长按选中复制）：\n%1$s\n%2$s</string>
+    <string name="secure_perm_card_try">尝试获取</string>
+    <string name="secure_perm_card_close">关闭</string>
+    <string name="secure_perm_card_copy">复制</string>
+    <string name="secure_perm_card_never">不再提示</string>
     <string name="warn_write_error_reason">原因: %1$s</string>
     <string name="warn_write_solution">方法一：前往系统授权页\n方法二：使用 Root 自授权（需 Magisk/KSU）</string>
     <string name="btn_grant_settings">前往授权</string>

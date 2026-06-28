@@ -8,4 +8,7 @@
     <color name="status_orange_fg">#FF8A65</color>
     <color name="status_red_bg">#B71C1C</color>
     <color name="status_red_fg">#EF9A9A</color>
+    <color name="secure_card_bg">#4A1010</color>
+    <color name="secure_card_title">#EF9A9A</color>
+    <color name="secure_card_text">#EF9A9A</color>
 </resources>

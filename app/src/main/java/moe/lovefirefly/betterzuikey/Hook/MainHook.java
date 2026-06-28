@@ -139,6 +139,8 @@ public class MainHook extends XposedModule {
                 sBootMarked = true;
                 markBootDelayed(mConfigIPC);
             }
+            // Start ESC→BACK detection watcher (async, system_server UID, no su needed)
+            startEscCheckWatcher();
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR, "Hook installation failed:", t.getMessage());
             setError("Injection error: " + t.toString() + "\n\n" + KeyInjector.stackTraceToString(t));
@@ -219,9 +221,205 @@ public class MainHook extends XposedModule {
                 } else {
                     LogHelper.log(VerboseLevel.INFO, "Boot mark retry finished (",
                             label, ", ", String.valueOf(maxTries), " attempts)");
+                    // All attempts failed — reset flag so future triggers can retry
+                    sBootMarked = false;
                 }
             }
         }, delay);
+    }
+
+    // ----------------------------------------------------------------
+    //  ESC→BACK async detection watcher
+    //  App writes SP flag → system_server reads ABX file (system UID),
+    //  byte-searches for ESC(111)→BACK(4) strings (ABX stores strings in plain UTF-8),
+    //  sends result back via ContentProvider → App picks up from SharedPreferences.
+    // ----------------------------------------------------------------
+
+    private static final String ESC_CHECK_SP_KEY = "esc_check_requested";
+    /** Secure keys allowed through the async write queue (whitelist). */
+    private static final java.util.Set<String> ALLOWED_SECURE_KEYS =
+        java.util.Collections.unmodifiableSet(new java.util.HashSet<>(java.util.Arrays.asList(
+            "accessibility_bounce_keys",
+            "accessibility_mouse_keys_enabled",
+            "accessibility_sticky_keys",
+            "accessibility_slow_keys"
+        )));
+
+    private void startEscCheckWatcher() {
+        final android.os.Handler handler = new android.os.Handler(
+                android.os.Looper.getMainLooper());
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                processEscCheckRequest();
+                processSysWriteRequest();
+                processLsposedOpenRequest();
+                processGrantSecureRequest();
+                handler.postDelayed(this, 1000); // 1s polling (Binder IPC overhead <1ms)
+            }
+        }, 5000);
+    }
+
+    /** Process pending ESC check request if any. */
+    private void processEscCheckRequest() {
+        if (mConfigIPC == null || mConfigIPC.getResolver() == null) return;
+        try {
+            android.os.Bundle result = mConfigIPC.getResolver().call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                "getEscRequest", null, null);
+            if (result == null || !result.getBoolean("requested", false)) return;
+        } catch (Exception e) {
+            return;
+        }
+
+        LogHelper.log(VerboseLevel.INFO, "ESC check: request detected, scanning ABX...");
+        boolean detected = detectEscToBackSystem();
+        mConfigIPC.sendEscCheckResult(detected);
+        LogHelper.log(VerboseLevel.INFO,
+                "ESC check: result sent → ", detected ? "DETECTED" : "not found");
+    }
+
+    /** Atomically drain and process pending Settings.System write queue.
+     *  Single ContentProvider call reads + clears to avoid race with app writes. */
+    private void processSysWriteRequest() {
+        if (mConfigIPC == null || mConfigIPC.getResolver() == null) return;
+        try {
+            android.os.Bundle req = mConfigIPC.getResolver().call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                "drainSysWriteQueue", null, null);
+            if (req == null) return;
+            String json = req.getString("queue", "[]");
+            if ("[]".equals(json)) return;
+
+            LogHelper.log(VerboseLevel.INFO, "SysWrite: processing queue: ", json);
+            int i = 0;
+            while ((i = json.indexOf("{\"k\":\"", i)) >= 0) {
+                int kStart = i + 6;
+                int kEnd = json.indexOf("\"", kStart);
+                if (kEnd < 0) break;
+                String key = json.substring(kStart, kEnd);
+                int vStart = json.indexOf("\"v\":", kEnd) + 4;
+                int vEnd = json.indexOf("}", vStart);
+                if (vEnd < 0) break;
+                int val = Integer.parseInt(json.substring(vStart, vEnd).trim());
+                String sysKey = Config.SWITCH_KEY_MAP.get(key);
+                if (sysKey != null) {
+                    android.provider.Settings.System.putInt(mConfigIPC.getResolver(), sysKey, val);
+                } else if (ALLOWED_SECURE_KEYS.contains(key)) {
+                    android.provider.Settings.Secure.putInt(mConfigIPC.getResolver(), key, val);
+                } else {
+                    // Unknown key → potential attack, alert the app
+                    LogHelper.log(VerboseLevel.WARNING, "SysWrite: REJECTED unknown key: ", key);
+                    android.os.Bundle alert = new android.os.Bundle();
+                    alert.putBoolean("alert", true);
+                    mConfigIPC.getResolver().call(
+                        moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                        "setSysWriteAlert", null, alert);
+                }
+                i = vEnd + 1;
+            }
+        } catch (Exception e) { }
+    }
+
+    /** Process pending WRITE_SECURE_SETTINGS grant request via system_server's own pm. */
+    private void processGrantSecureRequest() {
+        if (mConfigIPC == null || mConfigIPC.getResolver() == null) return;
+        try {
+            android.os.Bundle req = mConfigIPC.getResolver().call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                "getGrantSecureRequest", null, null);
+            if (req == null || !req.getBoolean("requested", false)) return;
+
+            // Clear flag BEFORE granting (grant is idempotent, flag isn't)
+            mConfigIPC.getResolver().call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                "clearGrantSecureRequest", null, null);
+
+            LogHelper.log(VerboseLevel.INFO, "GrantSecure: granting via PackageManager...");
+            Object pm = Class.forName("android.app.ActivityThread")
+                    .getMethod("getPackageManager").invoke(null);
+            pm.getClass().getMethod("grantRuntimePermission",
+                    String.class, String.class, int.class)
+                    .invoke(pm, "moe.lovefirefly.betterzuikey",
+                            "android.permission.WRITE_SECURE_SETTINGS",
+                            0 /* userId 0 = owner */);
+            LogHelper.log(VerboseLevel.INFO, "GrantSecure: granted via Binder");
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.INFO, "GrantSecure: failed:", e.getMessage());
+        }
+    }
+
+    /** Process pending LSPosed open request via system_server's own Context.
+     *  No shell needed — system_server IS the platform. */
+    private void processLsposedOpenRequest() {
+        if (mConfigIPC == null || mConfigIPC.getResolver() == null) return;
+        try {
+            android.os.Bundle req = mConfigIPC.getResolver().call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                "getLsposedOpenRequest", null, null);
+            if (req == null || !req.getBoolean("requested", false)) return;
+
+            // Clear FIRST to avoid re-entry
+            android.os.Bundle clear = new android.os.Bundle();
+            clear.putBoolean("requested", false);
+            mConfigIPC.getResolver().call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                "setLsposedOpenRequest", null, clear);
+
+            LogHelper.log(VerboseLevel.INFO, "LSPosed: broadcasting via system context...");
+            // Get system context (same as ConfigIPCManager.init)
+            Object at = Class.forName("android.app.ActivityThread")
+                    .getMethod("currentActivityThread").invoke(null);
+            android.content.Context ctx = (android.content.Context)
+                    at.getClass().getMethod("getSystemContext").invoke(at);
+
+            android.content.Intent intent = new android.content.Intent(
+                    "android.telephony.action.SECRET_CODE");
+            intent.setData(android.net.Uri.parse("android_secret_code://5776733"));
+            intent.addFlags(android.content.Intent.FLAG_RECEIVER_FOREGROUND);
+            intent.setPackage("android");
+
+            ctx.sendBroadcast(intent);
+            LogHelper.log(VerboseLevel.INFO, "LSPosed: broadcast sent");
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.INFO, "LSPosed: broadcast failed:",
+                    e.getMessage());
+        }
+    }
+
+    /** Detect ESC(111)→BACK(4) remapping. Uses Android Binary XML parser
+     *  since system_server has no su in PATH and ABX byte-search is unreliable. */
+    private static boolean detectEscToBackSystem() {
+        // Android Binary XML native parser (system_server IS the framework)
+        try {
+            java.io.InputStream is = new java.io.FileInputStream(
+                    "/data/system/input-manager-state.xml");
+            // android.util.Xml.newBinaryPullParser() is a hidden API — use reflection
+            Class<?> xmlClass = Class.forName("android.util.Xml");
+            java.lang.reflect.Method newParser = xmlClass.getMethod("newBinaryPullParser");
+            org.xmlpull.v1.XmlPullParser parser =
+                    (org.xmlpull.v1.XmlPullParser) newParser.invoke(null);
+            parser.setInput(is, "UTF-8");
+
+            int eventType = parser.getEventType();
+            while (eventType != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+                if (eventType == org.xmlpull.v1.XmlPullParser.START_TAG
+                        && "remap".equals(parser.getName())) {
+                    String fromKey = parser.getAttributeValue(null, "from-key");
+                    String toKey = parser.getAttributeValue(null, "to-key");
+                    if ("111".equals(fromKey) && "4".equals(toKey)) {
+                        is.close();
+                        return true;
+                    }
+                }
+                eventType = parser.next();
+            }
+            is.close();
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.INFO,
+                    "ESC check: ABX parse failed:", e.getMessage());
+        }
+        return false;
     }
 
     // ----------------------------------------------------------------

@@ -295,6 +295,11 @@ public class HookContext {
         try {
             Object im = moe.lovefirefly.betterzuikey.Hook.HookCompat.callStaticMethod(
                     android.hardware.input.InputManager.class, "getInstance");
+            if (im == null) {
+                LogHelper.log(VerboseLevel.ERROR,
+                    "injectMetaToApp: getInstance returned null, injection aborted");
+                return;
+            }
             moe.lovefirefly.betterzuikey.Hook.HookCompat.callMethod(im,
                     "injectInputEvent", (android.view.InputEvent) down, 0);
             moe.lovefirefly.betterzuikey.Hook.HookCompat.callMethod(im,

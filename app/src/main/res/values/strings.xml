@@ -35,8 +35,8 @@
     <string name="home_status_checking_sub">Detecting module and root status</string>
     <string name="home_status_active_root_ok">Module active</string>
     <string name="home_status_active_root_ok_sub">Root access granted</string>
-    <string name="home_status_active_no_root">Module active, but root not granted</string>
-    <string name="home_status_active_no_root_sub">Some features may not work. If root was just granted, try restarting the app.</string>
+    <string name="home_status_active_no_root">Module active (no root)</string>
+    <string name="home_status_active_no_root_sub">Some writes may be slightly delayed.</string>
     <string name="home_status_wrong_scope">Wrong scope — not in system framework</string>
     <string name="home_status_wrong_scope_sub">Hooks are loaded but not in system_server. Set scope to \"System Framework\" in LSPosed.</string>
     <string name="home_status_inactive">Module not active</string>
@@ -66,6 +66,14 @@
     <string name="warn_cannot_write_settings">⚠ Cannot write to system settings</string>
     <string name="warn_write_error_reason">Reason: %1$s</string>
     <string name="warn_write_solution">Method 1: Go to system authorization page\nMethod 2: Root self-grant (requires Magisk/KSU)</string>
+    <string name="warn_write_deferred">Please wait…</string>
+    <string name="warn_queue_injection">⚠ Detected unauthorized write queue tampering. Your system may be compromised.</string>
+    <string name="secure_perm_card_title">WRITE_SECURE_SETTINGS Required</string>
+    <string name="secure_perm_card_msg">Missing WRITE_SECURE_SETTINGS — operations may be delayed.\n\nTo resolve:\n1. Tap "Try Grant" to auto-grant\n2. Grant root to this app\n3. Run one of these (long-press to copy):\n%1$s\n%2$s</string>
+    <string name="secure_perm_card_try">Try Grant</string>
+    <string name="secure_perm_card_close">Close</string>
+    <string name="secure_perm_card_copy">Copy</string>
+    <string name="secure_perm_card_never">Don\'t show again</string>
     <string name="btn_grant_settings">Grant</string>
     <string name="btn_su_grant">su grant</string>
     <string name="dialog_su_grant_success_title">Grant Successful</string>

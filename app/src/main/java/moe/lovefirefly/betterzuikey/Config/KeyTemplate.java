@@ -13,7 +13,7 @@ import java.util.Map;
  */
 public class KeyTemplate {
     /** 不可变唯一 ID，防止重名。创建时由 UUID 生成，之后不改。 */
-    public String id = java.util.UUID.randomUUID().toString();
+    public String id;
     /** 模板名称，如 "游戏模式"、"视频模式" */
     public String name;
     /** 此模板是否启用 */

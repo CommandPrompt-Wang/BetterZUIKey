@@ -43,7 +43,7 @@ object IMEDispatcher {
     // IME 状态
     // -----------------------------------------------------------------
 
-    private var cachedSytemContext: Context? = null
+    private var cachedSystemContext: Context? = null
     private var cachedImm: InputMethodManager? = null
 
     /**
@@ -56,7 +56,7 @@ object IMEDispatcher {
             val at = Class.forName("android.app.ActivityThread")
                 .getMethod("currentActivityThread").invoke(null)
             val sysCtx = at.javaClass.getMethod("getSystemContext").invoke(at) as Context
-            cachedSytemContext = sysCtx
+            cachedSystemContext = sysCtx
             cachedImm = sysCtx.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         } catch (t: Throwable) {
             LogHelper.log(VerboseLevel.ERROR, "IMEDispatcher: getIMM failed:", t.message)

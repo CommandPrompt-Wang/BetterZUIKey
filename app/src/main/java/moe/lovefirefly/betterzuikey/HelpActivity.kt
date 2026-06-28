@@ -25,7 +25,6 @@ class HelpActivity : AppCompatActivity() {
         "keyboarddetect" to KeyboardDetectActivity::class.java,
         "profilemanage"  to ProfileManageActivity::class.java,
         "appearance"     to AppearanceSettingsActivity::class.java,
-        "aosp"           to AospSettingsActivity::class.java,
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {

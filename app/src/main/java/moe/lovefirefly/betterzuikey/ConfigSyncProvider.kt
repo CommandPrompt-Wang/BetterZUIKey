@@ -28,9 +28,11 @@ class ConfigSyncProvider : ContentProvider() {
         const val METHOD_SET_CONFIG = "setConfig"
         const val METHOD_BOOT_MARK = "bootMark"
         const val METHOD_BOOT_MARK_APP = "bootMarkApp"
+        const val METHOD_ESC_CHECK_RESULT = "escCheckResult"
         const val KEY_CONFIG_JSON = "config_json"
         const val KEY_BOOT_TIME = "boot_time"
         const val KEY_BOOT_TIME_APP = "boot_time_app"
+        const val KEY_ESC_RESULT = "esc_check_result"
     }
 
     override fun onCreate(): Boolean = true
@@ -69,6 +71,86 @@ class ConfigSyncProvider : ContentProvider() {
                     RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.putLong(KEY_BOOT_TIME_APP, bootTime)?.commit()
                 null
+            }
+            METHOD_ESC_CHECK_RESULT -> {
+                val detected = extras?.getBoolean(KEY_ESC_RESULT, false) ?: false
+                context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    ?.edit()?.putBoolean(KEY_ESC_RESULT, detected)
+                    ?.putBoolean("esc_check_requested", false)
+                    ?.apply()
+                null
+            }
+            "getEscRequest" -> {
+                val prefs = context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                val requested = prefs?.getBoolean("esc_check_requested", false) ?: false
+                Bundle().apply { putBoolean("requested", requested) }
+            }
+            "setEscRequest" -> {
+                context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    ?.edit()?.putBoolean("esc_check_requested", true)?.apply()
+                null
+            }
+            "appendSysWriteQueue" -> {
+                // App 追加写入请求（通过 CP 而非直接写 SP，避免与 drain 竞态）
+                val key = extras?.getString("key") ?: return@call null
+                val value = extras?.getInt("val", -1) ?: -1
+                if (value < 0) return@call null
+                val prefs = context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                val oldQ = prefs?.getString("sys_write_queue", "[]") ?: "[]"
+                val entry = "{\"k\":\"$key\",\"v\":$value}"
+                val newQ = if (oldQ == "[]") "[$entry]" else oldQ.dropLast(1) + ",$entry]"
+                prefs?.edit()?.putString("sys_write_queue", newQ)?.apply()
+                null
+            }
+            "getLsposedOpenRequest" -> {
+                val prefs = context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                val requested = prefs?.getBoolean("lsposed_open_requested", false) ?: false
+                Bundle().apply { putBoolean("requested", requested) }
+            }
+            "setLsposedOpenRequest" -> {
+                val requested = extras?.getBoolean("requested", true) ?: true
+                val prefs = context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                if (requested) prefs?.edit()?.putBoolean("lsposed_open_requested", true)?.apply()
+                else prefs?.edit()?.remove("lsposed_open_requested")?.apply()
+                null
+            }
+            "setSysWriteAlert" -> {
+                context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    ?.edit()?.putBoolean("sys_write_alert", true)?.apply()
+                null
+            }
+            "getGrantSecureRequest" -> {
+                val prefs = context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                Bundle().apply { putBoolean("requested",
+                    prefs?.contains("grant_secure_requested") ?: false) }
+            }
+            "setGrantSecureRequest" -> {
+                context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    ?.edit()?.putBoolean("grant_secure_requested", true)?.apply()
+                null
+            }
+            "clearGrantSecureRequest" -> {
+                context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    ?.edit()?.remove("grant_secure_requested")?.apply()
+                null
+            }
+            "drainSysWriteQueue" -> {
+                // system_server 原子读+清空（与 appendSysWriteQueue 都在 CP call() 内串行化）
+                val prefs = context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                val json = prefs?.getString("sys_write_queue", "[]") ?: "[]"
+                prefs?.edit()?.remove("sys_write_queue")?.commit()
+                Bundle().apply { putString("queue", json) }
             }
             else -> null
         }

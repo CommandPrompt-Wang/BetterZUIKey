@@ -13,7 +13,7 @@ import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
  */
 public class ConfigIPCManager {
 
-    private ContentResolver mConfigResolver = null;
+    ContentResolver mConfigResolver = null;
     private String mLastConfigSync = "";
 
     /**
@@ -24,6 +24,9 @@ public class ConfigIPCManager {
      * @return the initial Config from ContentProvider, or null if unavailable.
      *         Caller MUST replace the file-loaded (likely default) Config with this one.
      */
+    /** Expose resolver for direct calls (used by ESC check watcher in MainHook). */
+    public ContentResolver getResolver() { return mConfigResolver; }
+
     public Config init() {
         try {
             Object at = Class.forName("android.app.ActivityThread")
@@ -112,6 +115,22 @@ public class ConfigIPCManager {
      */
     public void sendBootMarkApp() {
         sendBootMarkInternal(moe.lovefirefly.betterzuikey.ConfigSyncProvider.METHOD_BOOT_MARK_APP);
+    }
+
+    /** Write ESC→BACK detection result to SharedPreferences via ContentProvider. */
+    public void sendEscCheckResult(boolean detected) {
+        if (mConfigResolver == null) return;
+        try {
+            android.os.Bundle extras = new android.os.Bundle();
+            extras.putBoolean(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_ESC_RESULT, detected);
+            mConfigResolver.call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.METHOD_ESC_CHECK_RESULT,
+                null, extras);
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.WARNING, "sendEscCheckResult failed:", e.getMessage());
+        }
     }
 
     private void sendBootMarkInternal(String method) {

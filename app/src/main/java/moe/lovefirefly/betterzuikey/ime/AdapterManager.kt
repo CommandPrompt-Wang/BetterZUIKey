@@ -159,7 +159,6 @@ object AdapterManager {
         val candidateNames = listOf(
             fileName,                              // 根包
             "adapters.$fileName",                  // adapters.xxx
-            "adapters.${fileName}Adapter",         // adapters.xxxAdapter
             "ime.$fileName",                       // ime.xxx
         )
 

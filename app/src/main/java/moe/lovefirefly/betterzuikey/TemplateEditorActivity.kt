@@ -25,6 +25,7 @@ class TemplateEditorActivity : AppCompatActivity() {
     private lateinit var template: KeyTemplate
     private lateinit var globalCfg: Config
     private lateinit var adapter: EditorAdapter
+    private var dirty = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -104,8 +105,11 @@ class TemplateEditorActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        globalCfg.save()
-        Config.syncToSharedPrefs(this, globalCfg)
+        if (dirty) {
+            globalCfg.save()
+            Config.syncToSharedPrefs(this, globalCfg)
+            dirty = false
+        }
     }
 
     // ── Adapter ──
@@ -260,7 +264,7 @@ class TemplateEditorActivity : AppCompatActivity() {
                         val act = Config.OverrideMode.entries.filter { it.isAvailable(meta) }[itemPos - 1]
                         ensureOverride(key).overrideMode = act
                     }
-                    globalCfg.save()
+                    dirty = true
                     notifyItemChanged(adapterPosition)
                 }
             }
