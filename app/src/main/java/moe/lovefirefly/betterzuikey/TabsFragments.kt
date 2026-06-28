@@ -869,7 +869,9 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                     recyclerView: RecyclerView, src: RecyclerView.ViewHolder,
                     target: RecyclerView.ViewHolder
                 ): Boolean {
+                    @Suppress("DEPRECATION")
                     val from = src.adapterPosition
+                    @Suppress("DEPRECATION")
                     val to = target.adapterPosition
                     if (from == to) return false
                     // Swap in-memory without full refresh to keep drag alive

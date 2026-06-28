@@ -90,7 +90,7 @@
     <!-- ================================================================ -->
     <string name="templates_new_template">新建模板</string>
     <string name="templates_name_dialog_title">模板名称</string>
-    <string name="templates_name_duplicate">名称 \"%s\" 已存在，自动重命名为 \"%s\"</string>
+    <string name="templates_name_duplicate">名称 \"%1$s\" 已存在，自动重命名为 \"%2$s\"</string>
     <string name="templates_select_apps">选择应用（已选择 %1$d 个）</string>
     <string name="templates_delete_title">删除模板</string>
     <string name="templates_delete_msg">确定删除「%1$s」？</string>

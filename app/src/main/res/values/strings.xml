@@ -90,7 +90,7 @@
     <!-- ================================================================ -->
     <string name="templates_new_template">New Template</string>
     <string name="templates_name_dialog_title">Template Name</string>
-    <string name="templates_name_duplicate">Name \"%s\" already exists, auto-renamed to \"%s\"</string>
+    <string name="templates_name_duplicate">Name \"%1$s\" already exists, auto-renamed to \"%2$s\"</string>
     <string name="templates_select_apps">Select apps (%1$d selected)</string>
     <string name="templates_delete_title">Delete Template</string>
     <string name="templates_delete_msg">Delete \"%1$s\"?</string>

@@ -54,8 +54,8 @@ enum class OnSpinSelectedNonDefault {
  */
 data class ShortcutMeta(
     val key: String,
-    @StringRes val displayResId: Int,
-    @StringRes val descResId: Int = 0,
+    @param:StringRes val displayResId: Int,
+    @param:StringRes val descResId: Int = 0,
     val groupKeys: List<String> = emptyList(),
     val hasZui: Boolean = false,
     val hasAosp: Boolean = false,
