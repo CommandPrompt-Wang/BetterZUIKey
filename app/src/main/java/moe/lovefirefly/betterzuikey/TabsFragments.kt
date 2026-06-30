@@ -52,13 +52,43 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
     private var cachedConfig: Config? = null
     /** 首次初始化标志 — 只设一次 LayoutManager/Adapter/SwipeRefresh/PermissionCheck */
     private var firstInitDone = false
+    /** AOSP 辅助键 Settings.Secure 缓存（后台线程读取，避免主线程 ANR） */
+    private var aospSecureCache: Map<String, Boolean> = emptyMap()
+    /** System putInt 降级（失败后走 su/代理） */
+    private var putIntDeadSys = false
+    /** Secure putInt 降级（失败后走 su/代理，授权后可恢复） */
+    private var putIntDeadSec = false
+    /** WRITE_SECURE_SETTINGS 权限缺失提示的"不再提示" */
+    private var securePermDismissed = false
 
     private fun reloadConfig(): Config {
         val cfg = Config.load()
+        // 配置读取异常 → 显示 warning banner
+        Config.lastLoadError?.let { err ->
+            (requireActivity() as? MainActivity)?.showWarningBanner(err)
+            Config.lastLoadError = null
+        }
         cfg.syncSwitchesFromSystem(requireContext())
         cfg.save()
         Config.syncToSharedPrefs(requireContext(), cfg)
         cachedConfig = cfg
+        // 后台读取 Settings.Secure（避免主线程 ANR）
+        Thread {
+            val cache = mutableMapOf<String, Boolean>()
+            for ((shortcutKey, secureKey) in AOSP_SECURE_KEY_MAP) {
+                try {
+                    cache[shortcutKey] = Settings.Secure.getInt(
+                        requireContext().contentResolver, secureKey) == 1
+                } catch (_: Exception) { cache[shortcutKey] = false }
+            }
+            aospSecureCache = cache
+            // 数据就绪 → 刷新列表
+            view?.post {
+                if (::adapter.isInitialized) {
+                    adapter.applyFilters(binding.searchView.query?.toString() ?: "")
+                }
+            }
+        }.start()
         return cfg
     }
 
@@ -86,7 +116,10 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
             // Filter button
             binding.btnFilter.setOnClickListener { showFilterDialog() }
 
-            checkWritePermission(view)
+            // 加载 Secure 权限提示的"不再提示"状态
+            securePermDismissed = requireContext().getSharedPreferences(
+                RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                .getBoolean("secure_perm_dismissed", false)
         }
 
         reloadConfig()
@@ -147,123 +180,82 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
         val v = view ?: return
         binding.swipeRefresh.isRefreshing = true
         canWriteSystemSettings = null
-        checkWritePermission(v)
+        checkWritePermission()
         reloadConfig()
         if (::adapter.isInitialized) {
             adapter.applyFilters(binding.searchView.query?.toString() ?: "")
         }
-        if (canWriteSystemSettings == true) {
-            v.findViewById<CardView>(R.id.cardWriteWarning)?.visibility = View.GONE
-        }
         binding.swipeRefresh.isRefreshing = false
     }
 
-    /** 切回此 Tab 时统一刷新（开关状态可能已通过系统或其他途径变化） */
+    /** 切回此 Tab 时统一刷新（开关状态 + 写入权限 + 安全告警） */
     override fun onResume() {
         super.onResume()
+        val v = view ?: return
+        // 检测 sys_write_queue 篡改告警
+        val alertPrefs = requireContext().getSharedPreferences(
+            RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+        if (alertPrefs.getBoolean("sys_write_alert", false)) {
+            alertPrefs.edit().remove("sys_write_alert").apply()
+            (requireActivity() as? MainActivity)?.showWarningBannerRed(
+                getString(R.string.warn_queue_injection))
+        }
+        canWriteSystemSettings = null // 重新检测 su 可用性
+        checkWritePermission()
         if (::adapter.isInitialized) {
             reloadConfig()
             adapter.applyFilters(binding.searchView.query?.toString() ?: "")
         }
     }
 
-    private fun checkWritePermission(view: View) {
-        if (canWriteSystemSettings != null) return
-        val err = Config.writeSystemSwitch(requireContext(), "winD", true)
-        canWriteSystemSettings = (err == null)
-        if (err != null) showWriteWarning(view, err)
-    }
+    /** WRITE_SECURE_SETTINGS 权限缺失提示卡片 */
+    private fun showSecurePermissionCard() {
+        if (securePermDismissed) return
+        val v = view ?: return
+        val card = v.findViewById<CardView>(R.id.cardWriteWarning) ?: return
+        val ctx = requireContext()
+        val cmd1 = "adb shell pm grant ${ctx.packageName} android.permission.WRITE_SECURE_SETTINGS"
+        val cmd2 = "su -c 'pm grant ${ctx.packageName} android.permission.WRITE_SECURE_SETTINGS'"
 
-    private fun showWriteWarning(view: View, errorMsg: String? = null) {
-        val card = view.findViewById<CardView>(R.id.cardWriteWarning) ?: return
+        v.findViewById<TextView>(R.id.tvSecurePermTitle)?.text = getString(R.string.secure_perm_card_title)
+        v.findViewById<TextView>(R.id.tvSecurePermMsg)?.text =
+            getString(R.string.secure_perm_card_msg, cmd1, cmd2)
+        v.findViewById<CheckBox>(R.id.cbSecurePermNever)?.text = getString(R.string.secure_perm_card_never)
+
+        v.findViewById<Button>(R.id.btnSecurePermTry)?.text = getString(R.string.secure_perm_card_try)
+        v.findViewById<Button>(R.id.btnSecurePermTry)?.setOnClickListener {
+            try { ctx.contentResolver.call(ConfigSyncProvider.RELOAD_URI,
+                "setGrantSecureRequest", null, null) } catch (_: Exception) {}
+            (requireActivity() as? MainActivity)?.showWarningBanner(
+                getString(R.string.warn_write_deferred), copyable = false, timeoutMs = 1500)
+            dismissSecurePermCard(card)
+        }
+
+        v.findViewById<Button>(R.id.btnSecurePermClose)?.text = getString(R.string.secure_perm_card_close)
+        v.findViewById<Button>(R.id.btnSecurePermClose)?.setOnClickListener {
+            dismissSecurePermCard(card)
+        }
+
         card.visibility = View.VISIBLE
+    }
 
-        // 显示具体错误原因
-        if (!errorMsg.isNullOrBlank()) {
-            val tvError = card.findViewById<TextView>(R.id.tvWriteErrorDetail)
-            tvError?.text = getString(R.string.warn_write_error_reason, errorMsg)
-            tvError?.visibility = View.VISIBLE
-        }
-
-        // 方法一：前往系统授权页
-        view.findViewById<Button>(R.id.btnGrantSettings)?.setOnClickListener {
-            try {
-                startActivity(Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS).apply {
-                    data = Uri.parse("package:${requireContext().packageName}")
-                })
-            } catch (e: Exception) {
-                android.util.Log.e("BetterZUIKey", "Failed to open WRITE_SETTINGS activity", e)
-            }
-        }
-
-        // 方法二：su -c 自授权（appops）
-        view.findViewById<Button>(R.id.btnSuGrant)?.setOnClickListener {
-            trySuGrant(view)
+    private fun dismissSecurePermCard(card: CardView) {
+        card.visibility = View.GONE
+        val cb = view?.findViewById<CheckBox>(R.id.cbSecurePermNever)
+        if (cb?.isChecked == true) {
+            securePermDismissed = true
+            requireContext().getSharedPreferences(RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                .edit().putBoolean("secure_perm_dismissed", true).apply()
         }
     }
 
-    /** 通过 su -c appops 自授权 WRITE_SETTINGS */
-    private fun trySuGrant(view: View) {
-        val pkg = requireContext().packageName
-        val cmd = "appops set $pkg WRITE_SETTINGS allow"
-        val unknownError = getString(R.string.error_unknown)
-
-        val thread = Thread {
-            var success = false
-            var output = ""
-            try {
-                // Use merged stdout+stderr to avoid pipe buffer deadlock
-                val pb = ProcessBuilder("su", "-c", cmd)
-                pb.redirectErrorStream(true)
-                val su = pb.start()
-                val reader = su.inputStream.bufferedReader()
-                val sb = StringBuilder()
-                var line: String?
-                while (reader.readLine().also { line = it } != null) sb.append(line).append("\n")
-                reader.close()
-                output = sb.toString().trim()
-                su.waitFor()
-                success = (su.exitValue() == 0)
-            } catch (e: Exception) {
-                output = e.message ?: unknownError
-            }
-
-            val finalSuccess = success
-            val finalOutput = output
-
-            val activity = activity ?: return@Thread
-            activity.runOnUiThread {
-                if (!isAdded) return@runOnUiThread
-                if (finalSuccess) {
-                    // 重新验证权限
-                    canWriteSystemSettings = null
-                    checkWritePermission(view)
-                    if (canWriteSystemSettings == true) {
-                        view.findViewById<CardView>(R.id.cardWriteWarning)?.visibility = View.GONE
-                        AlertDialog.Builder(requireContext())
-                            .setTitle(getString(R.string.dialog_su_grant_success_title))
-                            .setMessage(getString(R.string.dialog_su_grant_success_msg))
-                            .setPositiveButton(getString(R.string.dialog_confirm_ok), null)
-                            .show()
-                    } else {
-                        AlertDialog.Builder(requireContext())
-                            .setTitle(getString(R.string.dialog_su_grant_uncertain_title))
-                            .setMessage(getString(R.string.dialog_su_grant_uncertain_msg, finalOutput))
-                            .setPositiveButton(getString(R.string.dialog_confirm_ok), null)
-                            .show()
-                    }
-                } else {
-                    AlertDialog.Builder(requireContext())
-                        .setTitle(getString(R.string.dialog_su_grant_failed_title))
-                        .setMessage(getString(R.string.dialog_su_grant_failed_msg, cmd,
-                            if (finalOutput.isNotEmpty()) finalOutput else ""))
-                        .setPositiveButton(getString(R.string.dialog_confirm_ok), null)
-                        .show()
-                }
-            }
-        }
-        thread.isDaemon = true
-        thread.start()
+    /** 检测 su 可用性。ZUI 上 putInt 必定失败，写入走 su 或 system_server。 */
+    private fun checkWritePermission() {
+        if (canWriteSystemSettings != null) return
+        canWriteSystemSettings = try {
+            val p = Runtime.getRuntime().exec(arrayOf("su", "-c", "id"))
+            val exit = p.waitFor(); p.destroy(); exit == 0
+        } catch (_: Exception) { false }
     }
 
     /** RecyclerView Adapter — 48 条静态数据，直接字段访问，不使用反射 */
@@ -293,9 +285,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 val isAospSecure = meta.key in AOSP_SECURE_KEY_MAP
                 val hasSwitch = meta.showSwitch || meta.hasSystemSwitch || isAospSecure
                 val switchOn = if (cfg != null) {
-                    if (isAospSecure) try {
-                        Settings.Secure.getInt(requireContext().contentResolver, AOSP_SECURE_KEY_MAP[meta.key]!!) == 1
-                    } catch (_: Exception) { false }
+                    if (isAospSecure) aospSecureCache[meta.key] ?: false
                     else ShortcutMeta.getSwitch(cfg, meta.key).isEnabled
                 } else false
                 val switchOk = (filterSwitchOn && hasSwitch && switchOn) ||
@@ -369,6 +359,18 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 // ── 始终先清空所有视图状态，防止 RecyclerView 复用残留旧数据 ──
                 b.tvName.text = meta.displayName(requireContext())
                 b.tvDesc.text = meta.displayDesc(requireContext())
+                if (meta.key == "winLongPress") {
+                    val imeHoldsWin = cfg.imeSwitchBinding == Config.IMEBinding.WIN
+                            || cfg.languageSwitchBinding == Config.IMEBinding.WIN
+                    if (imeHoldsWin) {
+                        val base = meta.displayDesc(requireContext())
+                        val warn = requireContext().getString(R.string.ime_win_voice_warn, cfg.metaKeyLabel)
+                        val sp = android.text.SpannableString("$base\n⚠ $warn")
+                        sp.setSpan(android.text.style.ForegroundColorSpan(0xFFCC8800.toInt()),
+                            base.length, sp.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        b.tvDesc.text = sp
+                    }
+                }
                 b.tvDesc.visibility = View.VISIBLE
                 b.swEnabled.setOnCheckedChangeListener(null)
                 b.spAction.setOnItemClickListener(null)
@@ -383,66 +385,146 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                         // AOSP 辅助键：直接读写 Settings.Secure
                         val secureKey = AOSP_SECURE_KEY_MAP[meta.key]!!
                         b.swEnabled.isEnabled = true
-                        b.swEnabled.isChecked = try {
-                            Settings.Secure.getInt(requireContext().contentResolver, secureKey) == 1
-                        } catch (_: Exception) { false }
-                        b.swEnabled.setOnCheckedChangeListener { _, isChecked ->
-                            try {
-                                Settings.Secure.putInt(requireContext().contentResolver, secureKey, if (isChecked) 1 else 0)
-                            } catch (_: SecurityException) {
-                                Thread {
-                                    try {
-                                        val proc = Runtime.getRuntime().exec(arrayOf(
-                                            "su", "-c",
-                                            "settings put secure $secureKey ${if (isChecked) 1 else 0}"
-                                        ))
-                                        proc.inputStream.bufferedReader().use { it.readText() }
-                                        proc.errorStream.bufferedReader().use { it.readText() }
-                                        proc.waitFor()
-                                    } catch (e: Exception) {
-                                        android.util.Log.e("BetterZUIKey",
-                                            "su settings put secure failed: $secureKey", e)
-                                    }
-                                }.start()
+                        b.swEnabled.isChecked = aospSecureCache[meta.key] ?: false
+                        var aospListener: android.widget.CompoundButton.OnCheckedChangeListener? = null
+                        aospListener = android.widget.CompoundButton.OnCheckedChangeListener { _, isChecked ->
+                            val valInt = if (isChecked) 1 else 0
+                            var permMissing = false
+                            var ok = if (putIntDeadSec) false else try {
+                                Settings.Secure.putInt(requireContext().contentResolver, secureKey, valInt)
+                                true
+                            } catch (_: SecurityException) { permMissing = true; false }
+                            // 缺少 WRITE_SECURE_SETTINGS 权限 → 首次弹提示卡片，跳过后续
+                            if (permMissing && !putIntDeadSec) {
+                                putIntDeadSec = true
+                                showSecurePermissionCard()
+                                b.root.postDelayed({
+                                    if (!isAdded) return@postDelayed
+                                    putIntDeadSec = false
+                                }, 3000)
+                            }
+                            // ① putInt 失败 + 有 root → 尝试 su
+                            if (!ok) {
+                                // ① 尝试 su（有 root 直接写，不需要 WRITE_SECURE_SETTINGS）
+                                ok = try {
+                                    val p = Runtime.getRuntime().exec(arrayOf("su", "-c",
+                                        "settings put secure $secureKey $valInt"))
+                                    p.waitFor()
+                                    p.exitValue() == 0
+                                } catch (_: Exception) { false }
+                            }
+                            if (!ok) {
+                                putIntDeadSec = true
+                                // ② su 也失败 → system_server 代理
+                                b.swEnabled.setOnCheckedChangeListener(null)
+                                b.swEnabled.isChecked = !isChecked
+                                b.swEnabled.isEnabled = false
+                                b.swEnabled.setOnCheckedChangeListener(aospListener)
+                                (requireActivity() as? MainActivity)?.showWarningBanner(
+                                    getString(R.string.warn_write_deferred), copyable = false, timeoutMs = 1500)
+                                try {
+                                    val extras = android.os.Bundle()
+                                    extras.putString("key", secureKey)
+                                    extras.putInt("val", valInt)
+                                    requireContext().contentResolver.call(
+                                        ConfigSyncProvider.RELOAD_URI,
+                                        "appendSysWriteQueue", null, extras)
+                                } catch (_: Exception) {}
+                                b.root.postDelayed({
+                                    if (!isAdded) return@postDelayed
+                                    b.swEnabled.isEnabled = true
+                                    b.swEnabled.setOnCheckedChangeListener(null)
+                                    b.swEnabled.isChecked = try {
+                                        Settings.Secure.getInt(requireContext().contentResolver, secureKey) == 1
+                                    } catch (_: Exception) { !isChecked }
+                                    b.swEnabled.setOnCheckedChangeListener(aospListener)
+                                }, 3000)
                             }
                         }
+                        b.swEnabled.setOnCheckedChangeListener(aospListener)
                     } else {
                         b.swEnabled.isEnabled = switchState.isUserToggleable
                         b.swEnabled.isChecked = switchState.isEnabled
-                        b.swEnabled.setOnCheckedChangeListener { _, isChecked ->
-                            val newState = if (isChecked) Config.SwitchState.ON else Config.SwitchState.OFF
-                            ShortcutMeta.setSwitch(cfg, switchKey, newState)
-                            // 组内同步
-                            for (gk in meta.groupKeys) {
-                                ShortcutMeta.setSwitch(cfg, gk, newState)
-                            }
-                            val err = Config.writeSystemSwitch(requireContext(), switchKey, isChecked)
+                        // 先写入系统，失败则还原 UI 开关
+                        var listener: android.widget.CompoundButton.OnCheckedChangeListener? = null
+                        listener = android.widget.CompoundButton.OnCheckedChangeListener { _, isChecked ->
+                            val err = if (putIntDeadSys) "cached" else Config.writeSystemSwitch(requireContext(), switchKey, isChecked)
                             if (err != null) {
+                                putIntDeadSys = true
                                 LogHelper.log(LogHelper.VerboseLevel.WARNING,
                                     "Failed to sync switch to system:", err)
-                                canWriteSystemSettings = false
-                                showWriteWarning(b.root.rootView, err)
+                                // 还原 UI（临时 detach listener 避免递归）
+                                b.swEnabled.setOnCheckedChangeListener(null)
+                                b.swEnabled.isChecked = !isChecked
+                                b.swEnabled.setOnCheckedChangeListener(listener)
+                                // system_server 代理写入，弹底部横幅提示
+                                (requireActivity() as? MainActivity)?.showWarningBanner(
+                                    getString(R.string.warn_write_deferred), copyable = false, timeoutMs = 1500)
+                                    // 灰置开关，防止连续点击
+                                    b.swEnabled.isEnabled = false
+                                    // 通过 ContentProvider 追加到写入队列（与 drain 串行化，无竞态）
+                                    try {
+                                        val extras = android.os.Bundle()
+                                        extras.putString("key", switchKey)
+                                        extras.putInt("val", if (isChecked) 1 else 0)
+                                        requireContext().contentResolver.call(
+                                            ConfigSyncProvider.RELOAD_URI,
+                                            "appendSysWriteQueue", null, extras)
+                                    } catch (_: Exception) {}
+                                    // 写入完成后恢复开关 + 刷新 UI
+                                    b.root.postDelayed({
+                                        if (!isAdded) return@postDelayed
+                                        cfg.syncSwitchesFromSystem(requireContext())
+                                        val newVal = ShortcutMeta.getSwitch(cfg, switchKey)
+                                        LogHelper.log(LogHelper.VerboseLevel.INFO,
+                                            "Proxy refresh: key=", switchKey,
+                                            " val=", newVal.name,
+                                            " enabled=", java.lang.Boolean.toString(newVal.isEnabled))
+                                        b.swEnabled.isEnabled = true
+                                        b.swEnabled.setOnCheckedChangeListener(null)
+                                        b.swEnabled.isChecked = newVal.isEnabled
+                                        b.swEnabled.setOnCheckedChangeListener(listener)
+                                    }, 1500)
+                            } else {
+                                val newState = if (isChecked) Config.SwitchState.ON else Config.SwitchState.OFF
+                                ShortcutMeta.setSwitch(cfg, switchKey, newState)
+                                for (gk in meta.groupKeys) {
+                                    ShortcutMeta.setSwitch(cfg, gk, newState)
+                                }
+                                cfg.syncSwitchesFromSystem(requireContext())
+                                cfg.save()
+                                Config.syncToSharedPrefs(requireContext(), cfg)
                             }
-                            cfg.syncSwitchesFromSystem(requireContext())
-                            cfg.save()
-                            Config.syncToSharedPrefs(requireContext(), cfg)
-                            // 不主动刷新列表 — 切回此 Tab 时 onResume 会统一刷新
                         }
+                        b.swEnabled.setOnCheckedChangeListener(listener)
                     }
                 } else {
                     b.swEnabled.visibility = View.GONE
                 }
 
                 // ── 行为覆写下拉 ──
-                val modes = Config.OverrideMode.entries
+                val availableModes = Config.OverrideMode.entries
                     .filter { it.isAvailable(meta) && (it != Config.OverrideMode.AOSP || meta.showAospOption) }
-                    .map { it.displayName(requireContext()) }
-                // Clear old adapter first to force visual refresh on rebind
+                val enabledModes = availableModes.map { true }
+                val modeNames = availableModes.map { it.displayName(requireContext()) }
                 b.spAction.setAdapter(null)
-                b.spAction.setAdapter(android.widget.ArrayAdapter(
-                    requireContext(), R.layout.dropdown_item_wrap, modes))
+                b.spAction.setAdapter(object : android.widget.ArrayAdapter<String>(
+                    requireContext(), R.layout.dropdown_item_wrap, modeNames) {
+                    override fun isEnabled(position: Int) = enabledModes[position]
+                    override fun getDropDownView(position: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
+                        val v = super.getDropDownView(position, convertView, parent)
+                        if (!isEnabled(position)) {
+                            (v as? android.widget.TextView)?.let {
+                                it.paintFlags = it.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
+                            }
+                        }
+                        return v
+                    }
+                })
                 b.spAction.threshold = Int.MAX_VALUE
                 b.spAction.setText(overrideMode.displayName(requireContext()), false)
+                b.spAction.isEnabled = true
+                b.tilAction.isEnabled = true
 
                 // ── 卡片点击行为（统一由 ShortcutMeta 控制）──
                 val resolvedClick = meta.cardClick.resolve(
@@ -466,7 +548,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
 
                 b.spAction.setOnItemClickListener { _, _, itemPos, _ ->
                     openSpinnerPos = -1
-                    val nm = Config.OverrideMode.entries.filter { it.isAvailable(meta) && (it != Config.OverrideMode.AOSP || meta.showAospOption) }[itemPos]
+                    val nm = availableModes[itemPos]
                     ShortcutMeta.setOverride(cfg, overrideKey, nm)
                     cfg.save()
                     Config.syncToSharedPrefs(requireContext(), cfg)
@@ -521,54 +603,32 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
             class Combo(label: String, desc: String = "", val getOptions: () -> List<String>, val getCurrentText: () -> String, val onSelected: (Int) -> Unit) : SettingItem(label, desc)
         }
 
-        private fun showRegionCustomDialog() {
+        /** 通用自定义值输入对话框。apply 对输入值进行转换并写回 Config。 */
+        private fun showCustomValueDialog(
+            @androidx.annotation.StringRes titleRes: Int,
+            @androidx.annotation.StringRes msgRes: Int,
+            @androidx.annotation.StringRes hintRes: Int,
+            currentValue: String,
+            blockEmpty: Boolean = false,
+            apply: (Config, String) -> Unit
+        ) {
             val ctx = host.requireContext()
             val cfg = Config.load()
             val input = android.widget.EditText(ctx)
-            input.hint = ctx.getString(R.string.region_custom_dialog_hint)
-            input.setText(cfg.regionCustomValue)
+            input.hint = ctx.getString(hintRes)
+            input.setText(currentValue)
 
             AlertDialog.Builder(ctx)
-                .setTitle(ctx.getString(R.string.region_custom_dialog_title))
-                .setMessage(ctx.getString(R.string.region_custom_dialog_msg))
+                .setTitle(ctx.getString(titleRes))
+                .setMessage(ctx.getString(msgRes))
                 .setView(input)
                 .setPositiveButton(ctx.getString(R.string.dialog_confirm_ok)) { _, _ ->
                     val v = input.text.toString().trim()
-                    if (v.isNotEmpty()) {
-                        cfg.regionCustomValue = v
-                        cfg.regionOverride = moe.lovefirefly.betterzuikey.Region.RegionProfile.CUSTOM
+                    if (!blockEmpty || v.isNotEmpty()) {
+                        apply(cfg, v)
                         cfg.save()
-                        Config.syncToSharedPrefs(host.requireContext(), cfg)
+                        Config.syncToSharedPrefs(ctx, cfg)
                     }
-                    // 无论输入与否都刷新，空输入会回退到上一个值
-                    notifyDataSetChanged()
-                }
-                .setOnCancelListener {
-                    // 取消时回退到上一个值
-                    notifyDataSetChanged()
-                }
-                .setNegativeButton(ctx.getString(R.string.dialog_confirm_cancel)) { _, _ ->
-                    notifyDataSetChanged()
-                }
-                .show()
-        }
-
-        private fun showCountryCustomDialog() {
-            val ctx = host.requireContext()
-            val cfg = Config.load()
-            val input = android.widget.EditText(ctx)
-            input.hint = ctx.getString(R.string.country_custom_dialog_hint)
-            input.setText(cfg.countryOverride)
-
-            AlertDialog.Builder(ctx)
-                .setTitle(ctx.getString(R.string.country_custom_dialog_title))
-                .setMessage(ctx.getString(R.string.country_custom_dialog_msg))
-                .setView(input)
-                .setPositiveButton(ctx.getString(R.string.dialog_confirm_ok)) { _, _ ->
-                    val v = input.text.toString().trim().uppercase()
-                    cfg.countryOverride = v
-                    cfg.save()
-                    Config.syncToSharedPrefs(host.requireContext(), cfg)
                     notifyDataSetChanged()
                 }
                 .setOnCancelListener { notifyDataSetChanged() }
@@ -597,6 +657,11 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                         host.startActivity(Intent(host.requireContext(), FnSettingsActivity::class.java))
                     }
                 ),
+                SettingItem.Tap(ctx.getString(R.string.settings_ime_entry), ctx.getString(R.string.settings_ime_entry_desc),
+                    onClick = {
+                        host.startActivity(Intent(host.requireContext(), IMESettingsActivity::class.java))
+                    }
+                ),
                 SettingItem.Switch(ctx.getString(R.string.settings_onevision), ctx.getString(R.string.settings_onevision_desc),
                     getChecked = { cfg.oneVisionFeatureEnabled },
                     onChanged = { cfg.oneVisionFeatureEnabled = it; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
@@ -619,55 +684,6 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                         Config.syncToSharedPrefs(host.requireContext(), cfg)
                     }
                 ),
-                SettingItem.Combo(ctx.getString(R.string.settings_region), ctx.getString(R.string.settings_region_desc),
-                    getOptions = {
-                        val real = getSysProp("ro.config.lgsi.region", "?")
-                        val v = cfg.regionCustomValue.ifBlank { ctx.getString(R.string.region_not_configured) }
-                        listOf(ctx.getString(R.string.region_default, real), ctx.getString(R.string.region_china), ctx.getString(R.string.region_row), ctx.getString(R.string.region_custom, v))
-                    },
-                    getCurrentText = {
-                        val real = getSysProp("ro.config.lgsi.region", "?")
-                        when (cfg.regionOverride) {
-                            moe.lovefirefly.betterzuikey.Region.RegionProfile.CHINA -> ctx.getString(R.string.region_china)
-                            moe.lovefirefly.betterzuikey.Region.RegionProfile.ROW -> ctx.getString(R.string.region_row)
-                            moe.lovefirefly.betterzuikey.Region.RegionProfile.CUSTOM -> {
-                                val v = cfg.regionCustomValue.ifBlank { ctx.getString(R.string.region_not_configured) }
-                                ctx.getString(R.string.region_custom, v)
-                            }
-                            else -> ctx.getString(R.string.region_default, real)
-                        }
-                    },
-                    onSelected = { idx ->
-                        when (idx) {
-                            0 -> { cfg.regionOverride = moe.lovefirefly.betterzuikey.Region.RegionProfile.DEFAULT; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
-                            1 -> { cfg.regionOverride = moe.lovefirefly.betterzuikey.Region.RegionProfile.CHINA;  cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
-                            2 -> { cfg.regionOverride = moe.lovefirefly.betterzuikey.Region.RegionProfile.ROW;    cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
-                            3 -> showRegionCustomDialog()
-                        }
-                    }
-                ),
-                SettingItem.Combo(ctx.getString(R.string.settings_country), ctx.getString(R.string.settings_country_desc),
-                    getOptions = {
-                        val real = getSysProp("ro.config.lgsi.countrycode", "?")
-                        val v = cfg.countryOverride.ifBlank { ctx.getString(R.string.region_not_configured) }
-                        listOf(ctx.getString(R.string.country_default, real), ctx.getString(R.string.country_kr), ctx.getString(R.string.country_custom, v))
-                    },
-                    getCurrentText = {
-                        val real = getSysProp("ro.config.lgsi.countrycode", "?")
-                        when {
-                            cfg.countryOverride == "KR" -> ctx.getString(R.string.country_kr)
-                            cfg.countryOverride.isNotEmpty() -> ctx.getString(R.string.country_custom, cfg.countryOverride)
-                            else -> ctx.getString(R.string.country_default, real)
-                        }
-                    },
-                    onSelected = { idx ->
-                        when (idx) {
-                            0 -> { cfg.countryOverride = ""; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
-                            1 -> { cfg.countryOverride = "KR"; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
-                            2 -> showCountryCustomDialog()
-                        }
-                    }
-                ),
                 SettingItem.Combo(ctx.getString(R.string.settings_language), ctx.getString(R.string.settings_language_desc),
                     getOptions = {
                         LocaleHelper.ENTRIES.map { LocaleHelper.getDisplayName(ctx, it.tag) }
@@ -681,6 +697,15 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                         cfg.save()
                         Config.syncToSharedPrefs(host.requireContext(), cfg)
                         LocaleHelper.applyAndRecreate(tag)
+                    }
+                ),
+                SettingItem.Combo(ctx.getString(R.string.settings_meta_label), ctx.getString(R.string.settings_meta_label_desc),
+                    getOptions = { listOf("Win", "Meta") },
+                    getCurrentText = { cfg.metaKeyLabel },
+                    onSelected = { idx ->
+                        cfg.metaKeyLabel = if (idx == 0) "Win" else "Meta"
+                        cfg.save()
+                        Config.syncToSharedPrefs(host.requireContext(), cfg)
                     }
                 ),
             )
@@ -821,7 +846,9 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                     recyclerView: RecyclerView, src: RecyclerView.ViewHolder,
                     target: RecyclerView.ViewHolder
                 ): Boolean {
+                    @Suppress("DEPRECATION")
                     val from = src.adapterPosition
+                    @Suppress("DEPRECATION")
                     val to = target.adapterPosition
                     if (from == to) return false
                     // Swap in-memory without full refresh to keep drag alive
@@ -860,6 +887,10 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                     }
                     super.clearView(recyclerView, viewHolder)
                     // Persist the new order to config
+                    // Ensure all items have IDs before persisting (old templates may lack UUIDs)
+                    for (t in adapter.filtered) {
+                        if (t.id == null) t.id = java.util.UUID.randomUUID().toString()
+                    }
                     val ids = adapter.filtered.map { it.id }
                     mutateConfig { c ->
                         val old = c.templates.toList()
@@ -973,42 +1004,31 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
 
                 b.etMoveCount.setText("1")
                 b.etMoveCount2.setText("1")
-                b.tvMoveUp.setOnClickListener {
-                    val n = b.etMoveCount.text.toString().toIntOrNull()?.takeIf { it > 0 } ?: 1
+
+                fun moveTemplate(delta: Int) {
+                    val n = when {
+                        delta < 0 -> b.etMoveCount.text.toString().toIntOrNull()?.takeIf { it > 0 } ?: 1
+                        else -> b.etMoveCount2.text.toString().toIntOrNull()?.takeIf { it > 0 } ?: 1
+                    }
                     val oldPos = allItems.indexOfFirst { it.id == t.id }
-                    if (oldPos < 0) return@setOnClickListener
-                    val newPos = (oldPos - n).coerceAtLeast(0)
-                    if (oldPos != newPos) {
-                        mutateConfig { cfg ->
-                            cfg.templates.add(newPos, cfg.templates.removeAt(oldPos))
-                        }
-                        allItems = Config.load().templates.toList()
-                        if (searchQuery.isEmpty()) {
-                            filtered.clear(); filtered.addAll(allItems)
-                            notifyItemMoved(oldPos, newPos)
-                        } else {
-                            filter(searchQuery)
-                        }
+                    if (oldPos < 0) return
+                    val newPos = if (delta < 0) (oldPos - n).coerceAtLeast(0)
+                                 else (oldPos + n).coerceAtMost(allItems.size - 1)
+                    if (oldPos == newPos) return
+                    mutateConfig { cfg ->
+                        cfg.templates.add(newPos, cfg.templates.removeAt(oldPos))
+                    }
+                    allItems = Config.load().templates.toList()
+                    if (searchQuery.isEmpty()) {
+                        filtered.clear(); filtered.addAll(allItems)
+                        notifyItemMoved(oldPos, newPos)
+                    } else {
+                        filter(searchQuery)
                     }
                 }
-                b.tvMoveDown.setOnClickListener {
-                    val n = b.etMoveCount2.text.toString().toIntOrNull()?.takeIf { it > 0 } ?: 1
-                    val oldPos = allItems.indexOfFirst { it.id == t.id }
-                    if (oldPos < 0) return@setOnClickListener
-                    val newPos = (oldPos + n).coerceAtMost(allItems.size - 1)
-                    if (oldPos != newPos) {
-                        mutateConfig { cfg ->
-                            cfg.templates.add(newPos, cfg.templates.removeAt(oldPos))
-                        }
-                        allItems = Config.load().templates.toList()
-                        if (searchQuery.isEmpty()) {
-                            filtered.clear(); filtered.addAll(allItems)
-                            notifyItemMoved(oldPos, newPos)
-                        } else {
-                            filter(searchQuery)
-                        }
-                    }
-                }
+
+                b.tvMoveUp.setOnClickListener { moveTemplate(-1) }
+                b.tvMoveDown.setOnClickListener { moveTemplate(+1) }
 
                 b.tvCopy.setOnClickListener {
                     val ctx = requireContext()

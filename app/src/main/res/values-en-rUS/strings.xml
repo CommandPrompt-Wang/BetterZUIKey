@@ -114,7 +114,7 @@
 
     <!-- ESC→BACK remap warning -->
     <string name="fn_esc_remap_warning_title">⚠ ESC → BACK remapping detected</string>
-    <string name="fn_esc_remap_warning_desc">Android modifier key remapping is ESC → BACK.\n\nThis is incompatible with the default Fn profile (ESC → F1). After remapping, ESC becomes BACK, and Win+Back conflicts with the F1 mapping.\n\nTip: Win+Backspace has the same effect as Back.\n\nSolutions:\n• Create a new keyboard profile (auto-dismiss this warning)\n• Or go to system Settings to restore the default modifier key layout</string>
+    <string name="fn_esc_remap_warning_desc">Android modifier key remapping is ESC → BACK.\n\nThis is incompatible with the default Fn profile (ESC → F1). After remapping, ESC becomes BACK, and %1$s+Back conflicts with the F1 mapping.\n\nTip: %1$s+Backspace has the same effect as Back.\n\nSolutions:\n• Create a new keyboard profile (auto-dismiss this warning)\n• Or go to system Settings to restore the default modifier key layout</string>
     <string name="fn_btn_create_profile">Create Profile</string>
     <string name="fn_btn_modifier_keys">Modifier Key Settings</string>
     <string name="fn_modifier_keys_failed">Unable to open modifier key settings</string>
@@ -331,8 +331,8 @@
     <string name="shortcut_printScreenShort_desc">Region screenshot</string>
     <string name="shortcut_printScreenLong">Print Screen (long)</string>
     <string name="shortcut_printScreenLong_desc">Full screen screenshot</string>
-    <string name="shortcut_metaSingle">Meta (single press)</string>
-    <string name="shortcut_metaSingle_desc">Start menu\nWhen set to \"Off\" or \"Ignore\", slightly long-press (~300ms) to trigger injection; quick taps may not respond</string>
+    <string name="shortcut_metaSingle">%1$s (short press)</string>
+    <string name="shortcut_metaSingle_desc">Start menu</string>
     <string name="shortcut_metaShortRow">Meta ROW (short press)</string>
     <string name="shortcut_metaShortRow_desc">Switch language (requires ROW + special keyboard)</string>
     <string name="shortcut_metaLongRow">Meta ROW (long press)</string>
@@ -345,13 +345,13 @@
     <string name="shortcut_keyKeyboardReverse_desc">Enable physical keyboard</string>
     <string name="shortcut_altRightKR">Alt_RIGHT KR</string>
     <string name="shortcut_altRightKR_desc">Korean language switch</string>
-    <string name="shortcut_aospBounceKeys">Win+Alt+3 Bounce</string>
+    <string name="shortcut_aospBounceKeys">%1$s+Alt+3 Bounce</string>
     <string name="shortcut_aospBounceKeys_desc">AOSP native bounce keys</string>
-    <string name="shortcut_aospMouseKeys">Win+Alt+4 Mouse</string>
+    <string name="shortcut_aospMouseKeys">%1$s+Alt+4 Mouse</string>
     <string name="shortcut_aospMouseKeys_desc">AOSP native mouse keys</string>
-    <string name="shortcut_aospStickyKeys">Win+Alt+5 Sticky</string>
+    <string name="shortcut_aospStickyKeys">%1$s+Alt+5 Sticky</string>
     <string name="shortcut_aospStickyKeys_desc">AOSP native sticky keys</string>
-    <string name="shortcut_aospSlowKeys">Win+Alt+6 Slow</string>
+    <string name="shortcut_aospSlowKeys">%1$s+Alt+6 Slow</string>
     <string name="shortcut_aospSlowKeys_desc">AOSP native slow keys</string>
 
     <!-- ================================================================ -->

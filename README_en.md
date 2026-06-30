@@ -52,7 +52,8 @@ BetterZUIKey is an [LSPosed](https://github.com/LSPosed/LSPosed) module that int
 - **AOSP accessibility keys** — Win+Alt+3~6 for bounce keys / mouse keys / sticky keys / slow keys (via Settings.Secure read/write, bypassing System UI)
   - Requires additional root or write-secure-settings permission
 
-- ~~**OneVision toggle** — Lenovo cross-device collaboration shortcut control~~ (WIP)
+- [ ] **OneVision toggle** — Lenovo cross-device collaboration shortcut control
+- [ ] **IME adapters** — Runtime dynamic loading of third-party input method adapters
 - **Internationalization** — In-app language switcher, config changes take effect instantly
 
 ## 📐 Architecture

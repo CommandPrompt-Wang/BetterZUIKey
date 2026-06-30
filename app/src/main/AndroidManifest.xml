@@ -69,12 +69,20 @@
             android:label="虚拟Fn" />
 
         <activity
-            android:name=".ProfileManageActivity"
-            android:label="配置文件管理" />
+            android:name=".IMESettingsActivity"
+            android:label="输入法增强" />
 
         <activity
-            android:name=".AospSettingsActivity"
-            android:label="辅助功能开关" />
+            android:name=".IMEImportActivity"
+            android:label="导入输入法配置" />
+
+        <activity
+            android:name=".IMEProfileManageActivity"
+            android:label="管理输入法配置" />
+
+        <activity
+            android:name=".ProfileManageActivity"
+            android:label="配置文件管理" />
 
         <activity
             android:name=".HelpActivity"

@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         app:navigationIcon="?attr/homeAsUpIndicator"
-        app:title="@string/profile_manage_title" />
+        app:title="@string/ime_manage_title" />
 
     <androidx.appcompat.widget.SearchView
         android:id="@+id/search_view"
@@ -19,13 +19,13 @@
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="12dp"
         android:layout_marginTop="8dp"
-        android:queryHint="@string/profile_manage_search_hint" />
+        android:queryHint="@string/ime_manage_search_hint" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-    android:fitsSystemWindows="true"
+        android:fitsSystemWindows="true"
         android:clipToPadding="false"
         android:padding="8dp" />
 

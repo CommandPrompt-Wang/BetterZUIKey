@@ -1,12 +1,18 @@
 package moe.lovefirefly.betterzuikey.Hook;
 
+/**
+ * L1 key intercept (interceptKeyBeforeQueueing).
+ *
+ * <p>510 等 ZUI 专用物理键 (501–521) 拦截已暂时移除，见 {@link ZUIKeyHook}。
+ */
 import android.os.IBinder;
 import android.view.KeyEvent;
 import moe.lovefirefly.betterzuikey.Hook.HookCompat;
 
 import moe.lovefirefly.betterzuikey.Config.Config;
+import moe.lovefirefly.betterzuikey.Config.Config.IMEBinding;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
-import moe.lovefirefly.betterzuikey.ime.AdapterManager;
+import moe.lovefirefly.betterzuikey.ime.IMEProfileManager;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
 public class L1Interceptor  {
@@ -20,6 +26,7 @@ public class L1Interceptor  {
         public void intercept(HookCompat.HookParam param) {
         // checkConfigChanged MUST be before enabled check
         ctx.checkConfigChanged();
+        ctx.ensureKscFromHook(param.thisObject);
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
 
@@ -37,6 +44,10 @@ public class L1Interceptor  {
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
         int repeatCount = event.getRepeatCount();
         boolean firstDown = down && repeatCount == 0;
+
+        boolean pt = PassthroughTrace.shouldTrace(event);
+        if (pt) PassthroughTrace.in("L1", event, ctx);
+        try {
 
         // Alt+Tab OFF mode: strip Alt at L1 (closest to dispatch).
         // L0 also strips, but input system may re-add modifiers between
@@ -324,36 +335,35 @@ public class L1Interceptor  {
                 return;
         }
 
-        // Ctrl+Shift — pure Ctrl+Shift only (no Meta/Alt)
-        if (firstDown && KeyInjector.modifiersMatch(event, false, true, true, false)
-                && keyCode != KeyEvent.KEYCODE_T) {
-            if (!ctx.r("ctrlShift", ctx.cfg.switchCtrlShift).isEnabled())
-                return;
-            if (!ctx.cfg.rowInputMethodSwitch)
-                return;
-
-            // Adapter/remap path: only active when IME is accepting text.
-            // BLOCK at L1 so L4 can do the actual injection.
-            if (ctx.isAcceptingText()
-                    && (AdapterManager.getAdapterForShortcut("ctrlShift") != null
-                        || ctx.cfg.ctrlShiftRemapEnabled)) {
-                LogHelper.log(VerboseLevel.INFO,
-                    "L1: Ctrl+Shift → BLOCK (adapter/remap, letting L4 inject)");
-                param.setResult(true);
-                return;
+        // ================================================================
+        // IME Enhancement — unified dispatch
+        // imeMasterEnabled && isInputShown → intercept; else pass through
+        // ================================================================
+        if (ctx.cfg.imeMasterEnabled && ctx.isAcceptingText()) {
+            // Ctrl+Shift
+            if (firstDown && KeyInjector.modifiersMatch(event, false, true, true, false)
+                    && keyCode != KeyEvent.KEYCODE_T) {
+                if (dispatchIMEBinding(ctx.cfg.imeSwitchBinding, ctx.cfg.languageSwitchBinding,
+                        IMEBinding.CTRL_SHIFT, param, "Ctrl+Shift")) return;
             }
-            if (ctx.applyInterceptAction(ctx.ra("ctrlShift", ctx.cfg.overrideCtrlShift), param, "L1: Ctrl+Shift"))
-                return;
-        }
-
-        // Alt+Shift — pure Alt+Shift only (no Meta/Ctrl)
-        if (firstDown && KeyInjector.modifiersMatch(event, false, true, false, true)) {
-            if (!ctx.r("altShift", ctx.cfg.switchAltShift).isEnabled())
-                return;
-            if (!ctx.cfg.rowLanguageSwitch)
-                return;
-            if (ctx.applyInterceptAction(ctx.ra("altShift", ctx.cfg.overrideAltShift), param, "L1: Alt+Shift"))
-                return;
+            // Alt+Shift
+            if (firstDown && KeyInjector.modifiersMatch(event, false, true, false, true)) {
+                if (dispatchIMEBinding(ctx.cfg.imeSwitchBinding, ctx.cfg.languageSwitchBinding,
+                        IMEBinding.ALT_SHIFT, param, "Alt+Shift")) return;
+            }
+            // Right Alt
+            if (keyCode == KeyEvent.KEYCODE_ALT_RIGHT && firstDown
+                    && !event.isShiftPressed() && !event.isCtrlPressed()
+                    && !event.isMetaPressed()) {
+                if (dispatchIMEBinding(ctx.cfg.imeSwitchBinding, ctx.cfg.languageSwitchBinding,
+                        IMEBinding.RIGHT_ALT, param, "Right Alt")) return;
+            }
+            // Ctrl+Space — intercept here as well (defense-in-depth; L0 also handles)
+            if (firstDown && KeyInjector.modifiersMatch(event, false, false, true, false)
+                    && keyCode == KeyEvent.KEYCODE_SPACE) {
+                if (dispatchIMEBinding(ctx.cfg.imeSwitchBinding, ctx.cfg.languageSwitchBinding,
+                        IMEBinding.CTRL_SPACE, param, "Ctrl+Space")) return;
+            }
         }
 
         // Ctrl long-press — Shortcut menu (only intercept DOWN, pass UP through)
@@ -378,14 +388,6 @@ public class L1Interceptor  {
                 return;
         }
 
-        // 510 Settings key bug fix
-        if (keyCode == 510 && firstDown) {
-            if (!ctx.r("keySettings", ctx.cfg.switchKeySettings).isEnabled())
-                return;
-            if (ctx.applyInterceptAction(ctx.ra("keySettings", ctx.cfg.overrideSettings), param, "L1: key 510"))
-                return;
-        }
-
         // Print Screen (120) — Region screenshot (short) / Full screenshot (long press
         // >=2s)
         if (keyCode == KeyEvent.KEYCODE_SYSRQ && firstDown) {
@@ -405,59 +407,50 @@ public class L1Interceptor  {
                 return;
         }
 
-        // Alt_RIGHT (58) — KR language switch
-        if (keyCode == KeyEvent.KEYCODE_ALT_RIGHT && firstDown
-                && !event.isShiftPressed() && !event.isCtrlPressed()
-                && !event.isMetaPressed()) {
-            if (!ctx.r("altRightKR", ctx.cfg.switchAltRightKR).isEnabled())
-                return;
-            if (!ctx.cfg.krAltRightSwitch)
-                return;
-            if (ctx.applyInterceptAction(ctx.ra("altRightKR", ctx.cfg.overrideAltRightKR), param, "L1: Alt_RIGHT KR"))
-                return;
-        }
-
-        // TRACE: log every Meta event at L1
+        // Meta key — DOWN only at L1 (UP handled at L0 beforeQueueing)
         if (keyCode == KeyEvent.KEYCODE_META_LEFT
                 || keyCode == KeyEvent.KEYCODE_META_RIGHT) {
-            LogHelper.log(VerboseLevel.INFO, "[L1] ", (down ? "D" : "U"),
-                    " sc=", String.valueOf(event.getScanCode()),
-                    " r=", String.valueOf(repeatCount),
-                    " inj=", ctx.isInjecting() ? "1" : "0");
+            MetaTrace.event("L1", event, ctx);
+            boolean consumedBefore = param.isReturnEarly();
+            MetaKeyRouter router = new MetaKeyRouter(ctx);
+            if (down) {
+                router.routeDownL1(event, param);
+            }
+            if (!consumedBefore && param.isReturnEarly()) {
+                MetaTrace.hookResult("L1", true);
+            }
         }
+        } finally {
+            if (pt) PassthroughTrace.out("L1", event, param);
+        }
+    }
 
-        // Meta single press — Start menu
-        // scanCode!=0 guard: skip injected events (scanCode=0) to avoid feedback loop
-        if ((keyCode == KeyEvent.KEYCODE_META_LEFT
-                || keyCode == KeyEvent.KEYCODE_META_RIGHT)
-                && down && repeatCount == 0
-                && event.getScanCode() != 0) {
-            if (!ctx.r("metaSingle", ctx.cfg.switchMetaSingle).isEnabled())
-                return;
-            Config.MetaAction action = ctx.cfg.metaShortPressAction;
-            Config.OverrideMode override = ctx.ra("metaSingle",
-                    ctx.cfg.overrideMetaSingle);
-            if (action == Config.MetaAction.NONE
-                    || override == Config.OverrideMode.OFF
-                    || override == Config.OverrideMode.BLOCK) {
-                // Block ZUI from consuming Meta. Injection moved to L4.
-                ctx.lastMetaScanCode = event.getScanCode();
-                LogHelper.log(VerboseLevel.INFO,
-                        "L1: Meta DOWN → BLOCK ZUI (injection via L4, sc=",
-                        String.valueOf(ctx.lastMetaScanCode), ") (action=",
-                        action.name(), " override=", override.name(), ")");
-                param.setResult(true);
-                ctx.fnKeyManager.setConsumeMetaUpForNone();
-                return;
+    // ---- IME dispatch helper ----
+
+    /** @return true if the event was handled (consumed or intentionally passed through) */
+    private boolean dispatchIMEBinding(IMEBinding ime, IMEBinding lang,
+                                       IMEBinding combo, HookCompat.HookParam param,
+                                       String label) {
+        boolean matchIme = (ime == combo);
+        boolean matchLang = (lang == combo);
+        if (!matchIme && !matchLang) return false;
+
+        param.setResult(true);
+        if (matchIme) {
+            // Switch IME — system-level, no profile needed
+            LogHelper.log(VerboseLevel.INFO, "L1: ", label, " → switch IME");
+            String imeName = ctx.switchInputMethod();
+            if (ctx.cfg.imeToastEnabled && imeName != null) {
+                KeyInjector.showToast(imeName);
             }
-            if (action == Config.MetaAction.START_MENU) {
-                LogHelper.log(VerboseLevel.DEBUG, "L1: Meta DOWN → START_MENU (AOSP type=21)");
-                return;
+        } else {
+            // Switch language — IME profile
+            LogHelper.log(VerboseLevel.INFO, "L1: ", label, " → switch language (profile)");
+            boolean ok = ctx.triggerIMEProfile();
+            if (ctx.cfg.imeToastEnabled) {
+                KeyInjector.showToast(ok ? "Language switched" : "No IME profile matched");
             }
-            // DEFAULT / SWITCH_LANGUAGE / VOICE_ASSIST / HOLD_SWITCH_LANGUAGE
-            // → 由 ZUI scanCode+isRow 逻辑决定，不干预
-            LogHelper.log(VerboseLevel.DEBUG, "L1: Meta DOWN (action=",
-                    action.name(), ")");
         }
+        return true;
     }
 }

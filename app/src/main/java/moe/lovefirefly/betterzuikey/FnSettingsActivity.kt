@@ -98,9 +98,19 @@ class FnSettingsActivity : AppCompatActivity() {
 
     private fun checkEscToBackRemap() {
         Thread {
-            val detected = detectEscToBack()
+            // ① 优先 su（快速，同步返回结果）
+            val suResult = detectEscToBackViaSu()
+            if (suResult != null) {
+                runOnUiThread {
+                    escToBackDetected = suResult
+                    refreshEscRemapWarning()
+                }
+                return@Thread
+            }
+            // ② su 失败 → system_server 异步检测（ContentProvider 通道）
+            val asyncResult = detectEscToBackAsync()
             runOnUiThread {
-                escToBackDetected = detected
+                escToBackDetected = asyncResult
                 refreshEscRemapWarning()
             }
         }.start()
@@ -108,35 +118,53 @@ class FnSettingsActivity : AppCompatActivity() {
 
     private var escToBackDetected = false
 
-    /**
-     * Run su -c abx2xml to decode /data/system/input-manager-state.xml
-     * and check for ESC(111)→BACK(4) remapping.
-     * Returns true if the remapping exists.
-     */
-    private fun detectEscToBack(): Boolean {
-        try {
-            // Step 1: decode ABX → plain XML
+    /** su 方式：返回 true/false，失败返回 null */
+    private fun detectEscToBackViaSu(): Boolean? {
+        return try {
             val pb = ProcessBuilder("su", "-c",
                 "abx2xml /data/system/input-manager-state.xml /data/local/tmp/bzuikey_esc_check.xml")
             pb.redirectErrorStream(true)
             val proc = pb.start()
             proc.waitFor()
+            if (proc.exitValue() != 0) return null
 
-            if (proc.exitValue() != 0) return false
-
-            // Step 2: read decoded XML
             val pb2 = ProcessBuilder("su", "-c",
                 "cat /data/local/tmp/bzuikey_esc_check.xml")
             pb2.redirectErrorStream(true)
             val proc2 = pb2.start()
             val output = proc2.inputStream.bufferedReader().readText()
             proc2.waitFor()
-
-            // Step 3: check for ESC(111)→BACK(4)
-            return output.contains("from-key=\"111\"") && output.contains("to-key=\"4\"")
+            output.contains("from-key=\"111\"") && output.contains("to-key=\"4\"")
         } catch (e: Exception) {
-            return false
+            null
         }
+    }
+
+    /**
+     * 异步方式：通过 SharedPreferences flag 与 system_server 通信。
+     * App 写 esc_check_requested=true → system_server watcher 检测到后执行检测
+     * → 通过 ContentProvider 写 esc_check_result 并清除 request flag → App 轮询读到结果。
+     */
+    private fun detectEscToBackAsync(): Boolean {
+        val ctx = this
+        val prefs = ctx.getSharedPreferences(
+            RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+        // 写请求 flag
+        prefs.edit().putBoolean("esc_check_requested", true).apply()
+
+        // 轮询等待（最多 15s）
+        for (i in 1..30) {
+            Thread.sleep(500)
+            val reloaded = ctx.getSharedPreferences(
+                RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+            if (!reloaded.getBoolean("esc_check_requested", true)) {
+                // request cleared → result ready
+                return reloaded.getBoolean("esc_check_result", false)
+            }
+        }
+        // 超时
+        prefs.edit().putBoolean("esc_check_requested", false).apply()
+        return false
     }
 
     /**

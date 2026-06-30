@@ -11,10 +11,12 @@ import io.github.libxposed.api.XposedModuleInterface;
 import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Config.ConfigResolver;
 import moe.lovefirefly.betterzuikey.Region.FeatureHook;
-import moe.lovefirefly.betterzuikey.Region.RegionHook;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import moe.lovefirefly.betterzuikey.Utils.ZuiDetector;
-import moe.lovefirefly.betterzuikey.ime.AdapterManager;
+import moe.lovefirefly.betterzuikey.ime.IMEProfileManager;
+import moe.lovefirefly.betterzuikey.ime.IMEProfile;
+import moe.lovefirefly.betterzuikey.ime.HookConfig;
+import moe.lovefirefly.betterzuikey.ime.IMEDispatcher;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
 public class MainHook extends XposedModule {
@@ -92,15 +94,19 @@ public class MainHook extends XposedModule {
                     String.valueOf(cfg.templates != null ? cfg.templates.size() : 0));
             }
 
+            // Init IME profile manager (JSON-based, replaces DexClassLoader approach)
             try {
-                java.io.File dexOptDir = new java.io.File("/data/local/tmp/bzuikey_dex");
-                AdapterManager.init(dexOptDir);
-                AdapterManager.syncBindings(cfg.imeAdapterBindings);
-                LogHelper.log(VerboseLevel.INFO, "AdapterManager initialized with ",
-                        String.valueOf(cfg.imeAdapterBindings.size()), " binding(s)");
+                java.io.File adaptersDir = new java.io.File(
+                        "/data/data/moe.lovefirefly.betterzuikey/files/adapters");
+                IMEProfileManager.init(adaptersDir);
+                LogHelper.log(VerboseLevel.INFO, "IMEProfileManager initialized with ",
+                        String.valueOf(IMEProfileManager.getProfileCount()), " profile(s)");
             } catch (Throwable t) {
-                LogHelper.log(VerboseLevel.ERROR, "AdapterManager init failed:", t.getMessage());
+                LogHelper.log(VerboseLevel.ERROR, "IMEProfileManager init failed:", t.getMessage());
             }
+
+            IMEDispatcher.initClassLoader(mClassLoader);
+            LogHelper.log(VerboseLevel.INFO, "IMEDispatcher initialized with system ClassLoader");
 
             ConfigResolver resolver = new ConfigResolver(cfg);
             FnKeyManager fnKeyManager = new FnKeyManager(cfg, mConfigIPC);
@@ -108,8 +114,6 @@ public class MainHook extends XposedModule {
 
             ctx = new HookContext(cfg, resolver, fnKeyManager, foregroundTracker, mConfigIPC);
 
-            LogHelper.log(VerboseLevel.INFO, "Installing RegionHook...");
-            RegionHook.install(this, mClassLoader, cfg);
             LogHelper.log(VerboseLevel.INFO, "Installing FeatureHook...");
             FeatureHook.install(this, mClassLoader, cfg);
 
@@ -118,6 +122,7 @@ public class MainHook extends XposedModule {
 
             LogHelper.log(VerboseLevel.INFO, "Installing constructor hook...");
             hookConstructor();
+            hookLaunchAssistantRunnable();
 
             LogHelper.log(VerboseLevel.INFO, "Installing L0 hook...");
             hookL0_BeforeQueueing();
@@ -130,15 +135,22 @@ public class MainHook extends XposedModule {
 
             LogHelper.log(VerboseLevel.INFO, "Installing L2 debug hook...");
             hookL2_DebugInterceptBeforeDispatching();
+            if (MetaTrace.isTraceOnly()) {
+                LogHelper.log(VerboseLevel.INFO,
+                        "MetaTrace TRACE_ONLY=true — Meta routing observe-only, no consume/inject/menu");
+            }
 
             cfg.injected = true;
             cfg.injectError = "";
+
             LogHelper.log(VerboseLevel.INFO, "All hooks installed successfully!");
             // Retry boot mark until the app process is up and ContentProvider responds
             if (!sBootMarked) {
                 sBootMarked = true;
                 markBootDelayed(mConfigIPC);
             }
+            // Start ESC→BACK detection watcher (async, system_server UID, no su needed)
+            startEscCheckWatcher();
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR, "Hook installation failed:", t.getMessage());
             setError("Injection error: " + t.toString() + "\n\n" + KeyInjector.stackTraceToString(t));
@@ -157,6 +169,15 @@ public class MainHook extends XposedModule {
 
     @Override
     public void onPackageReady(XposedModuleInterface.PackageReadyParam param) {
+        String packageName = param.getPackageName();
+        ClassLoader appCl = param.getClassLoader();
+
+        // Check if this package is an IME with a hook profile.
+        IMEProfile profile = IMEProfileManager.getProfileForIME(packageName);
+        if (profile != null && profile.getStrategy() == moe.lovefirefly.betterzuikey.ime.Strategy.hook) {
+            installIMEHook(profile, appCl, packageName);
+        }
+
         if (sSelfHookDone) return;
         if (!param.isFirstPackage()) return;
 
@@ -171,8 +192,6 @@ public class MainHook extends XposedModule {
             }
             markBootDelayed(mConfigIPC);
         }
-        // Placeholder for future per-app-process hooks (e.g. startActivity interception).
-        // Self-check is provided by ModuleServiceBridge via XposedProvider IPC.
         LogHelper.log(VerboseLevel.INFO, "onPackageReady: first package = ",
                 param.getPackageName());
     }
@@ -180,6 +199,165 @@ public class MainHook extends XposedModule {
     // ----------------------------------------------------------------
     //  Helpers
     // ----------------------------------------------------------------
+
+    /**
+     * Install an Xposed hook into an IME process based on a hook profile.
+     *
+     * The hook finds the target instance (via {@code instanceof} or static methods)
+     * and calls the internal switch method. This is used for IMEs that don't
+     * support standard InputMethodSubtype switching — e.g. Sogou OEM.
+     *
+     * @param profile     the hook profile from JSON config
+     * @param appCl       the IME process ClassLoader
+     * @param packageName the IME package name (for logging)
+     */
+    private void installIMEHook(IMEProfile profile, ClassLoader appCl, String packageName) {
+        HookConfig hook = profile.getHook();
+        if (hook == null) {
+            LogHelper.log(VerboseLevel.WARNING,
+                "IME hook: profile for '", packageName, "' has null hook config");
+            return;
+        }
+
+        try {
+            LogHelper.log(VerboseLevel.INFO, "IME hook: installing for '",
+                packageName, "' → ", hook.getClazz(), ".", hook.getMethod(), "()");
+
+            Class<?> targetClass = appCl.loadClass(hook.getClazz());
+
+            if (hook.isStatic()) {
+                // Static method: hook directly on the class
+                Class<?>[] paramTypes = resolveParamTypes(hook.getParams(), appCl);
+                java.lang.reflect.Method method = targetClass.getDeclaredMethod(
+                    hook.getMethod(), paramTypes);
+                method.setAccessible(true);
+
+                HookCompat.hookMethod(this, hook.getClazz(), appCl, hook.getMethod(),
+                    new HookCompat.HookCallback() {
+                        @Override
+                        protected void beforeHookedMethod(HookCompat.HookParam param) {
+                            try {
+                                method.invoke(null, param.args);
+                                LogHelper.log(VerboseLevel.INFO,
+                                    "IME hook: static call → ", hook.getMethod(), "() OK");
+                            } catch (Throwable t) {
+                                LogHelper.log(VerboseLevel.ERROR,
+                                    "IME hook: static call failed:", t.getMessage());
+                            }
+                        }
+                    }, paramTypes);
+            } else if (hook.getInstanceof() != null) {
+                // Instance method via interface lookup:
+                // Find an instance implementing the target interface from common registries.
+                Object instance = findInstanceByInterface(appCl, hook.getInstanceof());
+                if (instance == null) {
+                    LogHelper.log(VerboseLevel.WARNING,
+                        "IME hook: no instance found for instanceof '",
+                        hook.getInstanceof(), "' in '", packageName, "'");
+                    return;
+                }
+
+                Class<?>[] paramTypes = resolveParamTypes(hook.getParams(), appCl);
+                java.lang.reflect.Method method = targetClass.getDeclaredMethod(
+                    hook.getMethod(), paramTypes);
+                method.setAccessible(true);
+                method.invoke(instance);
+
+                LogHelper.log(VerboseLevel.INFO,
+                    "IME hook: invoked ", hook.getMethod(), "() on instance of ",
+                    hook.getInstanceof(), " in '", packageName, "' OK");
+            } else {
+                // Instance method via no-arg constructor
+                Class<?>[] paramTypes = resolveParamTypes(hook.getParams(), appCl);
+                java.lang.reflect.Method method = targetClass.getDeclaredMethod(
+                    hook.getMethod(), paramTypes);
+                method.setAccessible(true);
+
+                Object instance = targetClass.getDeclaredConstructor().newInstance();
+                method.invoke(instance);
+
+                LogHelper.log(VerboseLevel.INFO,
+                    "IME hook: invoked ", hook.getMethod(), "() on new instance in '",
+                    packageName, "' OK");
+            }
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR,
+                "IME hook: install failed for '", packageName, "':", t.getMessage());
+        }
+    }
+
+    /**
+     * Find an instance of a given interface/class from common registries in
+     * the target process. Searches static fields, service containers, etc.
+     */
+    private Object findInstanceByInterface(ClassLoader appCl, String interfaceName) {
+        try {
+            Class<?> iface = appCl.loadClass(interfaceName);
+
+            // Strategy 1: Check if the interface itself has a static "getInstance" or
+            // "get" method (common singleton pattern).
+            try {
+                java.lang.reflect.Method getInstance = iface.getMethod("getInstance");
+                Object inst = getInstance.invoke(null);
+                if (inst != null && iface.isAssignableFrom(inst.getClass())) {
+                    LogHelper.log(VerboseLevel.INFO,
+                        "IME hook: found instance via getInstance()");
+                    return inst;
+                }
+            } catch (NoSuchMethodException ignored) { }
+
+            // Strategy 2: Scan static fields of the interface for instances.
+            for (java.lang.reflect.Field field : iface.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                    field.setAccessible(true);
+                    Object val = field.get(null);
+                    if (val != null && iface.isAssignableFrom(val.getClass())) {
+                        LogHelper.log(VerboseLevel.INFO,
+                            "IME hook: found instance via static field '",
+                            field.getName(), "'");
+                        return val;
+                    }
+                }
+            }
+
+            // Strategy 3: Search for classes with static "sInstance" or "INSTANCE"
+            // fields that implement the target interface.
+            // (Limited scanning — we can't enumerate all classes in the dex.)
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.DEBUG,
+                "IME hook: findInstanceByInterface error:", t.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Resolve parameter type names (like "android.view.KeyEvent") to Class objects.
+     */
+    private Class<?>[] resolveParamTypes(java.util.List<String> paramNames, ClassLoader cl) {
+        if (paramNames == null || paramNames.isEmpty()) return new Class<?>[0];
+        Class<?>[] types = new Class<?>[paramNames.size()];
+        for (int i = 0; i < paramNames.size(); i++) {
+            try {
+                types[i] = cl.loadClass(paramNames.get(i));
+            } catch (ClassNotFoundException e) {
+                // Try primitive types
+                String name = paramNames.get(i);
+                switch (name) {
+                    case "int":     types[i] = int.class;     break;
+                    case "long":    types[i] = long.class;    break;
+                    case "boolean": types[i] = boolean.class; break;
+                    case "float":   types[i] = float.class;   break;
+                    case "double":  types[i] = double.class;  break;
+                    case "void":    types[i] = void.class;    break;
+                    default:
+                        LogHelper.log(VerboseLevel.WARNING,
+                            "IME hook: unknown param type: ", name);
+                        types[i] = Object.class;
+                }
+            }
+        }
+        return types;
+    }
 
     private void setError(String msg) {
         try {
@@ -219,9 +397,205 @@ public class MainHook extends XposedModule {
                 } else {
                     LogHelper.log(VerboseLevel.INFO, "Boot mark retry finished (",
                             label, ", ", String.valueOf(maxTries), " attempts)");
+                    // All attempts failed — reset flag so future triggers can retry
+                    sBootMarked = false;
                 }
             }
         }, delay);
+    }
+
+    // ----------------------------------------------------------------
+    //  ESC→BACK async detection watcher
+    //  App writes SP flag → system_server reads ABX file (system UID),
+    //  byte-searches for ESC(111)→BACK(4) strings (ABX stores strings in plain UTF-8),
+    //  sends result back via ContentProvider → App picks up from SharedPreferences.
+    // ----------------------------------------------------------------
+
+    private static final String ESC_CHECK_SP_KEY = "esc_check_requested";
+    /** Secure keys allowed through the async write queue (whitelist). */
+    private static final java.util.Set<String> ALLOWED_SECURE_KEYS =
+        java.util.Collections.unmodifiableSet(new java.util.HashSet<>(java.util.Arrays.asList(
+            "accessibility_bounce_keys",
+            "accessibility_mouse_keys_enabled",
+            "accessibility_sticky_keys",
+            "accessibility_slow_keys"
+        )));
+
+    private void startEscCheckWatcher() {
+        final android.os.Handler handler = new android.os.Handler(
+                android.os.Looper.getMainLooper());
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                processEscCheckRequest();
+                processSysWriteRequest();
+                processLsposedOpenRequest();
+                processGrantSecureRequest();
+                handler.postDelayed(this, 1000); // 1s polling (Binder IPC overhead <1ms)
+            }
+        }, 5000);
+    }
+
+    /** Process pending ESC check request if any. */
+    private void processEscCheckRequest() {
+        if (mConfigIPC == null || mConfigIPC.getResolver() == null) return;
+        try {
+            android.os.Bundle result = mConfigIPC.getResolver().call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                "getEscRequest", null, null);
+            if (result == null || !result.getBoolean("requested", false)) return;
+        } catch (Exception e) {
+            return;
+        }
+
+        LogHelper.log(VerboseLevel.INFO, "ESC check: request detected, scanning ABX...");
+        boolean detected = detectEscToBackSystem();
+        mConfigIPC.sendEscCheckResult(detected);
+        LogHelper.log(VerboseLevel.INFO,
+                "ESC check: result sent → ", detected ? "DETECTED" : "not found");
+    }
+
+    /** Atomically drain and process pending Settings.System write queue.
+     *  Single ContentProvider call reads + clears to avoid race with app writes. */
+    private void processSysWriteRequest() {
+        if (mConfigIPC == null || mConfigIPC.getResolver() == null) return;
+        try {
+            android.os.Bundle req = mConfigIPC.getResolver().call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                "drainSysWriteQueue", null, null);
+            if (req == null) return;
+            String json = req.getString("queue", "[]");
+            if ("[]".equals(json)) return;
+
+            LogHelper.log(VerboseLevel.INFO, "SysWrite: processing queue: ", json);
+            int i = 0;
+            while ((i = json.indexOf("{\"k\":\"", i)) >= 0) {
+                int kStart = i + 6;
+                int kEnd = json.indexOf("\"", kStart);
+                if (kEnd < 0) break;
+                String key = json.substring(kStart, kEnd);
+                int vStart = json.indexOf("\"v\":", kEnd) + 4;
+                int vEnd = json.indexOf("}", vStart);
+                if (vEnd < 0) break;
+                int val = Integer.parseInt(json.substring(vStart, vEnd).trim());
+                String sysKey = Config.SWITCH_KEY_MAP.get(key);
+                if (sysKey != null) {
+                    android.provider.Settings.System.putInt(mConfigIPC.getResolver(), sysKey, val);
+                } else if (ALLOWED_SECURE_KEYS.contains(key)) {
+                    android.provider.Settings.Secure.putInt(mConfigIPC.getResolver(), key, val);
+                } else {
+                    // Unknown key → potential attack, alert the app
+                    LogHelper.log(VerboseLevel.WARNING, "SysWrite: REJECTED unknown key: ", key);
+                    android.os.Bundle alert = new android.os.Bundle();
+                    alert.putBoolean("alert", true);
+                    mConfigIPC.getResolver().call(
+                        moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                        "setSysWriteAlert", null, alert);
+                }
+                i = vEnd + 1;
+            }
+        } catch (Exception e) { }
+    }
+
+    /** Process pending WRITE_SECURE_SETTINGS grant request via system_server's own pm. */
+    private void processGrantSecureRequest() {
+        if (mConfigIPC == null || mConfigIPC.getResolver() == null) return;
+        try {
+            android.os.Bundle req = mConfigIPC.getResolver().call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                "getGrantSecureRequest", null, null);
+            if (req == null || !req.getBoolean("requested", false)) return;
+
+            // Clear flag BEFORE granting (grant is idempotent, flag isn't)
+            mConfigIPC.getResolver().call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                "clearGrantSecureRequest", null, null);
+
+            LogHelper.log(VerboseLevel.INFO, "GrantSecure: granting via PackageManager...");
+            Object pm = Class.forName("android.app.ActivityThread")
+                    .getMethod("getPackageManager").invoke(null);
+            pm.getClass().getMethod("grantRuntimePermission",
+                    String.class, String.class, int.class)
+                    .invoke(pm, "moe.lovefirefly.betterzuikey",
+                            "android.permission.WRITE_SECURE_SETTINGS",
+                            0 /* userId 0 = owner */);
+            LogHelper.log(VerboseLevel.INFO, "GrantSecure: granted via Binder");
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.INFO, "GrantSecure: failed:", e.getMessage());
+        }
+    }
+
+    /** Process pending LSPosed open request via system_server's own Context.
+     *  No shell needed — system_server IS the platform. */
+    private void processLsposedOpenRequest() {
+        if (mConfigIPC == null || mConfigIPC.getResolver() == null) return;
+        try {
+            android.os.Bundle req = mConfigIPC.getResolver().call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                "getLsposedOpenRequest", null, null);
+            if (req == null || !req.getBoolean("requested", false)) return;
+
+            // Clear FIRST to avoid re-entry
+            android.os.Bundle clear = new android.os.Bundle();
+            clear.putBoolean("requested", false);
+            mConfigIPC.getResolver().call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                "setLsposedOpenRequest", null, clear);
+
+            LogHelper.log(VerboseLevel.INFO, "LSPosed: broadcasting via system context...");
+            // Get system context (same as ConfigIPCManager.init)
+            Object at = Class.forName("android.app.ActivityThread")
+                    .getMethod("currentActivityThread").invoke(null);
+            android.content.Context ctx = (android.content.Context)
+                    at.getClass().getMethod("getSystemContext").invoke(at);
+
+            android.content.Intent intent = new android.content.Intent(
+                    "android.telephony.action.SECRET_CODE");
+            intent.setData(android.net.Uri.parse("android_secret_code://5776733"));
+            intent.addFlags(android.content.Intent.FLAG_RECEIVER_FOREGROUND);
+            intent.setPackage("android");
+
+            ctx.sendBroadcast(intent);
+            LogHelper.log(VerboseLevel.INFO, "LSPosed: broadcast sent");
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.INFO, "LSPosed: broadcast failed:",
+                    e.getMessage());
+        }
+    }
+
+    /** Detect ESC(111)→BACK(4) remapping. Uses Android Binary XML parser
+     *  since system_server has no su in PATH and ABX byte-search is unreliable. */
+    private static boolean detectEscToBackSystem() {
+        // Android Binary XML native parser (system_server IS the framework)
+        try {
+            java.io.InputStream is = new java.io.FileInputStream(
+                    "/data/system/input-manager-state.xml");
+            // android.util.Xml.newBinaryPullParser() is a hidden API — use reflection
+            Class<?> xmlClass = Class.forName("android.util.Xml");
+            java.lang.reflect.Method newParser = xmlClass.getMethod("newBinaryPullParser");
+            org.xmlpull.v1.XmlPullParser parser =
+                    (org.xmlpull.v1.XmlPullParser) newParser.invoke(null);
+            parser.setInput(is, "UTF-8");
+
+            int eventType = parser.getEventType();
+            while (eventType != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+                if (eventType == org.xmlpull.v1.XmlPullParser.START_TAG
+                        && "remap".equals(parser.getName())) {
+                    String fromKey = parser.getAttributeValue(null, "from-key");
+                    String toKey = parser.getAttributeValue(null, "to-key");
+                    if ("111".equals(fromKey) && "4".equals(toKey)) {
+                        is.close();
+                        return true;
+                    }
+                }
+                eventType = parser.next();
+            }
+            is.close();
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.INFO,
+                    "ESC check: ABX parse failed:", e.getMessage());
+        }
+        return false;
     }
 
     // ----------------------------------------------------------------
@@ -239,11 +613,59 @@ public class MainHook extends XposedModule {
                     hparam -> {
                         ctx.kscInstance = hparam.thisObject;
                         ctx.policyInstance = hparam.args[2];
+                        installAssistantRunnableHook(hparam.args[2]);
                         LogHelper.log(VerboseLevel.INFO,
                                 "KeyboardShortcutController and policy instance captured!");
                     });
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR, "Failed to hook constructor:", t.getMessage());
+        }
+    }
+
+    /** Hook ZUI Meta long-press branch ({@code mLaunchAssistantRunnable}, 2s). */
+    private void hookLaunchAssistantRunnable() {
+        try {
+            Class<?> policyClass = HookCompat.findClass(
+                    "com.zui.server.input.keyboard.key.policy.KeyboardZuiKeyInputPolicy",
+                    mClassLoader);
+            HookCompat.hookConstructor(
+                    this, policyClass.getName(), mClassLoader,
+                    new Class<?>[]{android.content.Context.class},
+                    hparam -> {
+                        Object policy = hparam.thisObject;
+                        ctx.policyInstance = policy;
+                        installAssistantRunnableHook(policy);
+                    });
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR,
+                    "Failed to hook policy constructor:", t.getMessage());
+        }
+    }
+
+    private volatile boolean mAssistantRunnableHooked = false;
+
+    private void installAssistantRunnableHook(Object policy) {
+        if (mAssistantRunnableHooked || policy == null) return;
+        try {
+            Object runnable = HookCompat.getObjectField(policy, "mLaunchAssistantRunnable");
+            if (runnable == null) return;
+            final MetaKeyRouter router = new MetaKeyRouter(ctx);
+            HookCompat.hookMethod(
+                    this, runnable.getClass(), "run",
+                    new HookCompat.HookCallback() {
+                        @Override
+                        protected void beforeHookedMethod(HookCompat.HookParam param) {
+                            if (router.handleAssistantLongPress()) {
+                                param.setResult(null);
+                            }
+                        }
+                    });
+            mAssistantRunnableHooked = true;
+            LogHelper.log(VerboseLevel.INFO,
+                    "mLaunchAssistantRunnable hook installed (ZUI Meta long branch)");
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR,
+                    "Failed to hook mLaunchAssistantRunnable:", t.getMessage());
         }
     }
 
@@ -344,13 +766,11 @@ public class MainHook extends XposedModule {
                         @Override
                         protected void beforeHookedMethod(HookCompat.HookParam param) {
                             KeyEvent event = (KeyEvent) param.args[1];
-                            int kc = event.getKeyCode();
-                            if (kc == KeyEvent.KEYCODE_META_LEFT
-                                    || kc == KeyEvent.KEYCODE_META_RIGHT) {
-                                LogHelper.log(VerboseLevel.INFO, "[L2] ",
-                                        (event.getAction() == KeyEvent.ACTION_DOWN ? "D" : "U"),
-                                        " sc=", String.valueOf(event.getScanCode()),
-                                        " r=", String.valueOf(event.getRepeatCount()));
+                            if (PassthroughTrace.shouldTrace(event)) {
+                                PassthroughTrace.in("L2", event, ctx);
+                            } else if (event.getKeyCode() == KeyEvent.KEYCODE_META_LEFT
+                                    || event.getKeyCode() == KeyEvent.KEYCODE_META_RIGHT) {
+                                MetaTrace.event("L2", event, ctx);
                             }
                         }
                     },

@@ -64,7 +64,7 @@ public class L3Interceptor  {
                     action = ctx.ra("winI", ctx.cfg.overrideWinI);
                     label = "L3: Win+I (type=7)";
                     break;
-                case 8: // Win+N / 514 → 通知面板
+                case 8: // Win+N → 通知面板
                     if (!ctx.r("winN", ctx.cfg.switchWinN).isEnabled())
                         break;
                     action = ctx.ra("winN", ctx.cfg.overrideWinN);
@@ -88,27 +88,28 @@ public class L3Interceptor  {
                     label = "L3: Win+↑ (type=53)";
                     break;
                 case 21: // Meta single press → Start Menu (AOSP triggerShowAllApps)
-                    if (!ctx.r("metaSingle", ctx.cfg.switchMetaSingle).isEnabled())
-                        break;
                     {
-                        Config.MetaAction metaAction = ctx.cfg.metaShortPressAction;
                         Config.OverrideMode metaOverride = ctx.ra("metaSingle",
                                 ctx.cfg.overrideMetaSingle);
-                        // NONE / OFF / BLOCK: suppress AOSP Start Menu.
-                        // Meta itself passes through at L1 so App receives it.
-                        if (metaAction == Config.MetaAction.NONE
-                                || metaOverride == Config.OverrideMode.OFF
-                                || metaOverride == Config.OverrideMode.BLOCK) {
-                            LogHelper.log(VerboseLevel.INFO,
-                                    "L3: Meta (type=21) → BLOCK (Start Menu suppressed, Meta reached App via L1)");
+                        MetaTrace.decision("L3", "type=21",
+                                "override=", metaOverride.name(),
+                                " lastSc=", String.valueOf(ctx.lastMetaScanCode),
+                                " traceOnly=", String.valueOf(MetaTrace.isTraceOnly()));
+                        if (MetaTrace.isTraceOnly()) {
+                            break;
+                        }
+                        if (metaOverride == Config.OverrideMode.BLOCK) {
+                            MetaTrace.decision("L3", "BLOCK type=21", metaOverride.name());
                             param.setResult(null);
                             return;
                         }
-                        // START_MENU / DEFAULT / SWITCH_LANGUAGE / VOICE_ASSIST
-                        // → pass through, let ZUI or AOSP handle normally
-                        LogHelper.log(VerboseLevel.DEBUG,
-                                "L3: Meta (type=21) → pass through (action=",
-                                metaAction.name(), ")");
+                        if (ctx.metaStartMenuDispatched) {
+                            MetaTrace.decision("L3", "BLOCK type=21 duplicate",
+                                    "already dispatched at L0");
+                            param.setResult(null);
+                            return;
+                        }
+                        MetaTrace.decision("L3", "pass type=21", metaOverride.name());
                     }
                     break;
                 case 201: // Win+M → ovMinimizeFreeformGroup()

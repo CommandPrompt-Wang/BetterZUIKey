@@ -112,11 +112,22 @@ public final class KeyInjector {
      * carries modifier bits.
      */
     public static void injectKeyDown(int keyCode, int metaState, int deviceId) {
+        injectKeyDown(keyCode, metaState, deviceId, 0);
+    }
+
+    /** Inject a key DOWN event with explicit scanCode (for ZUI custom keys). */
+    public static void injectKeyDown(int keyCode, int metaState, int deviceId, int scanCode) {
         if (keyCode <= 0) return;
         try {
             long now = android.os.SystemClock.uptimeMillis();
             KeyEvent ev = new KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode,
-                    0, metaState, deviceId, 0, 0);
+                    0, metaState, deviceId, scanCode, 0);
+            LogHelper.log(VerboseLevel.INFO, "INJECT",
+                    " DOWN kc=", String.valueOf(keyCode),
+                    " meta=0x", Integer.toHexString(metaState),
+                    " dev=", String.valueOf(deviceId),
+                    " sc=", String.valueOf(scanCode),
+                    " flags=0x", Integer.toHexString(ev.getFlags()));
             Object im = HookCompat.callStaticMethod(
                     android.hardware.input.InputManager.class, "getInstance");
             HookCompat.callMethod(im, "injectInputEvent", (InputEvent) ev, 0);
@@ -138,11 +149,21 @@ public final class KeyInjector {
      * synthesizing duplicate modifier events.
      */
     public static void injectKeyUp(int keyCode, int metaState, int deviceId) {
+        injectKeyUp(keyCode, metaState, deviceId, 0);
+    }
+
+    /** Inject a key UP event with explicit scanCode (for ZUI custom keys). */
+    public static void injectKeyUp(int keyCode, int metaState, int deviceId, int scanCode) {
         if (keyCode <= 0) return;
         try {
             long now = android.os.SystemClock.uptimeMillis();
             KeyEvent ev = new KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode,
-                    0, metaState, deviceId, 0, 0);
+                    0, metaState, deviceId, scanCode, 0);
+            LogHelper.log(VerboseLevel.INFO, "INJECT",
+                    " UP   kc=", String.valueOf(keyCode),
+                    " meta=0x", Integer.toHexString(metaState),
+                    " dev=", String.valueOf(deviceId),
+                    " sc=", String.valueOf(scanCode));
             Object im = HookCompat.callStaticMethod(
                     android.hardware.input.InputManager.class, "getInstance");
             HookCompat.callMethod(im, "injectInputEvent", (InputEvent) ev, 0);

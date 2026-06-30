@@ -1,5 +1,11 @@
 package moe.lovefirefly.betterzuikey.Hook;
 
+/**
+ * L0 key intercept (beforeQueueing).
+ *
+ * <p>ZUI 专用物理键 (keyCode 501–521) 的拦截已暂时移除：A15/A16 上行为仍不稳定，
+ * 相关 Config 字段保留供配置文件兼容，UI 与 Hook  wiring 已禁用。见 {@link ZUIKeyHook}。
+ */
 import android.os.IBinder;
 import android.view.KeyEvent;
 import moe.lovefirefly.betterzuikey.Hook.HookCompat;
@@ -20,19 +26,46 @@ public class L0Interceptor  {
         // checkConfigChanged MUST be before enabled check,
         // otherwise closing the master switch deadlocks the hook forever
         ctx.checkConfigChanged();
+        ctx.ensureKscFromHook(param.thisObject);
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
+
+        // Guard: skip injected events to avoid recursive re-processing
+        if (ctx.isInjecting()) return;
+
         KeyEvent event = (KeyEvent) param.args[0];
         int keyCode = event.getKeyCode();
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
         int repeatCount = event.getRepeatCount();
 
-        // TRACE: log every Meta event at L0
+        boolean pt = PassthroughTrace.shouldTrace(event);
+        if (pt) PassthroughTrace.in("L0", event, ctx);
+        try {
+
+        // Meta key — DOWN at L1; UP at L0 only (never reaches beforeDispatching)
         if (keyCode == KeyEvent.KEYCODE_META_LEFT
                 || keyCode == KeyEvent.KEYCODE_META_RIGHT) {
-            LogHelper.log(VerboseLevel.INFO, "[L0] ", (down ? "D" : "U"),
-                    " sc=", String.valueOf(event.getScanCode()),
-                    " r=", String.valueOf(repeatCount));
+            MetaTrace.event("L0", event, ctx);
+            int scanCode = event.getScanCode();
+            if (down && repeatCount == 0 && scanCode != 0) {
+                ctx.metaStartMenuDispatched = false;
+                if (ctx.metaSession.begin(event)) {
+                    MetaTrace.session("L0", "begin", ctx);
+                }
+            }
+            if (!down && repeatCount == 0 && scanCode != 0) {
+                if (new MetaKeyRouter(ctx).routeUpL0(event, param)) {
+                    MetaTrace.hookResult("L0", true);
+                    return;
+                }
+            }
+            if (!down && repeatCount == 0 && ctx.metaSession.active
+                    && ctx.metaSession.keyCode >= 0
+                    && keyCode != ctx.metaSession.keyCode) {
+                MetaTrace.decision("L0", "pass UP (other Meta side)",
+                        "event kc=", String.valueOf(keyCode),
+                        " sess kc=", String.valueOf(ctx.metaSession.keyCode));
+            }
         }
 
         // Keyboard detect mode: intercept all keys, prevent ZUI function key
@@ -178,20 +211,6 @@ public class L0Interceptor  {
             // Guard: skip injected events
             if (ctx.isInjecting()) return;
 
-            // Dual delivery: when IME is accepting text, block original and
-            // deliver to both IME (switch language) and App (e.g. code completion).
-            if (ctx.cfg.ctrlSpaceDualDelivery && ctx.isAcceptingText()) {
-                LogHelper.log(VerboseLevel.INFO,
-                    "L0: Ctrl+Space → dual delivery (IME + App)");
-                param.setResult(true);  // block original
-                // IME injection (Ctrl+Space, via guarded pipeline)
-                ctx.injectCtrlSpace();
-                // App also gets it — since injectCtrlSpace uses the guarded
-                // pipeline, it reaches IME first. For true dual delivery,
-                // injectToApp path would be used; currently falls back to
-                // normal pipeline injection.
-                return;
-            }
             if (ctx.applyInterceptAction(ctx.ra("ctrlSpace", ctx.cfg.overrideCtrlSpace), param, "L0: Ctrl+Space"))
                 return;
         }
@@ -262,23 +281,9 @@ public class L0Interceptor  {
             }
         }
         // Fn section: FnLock toggle, Meta UP, Fn key mapping, UP injection
-        if (ctx.fnKeyManager.processFnSection(keyCode, down, repeatCount, event, param, ctx.kscInstance))
+        if (ctx.fnKeyManager.processFnSection(keyCode, down, repeatCount, event, param, ctx.kscInstance)) {
+            PassthroughTrace.note("L0", "FnSection consumed", event);
             return;
-        // 520 — Keyboard restore (disable physical keyboard)
-        if (keyCode == 520 && down && repeatCount == 0) {
-            if (!ctx.r("keyKeyboardRestore", ctx.cfg.switchKeyKeyboardRestore).isEnabled())
-                return;
-            if (ctx.applyInterceptAction(ctx.ra("keyKeyboardRestore", ctx.cfg.overrideKeyboardRestore), param,
-                    "L0: key 520"))
-                return;
-        }
-        // 521 — Keyboard flip (enable physical keyboard + show IME)
-        if (keyCode == 521 && down && repeatCount == 0) {
-            if (!ctx.r("keyKeyboardReverse", ctx.cfg.switchKeyKeyboardReverse).isEnabled())
-                return;
-            if (ctx.applyInterceptAction(ctx.ra("keyKeyboardReverse", ctx.cfg.overrideKeyboardReverse), param,
-                    "L0: key 521"))
-                return;
         }
         // Win+Alt+3 — Bounce keys (AOSP native)
         // Settings.Secure 控制实际开关，Config.SwitchState 只是 UI 投射。
@@ -322,6 +327,9 @@ public class L0Interceptor  {
                     " override=", String.valueOf(ctx.cfg.overrideAospSlowKeys));
             if (ctx.applyInterceptAction(ctx.ra("aospSlowKeys", ctx.cfg.overrideAospSlowKeys), param, "L0: Win+Alt+6"))
                 return;
+        }
+        } finally {
+            if (pt) PassthroughTrace.out("L0", event, param);
         }
     }
 }

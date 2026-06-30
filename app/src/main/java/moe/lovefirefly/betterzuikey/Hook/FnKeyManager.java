@@ -33,6 +33,7 @@ public class FnKeyManager {
 
     private Config cfg;
     private final ConfigIPCManager configIPC;
+    private HookContext mHookCtx;
 
     // ---- Fn mapping state ----
 
@@ -94,6 +95,11 @@ public class FnKeyManager {
         this.cfg = cfg;
     }
 
+    /** Set the HookContext reference (needed to mark Meta session when Fn maps a key). */
+    public void setHookContext(HookContext ctx) {
+        this.mHookCtx = ctx;
+    }
+
     // ----------------------------------------------------------------
     //  State setters (called by MainHook during shortcut DOWN handling)
     // ----------------------------------------------------------------
@@ -117,6 +123,19 @@ public class FnKeyManager {
      */
     public boolean consumeComboUp(int keyCode, boolean down,
                                    KeyEvent event, HookCompat.HookParam param) {
+        // Meta UP → reset all Win+combo flags (safety: Meta released before combo key)
+        if ((keyCode == KeyEvent.KEYCODE_META_LEFT
+                || keyCode == KeyEvent.KEYCODE_META_RIGHT) && !down) {
+            if (mWinTabOffActive || mWinTabBlockActive || mWinPOffActive
+                    || mPendingBlockedWinComboUp != 0) {
+                mWinTabOffActive = false;
+                mWinTabBlockActive = false;
+                mWinPOffActive = false;
+                mPendingBlockedWinComboUp = 0;
+                LogHelper.log(VerboseLevel.DEBUG, "FnKeyManager: Meta UP → reset all combo flags");
+            }
+        }
+
         // Win+Tab OFF/BLOCK mode — consume Tab UP (prevent leak)
         // Must come BEFORE Fn keyboard processing which also handles Tab UP
         if (keyCode == KeyEvent.KEYCODE_TAB && !down && event.isMetaPressed()) {
@@ -237,10 +256,12 @@ public class FnKeyManager {
         // Skip clean DOWN injected by restore path (avoid re-mapping loop)
         if (mRestoreDownPending.contains(keyCode)) return false;
 
-        // DEBUG: Log all key events
-        LogHelper.log(VerboseLevel.INFO, "L0: ALL KEYS keyCode=", String.valueOf(keyCode),
-                " scanCode=", String.valueOf(event.getScanCode()),
-                " fnEnabled=", String.valueOf(cfg.fnKeyEnabled));
+        // DEBUG: Log all key events (disabled during Meta trace-only pass)
+        if (!MetaTrace.isTraceOnly()) {
+            LogHelper.log(VerboseLevel.INFO, "L0: ALL KEYS keyCode=", String.valueOf(keyCode),
+                    " scanCode=", String.valueOf(event.getScanCode()),
+                    " fnEnabled=", String.valueOf(cfg.fnKeyEnabled));
+        }
 
         // Fn trigger: Win pressed (Meta) qualifies, regardless of Alt/Shift/Ctrl.
         // This allows Win+Alt+FnKey → Alt+F-key combos to work correctly.
@@ -249,9 +270,23 @@ public class FnKeyManager {
         boolean fnActive = cfg.fnKeyEnabled ^ winPressed;
         int fKey = getFnTarget(event);
 
-        // Preserve modifiers other than Meta/Win (which is consumed as the Fn toggle)
+        // Preserve modifiers other than Meta/Win
         int origMeta = event.getMetaState();
         int passMeta = winPressed ? (origMeta & ~KeyEvent.META_META_MASK) : origMeta;
+
+        // === DEBUG ===
+        LogHelper.log(VerboseLevel.INFO, "FnDBG",
+            " kc=", String.valueOf(keyCode),
+            " sc=", String.valueOf(event.getScanCode()),
+            " win=", winPressed ? "1" : "0",
+            " fk=", String.valueOf(fKey),
+            " fnOn=", cfg.fnKeyEnabled ? "1" : "0",
+            " fnAct=", fnActive ? "1" : "0",
+            " meta=0x", Integer.toHexString(origMeta),
+            " pass=0x", Integer.toHexString(passMeta),
+            " dev=", String.valueOf(event.getDeviceId()),
+            " rpt=", String.valueOf(event.getRepeatCount()),
+            " flags=0x", Integer.toHexString(event.getFlags()));
 
         // Debug: FnLock restore path
         if (cfg.fnKeyEnabled && winPressed) {
@@ -262,8 +297,11 @@ public class FnKeyManager {
                 fKey != 0 ? " -> intercept+inject original" : " -> pass");
         }
 
-        // Restore original key (FnLock ON + Win held → suppress Fn, emit original key)
-        if (!fnActive && fKey != 0) {
+        // Restore original key (FnLock ON + Win held → suppress Fn, emit original key).
+        // Only when FnLock is actively suppressing a held Win. Default state
+        // (FnLock OFF, no Win) must pass through natively — otherwise the
+        // re-injected event loses scanCode and ZUI custom keys break.
+        if (cfg.fnKeyEnabled && winPressed && fKey != 0) {
             LogHelper.log(VerboseLevel.INFO, "L0: restore original",
                 " key=", keyCodeToString(keyCode),
                 " normally=", "F" + (fKey - 130),
@@ -292,6 +330,12 @@ public class FnKeyManager {
             mFnDownMetaMap.put(keyCode, passMeta);
             injectKeyDown(fKey, passMeta, event.getDeviceId());
             mFnDownKeys.add(keyCode);
+            // Mark that Fn mapped a key this Meta session — prevents Meta UP
+            // from also opening Start Menu (Win was used as modifier, not standalone).
+            if (mHookCtx != null) {
+                mHookCtx.metaSession.fnMapped = true;
+                cancelWinLongPressTimer();
+            }
             return true;
         }
 
@@ -356,7 +400,7 @@ public class FnKeyManager {
                 mFnKeyboardDeviceIds.add(deviceId);
                 return true;
             }
-        } catch (Throwable ignored) { }
+        } catch (Exception ignored) { }
         return false;
     }
 
@@ -500,4 +544,127 @@ public class FnKeyManager {
     public boolean hasPendingBlockedComboUp() {
         return mPendingBlockedWinComboUp != 0;
     }
+
+    // ----------------------------------------------------------------
+    //  Win/Meta long-press timer (for IME switching / voice assistant)
+    // ----------------------------------------------------------------
+
+    private volatile boolean mWinLongPressPending = false;
+    private volatile boolean mWinLongPressActive = false;
+    private android.os.Handler mWinLongPressHandler;
+    private Runnable mWinLongPressAction;
+    private Runnable mWinLongPressFireRunnable;
+    private Runnable mWinLongPressRepeatRunnable;
+
+    private static final long WIN_LONG_PRESS_DELAY_MS = 500;
+    private static final long WIN_REPEAT_INTERVAL_MS = 100;
+
+    private android.os.Handler ensureWinLongPressHandler(android.os.Handler looperSource) {
+        android.os.Looper looper = looperSource != null
+                ? looperSource.getLooper()
+                : android.os.Looper.getMainLooper();
+        if (mWinLongPressHandler == null || mWinLongPressHandler.getLooper() != looper) {
+            mWinLongPressHandler = new android.os.Handler(looper);
+        }
+        return mWinLongPressHandler;
+    }
+
+    /** @param action the action to execute on each long-press tick */
+    public void startWinLongPressTimer(android.os.Handler handler, Runnable action) {
+        startWinLongPressTimer(handler, WIN_LONG_PRESS_DELAY_MS, action);
+    }
+
+    public void startWinLongPressTimer(android.os.Handler handler, long delayMs,
+                                       Runnable action) {
+        startWinLongPressTimerInternal(handler, delayMs, action, true);
+    }
+
+    /** Single-shot long press (e.g. voice assistant on non-ZUI scanCode keyboards). */
+    public void startWinLongPressOnce(android.os.Handler handler, long delayMs,
+                                      Runnable action) {
+        startWinLongPressTimerInternal(handler, delayMs, action, false);
+    }
+
+    private void startWinLongPressTimerInternal(android.os.Handler looperSource, long delayMs,
+                                                Runnable action, boolean repeat) {
+        cancelWinLongPressTimer();
+        mWinLongPressPending = true;
+        mWinLongPressActive = false;
+        mWinLongPressAction = action;
+        android.os.Handler handler = ensureWinLongPressHandler(looperSource);
+        mWinLongPressFireRunnable = () -> {
+            if (mWinLongPressPending) {
+                mWinLongPressPending = false;
+                mWinLongPressActive = true;
+                if (mWinLongPressAction != null) mWinLongPressAction.run();
+                if (repeat) {
+                    mWinLongPressRepeatRunnable = new Runnable() {
+                        @Override
+                        public void run() {
+                            if (mWinLongPressActive && mWinLongPressAction != null) {
+                                mWinLongPressAction.run();
+                                handler.postDelayed(this, WIN_REPEAT_INTERVAL_MS);
+                            }
+                        }
+                    };
+                    handler.postDelayed(mWinLongPressRepeatRunnable, WIN_REPEAT_INTERVAL_MS);
+                }
+            }
+        };
+        handler.postDelayed(mWinLongPressFireRunnable, delayMs);
+    }
+
+    public void cancelWinLongPressTimer() {
+        mWinLongPressPending = false;
+        mWinLongPressActive = false;
+        mWinLongPressAction = null;
+        if (mWinLongPressHandler != null) {
+            if (mWinLongPressFireRunnable != null) {
+                mWinLongPressHandler.removeCallbacks(mWinLongPressFireRunnable);
+            }
+            if (mWinLongPressRepeatRunnable != null) {
+                mWinLongPressHandler.removeCallbacks(mWinLongPressRepeatRunnable);
+            }
+        }
+        mWinLongPressFireRunnable = null;
+        mWinLongPressRepeatRunnable = null;
+    }
+
+    /**
+     * Start repeat loop immediately (no initial delay). Used when ZUI's 2s
+     * {@code mLaunchAssistantRunnable} fires instead of the local 500ms timer.
+     */
+    public void startWinLongPressRepeat(android.os.Handler looperSource, Runnable action) {
+        cancelWinLongPressTimer();
+        mWinLongPressPending = false;
+        mWinLongPressActive = true;
+        mWinLongPressAction = action;
+        android.os.Handler handler = ensureWinLongPressHandler(looperSource);
+        if (action != null) {
+            action.run();
+        }
+        mWinLongPressRepeatRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (mWinLongPressActive && mWinLongPressAction != null) {
+                    mWinLongPressAction.run();
+                    handler.postDelayed(this, WIN_REPEAT_INTERVAL_MS);
+                }
+            }
+        };
+        handler.postDelayed(mWinLongPressRepeatRunnable, WIN_REPEAT_INTERVAL_MS);
+    }
+
+    public void stopWinLongPressRepeat() {
+        mWinLongPressActive = false;
+        mWinLongPressPending = false;
+        mWinLongPressAction = null;
+        if (mWinLongPressHandler != null && mWinLongPressRepeatRunnable != null) {
+            mWinLongPressHandler.removeCallbacks(mWinLongPressRepeatRunnable);
+        }
+        mWinLongPressRepeatRunnable = null;
+    }
+
+    public boolean isWinLongPressPending() { return mWinLongPressPending; }
+    public boolean isWinLongPressActive() { return mWinLongPressActive; }
 }

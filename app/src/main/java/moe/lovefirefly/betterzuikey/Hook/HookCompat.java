@@ -253,7 +253,17 @@ public final class HookCompat {
         }
     }
 
-    /** Replacement for HookCompat.callMethod. */
+    /**
+     * Call a method by reflection.
+     *
+     * <p><b>IMPORTANT:</b> {@code args[i].getClass()} yields the runtime type
+     * (e.g. {@code KeyEvent.class}) which may be narrower than the declared
+     * parameter type (e.g. {@code InputEvent.class}).  The count-only fallback
+     * in {@link #findMethod} compensates for this mismatch.  Do NOT attempt to
+     * "fix" the try-catch into a direct throw — callers such as
+     * {@code KeyInjector.injectKeyDown} rely on silent {@code null} return
+     * for best-effort injection that must never crash the hook chain.
+     */
     @SuppressWarnings("unchecked")
     public static <T> T callMethod(Object obj, String methodName, Object... args) {
         try {
@@ -279,6 +289,14 @@ public final class HookCompat {
 
     // ---- internal ----
 
+    /**
+     * Find a declared method, with count-only fallback.
+     *
+     * <p>The exact match can fail when {@link #callMethod} passes runtime
+     * types (e.g. {@code KeyEvent.class}) but the method is declared with a
+     * parent type (e.g. {@code injectInputEvent(InputEvent, int)}).  The
+     * count-only fallback handles this mismatch.
+     */
     private static Method findMethod(Class<?> clazz, String name, Class<?>[] paramTypes)
             throws NoSuchMethodException {
         try {

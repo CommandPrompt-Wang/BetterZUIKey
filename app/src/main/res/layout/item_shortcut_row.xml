@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 快捷方式行: [名称]  [Switch 启用]  [Spinner 行为] -->
+<!-- 快捷方式行: [名称]  [Switch 启用]  [Spinner 行为]；desc 延伸至 Switch 左侧 -->
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -10,57 +10,58 @@
     app:cardElevation="1dp"
     app:cardBackgroundColor="?attr/colorSurfaceContainerLow">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
+        android:minHeight="56dp"
         android:paddingHorizontal="12dp"
-        android:paddingVertical="8dp"
-        android:minHeight="56dp">
+        android:paddingVertical="8dp">
 
-        <!-- 星标 — 覆写标记 / 左留白，固定宽度保留对齐 -->
         <TextView
             android:id="@+id/tv_star"
             android:layout_width="24dp"
             android:layout_height="wrap_content"
-            android:text="@string/star_marker"
-            android:textSize="16sp"
-            android:textColor="?attr/colorOnSurface"
-            android:gravity="center"
             android:layout_marginEnd="4dp"
-            android:visibility="invisible" />
+            android:gravity="center"
+            android:text="@string/star_marker"
+            android:textColor="?attr/colorOnSurface"
+            android:textSize="16sp"
+            android:visibility="invisible"
+            app:layout_constraintBottom_toBottomOf="@id/tv_name"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@id/tv_name" />
 
-        <!-- 名称 + 描述 -->
-        <LinearLayout
+        <TextView
+            android:id="@+id/tv_name"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:layout_marginEnd="8dp"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            app:layout_constraintEnd_toStartOf="@id/sw_enabled"
+            app:layout_constraintStart_toEndOf="@id/tv_star"
+            app:layout_constraintTop_toTopOf="parent" />
 
-            <TextView
-                android:id="@+id/tv_name"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textAppearance="?attr/textAppearanceBodyMedium" />
+        <TextView
+            android:id="@+id/tv_desc"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:layout_marginEnd="8dp"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            app:layout_constraintEnd_toStartOf="@id/sw_enabled"
+            app:layout_constraintStart_toStartOf="@id/tv_name"
+            app:layout_constraintTop_toBottomOf="@id/tv_name" />
 
-            <TextView
-                android:id="@+id/tv_desc"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textAppearance="?attr/textAppearanceBodySmall"
-                android:textColor="?attr/colorOnSurfaceVariant" />
-
-        </LinearLayout>
-
-        <!-- Switch -->
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/sw_enabled"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp" />
+            android:layout_marginEnd="8dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/til_action"
+            app:layout_constraintTop_toTopOf="parent" />
 
-        <!-- Action Spinner — Material 3 ExposedDropdownMenu（宽度由代码统一固定）-->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/til_action"
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
@@ -68,33 +69,38 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
             app:boxBackgroundColor="?attr/colorSurfaceContainerHighest"
+            app:endIconMode="dropdown_menu"
             app:hintEnabled="false"
-            app:endIconMode="dropdown_menu">
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/iv_chevron"
+            app:layout_constraintTop_toTopOf="parent">
 
-        <com.google.android.material.textfield.MaterialAutoCompleteTextView
-            android:id="@+id/sp_action"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:inputType="none"
-            android:focusable="true"
-            android:focusableInTouchMode="true"
-            android:clickable="true"
-            android:paddingVertical="6dp"
-            android:textAppearance="?attr/textAppearanceBodySmall" />
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                android:id="@+id/sp_action"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clickable="true"
+                android:focusable="true"
+                android:focusableInTouchMode="true"
+                android:inputType="none"
+                android:paddingVertical="6dp"
+                android:textAppearance="?attr/textAppearanceBodySmall" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- 右箭头 — 仅 Tap 型卡片显示 -->
         <TextView
             android:id="@+id/iv_chevron"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/home_chevron"
-            android:textSize="24sp"
-            android:textColor="?attr/colorOnSurfaceVariant"
             android:layout_marginStart="4dp"
-            android:visibility="gone" />
+            android:text="@string/home_chevron"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="24sp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
-    </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
 </com.google.android.material.card.MaterialCardView>
