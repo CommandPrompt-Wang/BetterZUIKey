@@ -285,6 +285,48 @@ public class L0Interceptor  {
             PassthroughTrace.note("L0", "FnSection consumed", event);
             return;
         }
+        // -- ZUI physical keys (501–515, those not handled in other layers) --
+        // Note: 505 (SuperConnect) → L4 type=313; 510 (Settings) → L1; 514 (TpUp) → L3 type=8
+        if (down && repeatCount == 0) {
+            switch (keyCode) {
+                case 501: // 静音键
+                    if (!ctx.r("keyMute", ctx.cfg.switchKeyMute).isEnabled()) return;
+                    ctx.applyInterceptAction(ctx.ra("keyMute", ctx.cfg.overrideMute), param, "L0: ZUIKey Mute (501)");
+                    return;
+                case 502: // 触控板开关
+                    if (!ctx.r("keyTouchpad", ctx.cfg.switchKeyTouchpad).isEnabled()) return;
+                    ctx.applyInterceptAction(ctx.ra("keyTouchpad", ctx.cfg.overrideTouchpad), param, "L0: ZUIKey Touchpad (502)");
+                    return;
+                case 504: // 分屏键
+                    if (!ctx.r("keySplitScreen", ctx.cfg.switchKeySplitScreen).isEnabled()) return;
+                    ctx.applyInterceptAction(ctx.ra("keySplitScreen", ctx.cfg.overrideSplitScreen), param, "L0: ZUIKey SplitScreen (504)");
+                    return;
+                case 507: // App1 自定义
+                    if (!ctx.r("keyApp1", ctx.cfg.switchKeyApp1).isEnabled()) return;
+                    ctx.applyInterceptAction(ctx.ra("keyApp1", ctx.cfg.app1LongPressOverride), param, "L0: ZUIKey App1 (507)");
+                    return;
+                case 508: // App2 自定义
+                    if (!ctx.r("keyApp2", ctx.cfg.switchKeyApp2).isEnabled()) return;
+                    ctx.applyInterceptAction(ctx.ra("keyApp2", ctx.cfg.app2LongPressOverride), param, "L0: ZUIKey App2 (508)");
+                    return;
+                case 509: // 搜索键
+                    if (!ctx.r("keySearch", ctx.cfg.switchKeySearch).isEnabled()) return;
+                    ctx.applyInterceptAction(ctx.ra("keySearch", ctx.cfg.overrideSearch), param, "L0: ZUIKey Search (509)");
+                    return;
+                case 511: // Fn 锁定切换
+                    if (!ctx.r("keyFnLock", ctx.cfg.switchKeyFnLock).isEnabled()) return;
+                    ctx.applyInterceptAction(ctx.ra("keyFnLock", ctx.cfg.overrideFnLock), param, "L0: ZUIKey FnLock (511)");
+                    return;
+                case 512: // 键盘背光
+                    if (!ctx.r("keyBacklight", ctx.cfg.switchKeyBacklight).isEnabled()) return;
+                    ctx.applyInterceptAction(ctx.ra("keyBacklight", ctx.cfg.overrideBacklight), param, "L0: ZUIKey Backlight (512)");
+                    return;
+                case 515: // 锁屏键
+                    if (!ctx.r("keyScreenLock", ctx.cfg.switchKeyScreenLock).isEnabled()) return;
+                    ctx.applyInterceptAction(ctx.ra("keyScreenLock", ctx.cfg.overrideScreenLock), param, "L0: ZUIKey ScreenLock (515)");
+                    return;
+            }
+        }
         // Win+Alt+3 — Bounce keys (AOSP native)
         // Settings.Secure 控制实际开关，Config.SwitchState 只是 UI 投射。
         // Hook 行为完全由 override mode (spin) 决定，不允许 SwitchState 守卫。

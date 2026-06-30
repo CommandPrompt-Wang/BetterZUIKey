@@ -4,11 +4,9 @@ import io.github.libxposed.api.XposedInterface;
 import io.github.libxposed.api.XposedModule;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 
 /**
  * Compatibility adapter: bridges the legacy Xposed callback API
@@ -299,35 +297,17 @@ public final class HookCompat {
      */
     private static Method findMethod(Class<?> clazz, String name, Class<?>[] paramTypes)
             throws NoSuchMethodException {
-        try {
-            Method m = clazz.getDeclaredMethod(name, paramTypes);
-            m.setAccessible(true);
-            return m;
-        } catch (NoSuchMethodException e) {
-            for (Method m : clazz.getDeclaredMethods()) {
-                if (m.getName().equals(name) && m.getParameterCount() == paramTypes.length) {
-                    m.setAccessible(true);
-                    return m;
-                }
-            }
-            throw e;
-        }
+        // Strict exact match only — no count-only fallback (consistent with ZUI SDK ReflectClass)
+        Method m = clazz.getDeclaredMethod(name, paramTypes);
+        m.setAccessible(true);
+        return m;
     }
 
     private static Constructor<?> findConstructor(Class<?> clazz, Class<?>[] paramTypes)
             throws NoSuchMethodException {
-        try {
-            Constructor<?> c = clazz.getDeclaredConstructor(paramTypes);
-            c.setAccessible(true);
-            return c;
-        } catch (NoSuchMethodException e) {
-            for (Constructor<?> c : clazz.getDeclaredConstructors()) {
-                if (c.getParameterCount() == paramTypes.length) {
-                    c.setAccessible(true);
-                    return c;
-                }
-            }
-            throw e;
-        }
+        // Strict exact match only — no count-only fallback
+        Constructor<?> c = clazz.getDeclaredConstructor(paramTypes);
+        c.setAccessible(true);
+        return c;
     }
 }
