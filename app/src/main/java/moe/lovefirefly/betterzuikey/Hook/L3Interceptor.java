@@ -18,6 +18,12 @@ public class L3Interceptor  {
 
         public void intercept(HookCompat.HookParam param) {
         ctx.checkConfigChanged();
+
+        if (ctx.isDetectMode()) {
+            param.setResult(null);
+            return;
+        }
+
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
 

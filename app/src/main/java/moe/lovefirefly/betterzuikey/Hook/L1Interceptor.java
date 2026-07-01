@@ -22,17 +22,18 @@ public class L1Interceptor  {
         // checkConfigChanged MUST be before enabled check
         ctx.checkConfigChanged();
         ctx.ensureKscFromHook(param.thisObject);
-        if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
-            return;
 
         // Guard: skip injected events to avoid recursive re-processing
         if (ctx.isInjecting()) return;
 
-        // Detect mode: intercept all keys
+        // Detect mode: intercept all keys (before master-switch gate)
         if (ctx.isDetectMode()) {
             param.setResult(true);
             return;
         }
+
+        if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
+            return;
 
         KeyEvent event = (KeyEvent) param.args[0];
         int keyCode = event.getKeyCode();
@@ -380,25 +381,6 @@ public class L1Interceptor  {
                 return;
             }
             if (ctx.applyInterceptAction(ov, param, "L1: Ctrl+/"))
-                return;
-        }
-
-        // 510 Settings key bug fix
-        if (keyCode == 510 && firstDown) {
-            if (!ctx.r("keySettings", ctx.cfg.switchKeySettings).isEnabled())
-                return;
-            if (ctx.applyInterceptAction(ctx.ra("keySettings", ctx.cfg.overrideSettings), param, "L1: key 510"))
-                return;
-        }
-
-        // Print Screen (120) — Region screenshot (short) / Full screenshot (long press
-        // >=2s)
-        if (keyCode == KeyEvent.KEYCODE_SYSRQ && firstDown) {
-            if (!ctx.r("printScreenShort", ctx.cfg.switchPrintScreenShort).isEnabled()
-                    && !ctx.r("printScreenLong", ctx.cfg.switchPrintScreenLong).isEnabled())
-                return;
-            if (ctx.applyInterceptAction(ctx.ra("printScreenShort", ctx.cfg.overridePrintScreenShort), param,
-                    "L1: PrintScreen"))
                 return;
         }
 

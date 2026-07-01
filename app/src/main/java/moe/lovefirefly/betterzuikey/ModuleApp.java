@@ -11,6 +11,7 @@ public class ModuleApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        LocaleHelper.applyFromConfig(this);
         // Register early — before any Activity starts — so we never miss the Binder
         ModuleServiceBridge.init();
     }

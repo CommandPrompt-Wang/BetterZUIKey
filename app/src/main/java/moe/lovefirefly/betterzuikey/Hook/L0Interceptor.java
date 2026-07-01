@@ -21,8 +21,6 @@ public class L0Interceptor  {
         // otherwise closing the master switch deadlocks the hook forever
         ctx.checkConfigChanged();
         ctx.ensureKscFromHook(param.thisObject);
-        if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
-            return;
 
         // Guard: skip injected events to avoid recursive re-processing
         if (ctx.isInjecting()) return;
@@ -31,6 +29,18 @@ public class L0Interceptor  {
         int keyCode = event.getKeyCode();
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
         int repeatCount = event.getRepeatCount();
+
+        // Keyboard detect page: intercept ALL keys before shortcuts / Fn / ZUI
+        if (ctx.isDetectMode()) {
+            ctx.writeDetectKeyProperties(keyCode, down, repeatCount, event);
+            param.setResult(true);
+            return;
+        }
+
+        if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
+            return;
+
+        ctx.noteWinComboDuringMetaSession(event);
 
         boolean pt = PassthroughTrace.shouldTrace(event);
         if (pt) PassthroughTrace.in("L0", event, ctx);
@@ -43,6 +53,7 @@ public class L0Interceptor  {
             int scanCode = event.getScanCode();
             if (down && repeatCount == 0 && scanCode != 0) {
                 ctx.metaStartMenuDispatched = false;
+                ctx.metaSuppressStartMenu = false;
                 if (ctx.metaSession.begin(event)) {
                     MetaTrace.session("L0", "begin", ctx);
                 }
@@ -60,30 +71,6 @@ public class L0Interceptor  {
                         "event kc=", String.valueOf(keyCode),
                         " sess kc=", String.valueOf(ctx.metaSession.keyCode));
             }
-        }
-
-        // Keyboard detect mode: intercept all keys, prevent ZUI function key
-        // side-effects
-        if (down && repeatCount == 0) {
-            // Write SystemProperties (includes VID:PID for initial detection)
-            try {
-                android.view.InputDevice dev = event.getDevice();
-                int vid = dev != null ? dev.getVendorId() : 0;
-                int pid = dev != null ? dev.getProductId() : 0;
-                String devName = dev != null ? dev.getName() : "";
-                Class<?> sp = Class.forName("android.os.SystemProperties");
-                sp.getMethod("set", String.class, String.class)
-                        .invoke(null, "debug.bzuikey.last_key",
-                                keyCode + ":" + event.getScanCode());
-                sp.getMethod("set", String.class, String.class)
-                        .invoke(null, "debug.bzuikey.dev_info",
-                                vid + ":" + pid + ":" + devName);
-            } catch (Throwable ignored) {
-            }
-        }
-        if (ctx.isDetectMode()) {
-            param.setResult(true);
-            return;
         }
 
         // Win+Tab — Recents (ZUI L0: launchRecent("wintab"))
@@ -274,72 +261,15 @@ public class L0Interceptor  {
                     return;
             }
         }
+        // 507/508 — smart keys: capture before Fn mapping (507→F11) can steal the event
+        if (ctx.handleZuiAppKey(keyCode, down, repeatCount, param)) {
+            PassthroughTrace.note("L0", "AppKey consumed", event);
+            return;
+        }
         // Fn section: FnLock toggle, Meta UP, Fn key mapping, UP injection
         if (ctx.fnKeyManager.processFnSection(keyCode, down, repeatCount, event, param, ctx.kscInstance)) {
             PassthroughTrace.note("L0", "FnSection consumed", event);
             return;
-        }
-        // 520 — Keyboard restore (disable physical keyboard)
-        if (keyCode == 520 && down && repeatCount == 0) {
-            if (!ctx.r("keyKeyboardRestore", ctx.cfg.switchKeyKeyboardRestore).isEnabled())
-                return;
-            if (ctx.applyInterceptAction(ctx.ra("keyKeyboardRestore", ctx.cfg.overrideKeyboardRestore), param,
-                    "L0: key 520"))
-                return;
-        }
-        // 521 — Keyboard flip (enable physical keyboard + show IME)
-        if (keyCode == 521 && down && repeatCount == 0) {
-            if (!ctx.r("keyKeyboardReverse", ctx.cfg.switchKeyKeyboardReverse).isEnabled())
-                return;
-            if (ctx.applyInterceptAction(ctx.ra("keyKeyboardReverse", ctx.cfg.overrideKeyboardReverse), param,
-                    "L0: key 521"))
-                return;
-        }
-        // -- ZUI physical keys (501–515, those not handled in other layers) --
-        // Note: 505 (SuperConnect) → L4 type=313; 510 (Settings) → L1; 514 (TpUp) → L0
-        if (down && repeatCount == 0) {
-            switch (keyCode) {
-                case 501: // 静音键
-                    if (!ctx.r("keyMute", ctx.cfg.switchKeyMute).isEnabled()) return;
-                    ctx.applyInterceptAction(ctx.ra("keyMute", ctx.cfg.overrideMute), param, "L0: ZUIKey Mute (501)");
-                    return;
-                case 502: // 触控板开关
-                    if (!ctx.r("keyTouchpad", ctx.cfg.switchKeyTouchpad).isEnabled()) return;
-                    ctx.applyInterceptAction(ctx.ra("keyTouchpad", ctx.cfg.overrideTouchpad), param, "L0: ZUIKey Touchpad (502)");
-                    return;
-                case 504: // 分屏键
-                    if (!ctx.r("keySplitScreen", ctx.cfg.switchKeySplitScreen).isEnabled()) return;
-                    ctx.applyInterceptAction(ctx.ra("keySplitScreen", ctx.cfg.overrideSplitScreen), param, "L0: ZUIKey SplitScreen (504)");
-                    return;
-                case 507: // App1 自定义
-                    if (!ctx.r("keyApp1", ctx.cfg.switchKeyApp1).isEnabled()) return;
-                    ctx.applyInterceptAction(ctx.ra("keyApp1", ctx.cfg.app1LongPressOverride), param, "L0: ZUIKey App1 (507)");
-                    return;
-                case 508: // App2 自定义
-                    if (!ctx.r("keyApp2", ctx.cfg.switchKeyApp2).isEnabled()) return;
-                    ctx.applyInterceptAction(ctx.ra("keyApp2", ctx.cfg.app2LongPressOverride), param, "L0: ZUIKey App2 (508)");
-                    return;
-                case 509: // 搜索键
-                    if (!ctx.r("keySearch", ctx.cfg.switchKeySearch).isEnabled()) return;
-                    ctx.applyInterceptAction(ctx.ra("keySearch", ctx.cfg.overrideSearch), param, "L0: ZUIKey Search (509)");
-                    return;
-                case 511: // Fn 锁定切换
-                    if (!ctx.r("keyFnLock", ctx.cfg.switchKeyFnLock).isEnabled()) return;
-                    ctx.applyInterceptAction(ctx.ra("keyFnLock", ctx.cfg.overrideFnLock), param, "L0: ZUIKey FnLock (511)");
-                    return;
-                case 512: // 键盘背光
-                    if (!ctx.r("keyBacklight", ctx.cfg.switchKeyBacklight).isEnabled()) return;
-                    ctx.applyInterceptAction(ctx.ra("keyBacklight", ctx.cfg.overrideBacklight), param, "L0: ZUIKey Backlight (512)");
-                    return;
-                case 514: // 触控板上移 — 打开通知面板
-                    if (!ctx.r("keyTpUp", ctx.cfg.switchKeyTpUp).isEnabled()) return;
-                    ctx.applyInterceptAction(ctx.ra("keyTpUp", ctx.cfg.overrideTpUp), param, "L0: ZUIKey TpUp (514)");
-                    return;
-                case 515: // 锁屏键
-                    if (!ctx.r("keyScreenLock", ctx.cfg.switchKeyScreenLock).isEnabled()) return;
-                    ctx.applyInterceptAction(ctx.ra("keyScreenLock", ctx.cfg.overrideScreenLock), param, "L0: ZUIKey ScreenLock (515)");
-                    return;
-            }
         }
         // Win+Alt+3 — Bounce keys (AOSP native)
         // Settings.Secure 控制实际开关，Config.SwitchState 只是 UI 投射。

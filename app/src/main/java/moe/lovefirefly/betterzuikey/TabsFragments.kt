@@ -8,6 +8,13 @@ import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Spinner
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.checkbox.MaterialCheckBox
+import com.google.android.material.textfield.TextInputEditText
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
@@ -62,15 +69,18 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
     private var securePermDismissed = false
 
     private fun reloadConfig(): Config {
+        if (!isAdded) return cachedConfig ?: Config.load()
+        val ctx = requireContext()
+        val appCtx = ctx.applicationContext
         val cfg = Config.load()
         // 配置读取异常 → 显示 warning banner
         Config.lastLoadError?.let { err ->
             (requireActivity() as? MainActivity)?.showWarningBanner(err)
             Config.lastLoadError = null
         }
-        cfg.syncSwitchesFromSystem(requireContext())
+        cfg.syncSwitchesFromSystem(ctx)
         cfg.save()
-        Config.syncToSharedPrefs(requireContext(), cfg)
+        Config.syncToSharedPrefs(ctx, cfg)
         cachedConfig = cfg
         // 后台读取 Settings.Secure（避免主线程 ANR）
         Thread {
@@ -78,15 +88,13 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
             for ((shortcutKey, secureKey) in AOSP_SECURE_KEY_MAP) {
                 try {
                     cache[shortcutKey] = Settings.Secure.getInt(
-                        requireContext().contentResolver, secureKey) == 1
+                        appCtx.contentResolver, secureKey) == 1
                 } catch (_: Exception) { cache[shortcutKey] = false }
             }
             aospSecureCache = cache
-            // 数据就绪 → 刷新列表
             view?.post {
-                if (::adapter.isInitialized) {
-                    adapter.applyFilters(binding.searchView.query?.toString() ?: "")
-                }
+                if (!isAdded || !::adapter.isInitialized) return@post
+                adapter.applyFilters(binding.searchView.query?.toString() ?: "")
             }
         }.start()
         return cfg
@@ -177,6 +185,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
 
     /** 实现 Refreshable 接口 —— 供页面切换 / 应用恢复时自动刷新 */
     override fun triggerRefresh() {
+        if (!isAdded) return
         val v = view ?: return
         binding.swipeRefresh.isRefreshing = true
         canWriteSystemSettings = null
@@ -188,9 +197,46 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
         binding.swipeRefresh.isRefreshing = false
     }
 
+    /** 切换到快捷键列表中的指定项（长按智能键打开编辑器时）。 */
+    fun navigateToShortcutKey(appKey: String, onReady: () -> Unit = {}) {
+        if (!isAdded || !::adapter.isInitialized) {
+            onReady()
+            return
+        }
+        var pos = adapter.indexOfKey(appKey)
+        if (pos < 0) {
+            binding.searchView.setQuery("", false)
+            resetFiltersForReveal()
+            adapter.applyFilters("")
+            pos = adapter.indexOfKey(appKey)
+        }
+        if (pos < 0) {
+            onReady()
+            return
+        }
+        binding.recycler.stopScroll()
+        (binding.recycler.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(
+            pos,
+            (binding.recycler.height * 0.25f).toInt().coerceAtLeast(0),
+        )
+        binding.recycler.post { onReady() }
+    }
+
+    private fun resetFiltersForReveal() {
+        filterSwitchOff = true
+        filterSwitchOn = true
+        filterNoSwitch = true
+        filterModeDefault = true
+        filterModeAOSP = true
+        filterModeZUI = true
+        filterModeOFF = true
+        filterModeBLOCK = true
+    }
+
     /** 切回此 Tab 时统一刷新（开关状态 + 写入权限 + 安全告警） */
     override fun onResume() {
         super.onResume()
+        if (!isAdded) return
         val v = view ?: return
         // 检测 sys_write_queue 篡改告警
         val alertPrefs = requireContext().getSharedPreferences(
@@ -270,14 +316,18 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
         /** 当前搜索关键词 */
         private var searchQuery: String = ""
 
+        fun indexOfKey(key: String): Int = filtered.indexOfFirst { it.key == key }
+
         fun applyFilters(query: String) {
+            if (!this@GlobalFragment.isAdded) return
+            val ctx = this@GlobalFragment.context ?: return
             searchQuery = query.trim()
             val cfg = cachedConfig
             filtered = ShortcutMeta.ALL.filter { meta ->
                 // ── Text search (AND tokens) ──
                 val tokens = searchQuery.split("+", " ", "\t").map { it.trim() }.filter { it.isNotEmpty() }
-                val text = meta.displayName(requireContext()) +
-                    (if (meta.descResId != 0) " " + requireContext().getString(meta.descResId) else "")
+                val text = meta.displayName(ctx) +
+                    (if (meta.descResId != 0) " " + ctx.getString(meta.descResId) else "")
                 val textOk = tokens.isEmpty() || tokens.all { token -> text.contains(token, ignoreCase = true) }
                 if (!textOk) return@filter false
 
@@ -294,15 +344,29 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 if (!switchOk) return@filter false
 
                 // ── Override mode filter (OR within group) ──
-                val mode = if (cfg != null) {
-                    val overrideKey = if (meta.key == "ctrlCard") "ctrlSlash" else meta.key
-                    ShortcutMeta.getOverride(cfg, overrideKey)
-                } else Config.OverrideMode.FOLLOW_SYSTEM
-                val modeOk = (filterModeDefault && (mode == Config.OverrideMode.FOLLOW_SYSTEM || mode == Config.OverrideMode.ZUI)) ||
-                             (filterModeAOSP && mode == Config.OverrideMode.AOSP) ||
-                             (filterModeZUI && mode == Config.OverrideMode.ZUI) ||
-                             (filterModeOFF && mode == Config.OverrideMode.OFF) ||
-                             (filterModeBLOCK && mode == Config.OverrideMode.BLOCK)
+                val modeOk = if (cfg != null && meta.key == "winLongPress") {
+                    when (ShortcutMeta.getWinLongPressUiMode(cfg)) {
+                        WinLongPressUiMode.FOLLOW_SYSTEM -> filterModeDefault
+                        WinLongPressUiMode.ZUI -> filterModeZUI
+                        WinLongPressUiMode.BLOCK -> filterModeBLOCK
+                        WinLongPressUiMode.CUSTOM -> filterModeZUI
+                    }
+                } else if (cfg != null && ShortcutMeta.usesAppKeyMode(meta.key)) {
+                    val appMode = ShortcutMeta.getAppKeyMode(cfg, meta.key)
+                    (filterModeDefault && appMode == Config.AppKeyMode.FOLLOW_SYSTEM) ||
+                            (filterModeBLOCK && appMode == Config.AppKeyMode.BLOCK) ||
+                            (filterModeZUI && appMode == Config.AppKeyMode.CUSTOM)
+                } else {
+                    val mode = if (cfg != null) {
+                        val overrideKey = if (meta.key == "ctrlCard") "ctrlSlash" else meta.key
+                        ShortcutMeta.getOverride(cfg, overrideKey)
+                    } else Config.OverrideMode.FOLLOW_SYSTEM
+                    (filterModeDefault && (mode == Config.OverrideMode.FOLLOW_SYSTEM || mode == Config.OverrideMode.ZUI)) ||
+                            (filterModeAOSP && mode == Config.OverrideMode.AOSP) ||
+                            (filterModeZUI && mode == Config.OverrideMode.ZUI) ||
+                            (filterModeOFF && mode == Config.OverrideMode.OFF) ||
+                            (filterModeBLOCK && mode == Config.OverrideMode.BLOCK)
+                }
                 modeOk
             }
             openSpinnerPos = -1
@@ -317,9 +381,17 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
             if (spinnerFixedMinWidth == 0) {
                 val ctx = parent.context
                 val paint = b.spAction.paint
-                val maxTextW = Config.OverrideMode.entries.maxOf {
-                    paint.measureText(it.displayName(ctx)).toInt()
-                }
+                val maxTextW = maxOf(
+                    Config.OverrideMode.entries.maxOf {
+                        paint.measureText(it.displayName(ctx)).toInt()
+                    },
+                    Config.AppKeyMode.entries.maxOf {
+                        paint.measureText(it.displayName(ctx)).toInt()
+                    },
+                    WinLongPressUiMode.entries.maxOf {
+                        paint.measureText(it.displayName(ctx)).toInt()
+                    },
+                )
                 // 额外留出 dropdown 图标 + 内边距空间
                 spinnerFixedMinWidth = maxTextW + b.spAction.paddingLeft +
                     b.spAction.paddingRight + 48
@@ -376,6 +448,19 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 b.spAction.setOnItemClickListener(null)
                 b.spAction.setOnClickListener(null)
                 b.root.setOnClickListener(null)
+                b.root.setOnLongClickListener(null)
+
+                // ── Win 长按：四档 Spin；智能键：三档 Spin ──
+                if (meta.key == "winLongPress") {
+                    b.swEnabled.visibility = View.GONE
+                    bindWinLongSpin(meta, cfg, b, pos)
+                    return
+                }
+                if (ShortcutMeta.usesAppKeyMode(meta.key)) {
+                    b.swEnabled.visibility = View.GONE
+                    bindAppKeySpin(meta, cfg, b, pos)
+                    return
+                }
 
                 // ── 开关（系统开关 或 ctrlCard 的 Ctrl 长按开关）──
                 val isAospSecure = meta.key in AOSP_SECURE_KEY_MAP
@@ -572,6 +657,108 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                     }
                 }
             }
+
+            private fun bindAppKeySpin(
+                meta: ShortcutMeta,
+                cfg: Config,
+                b: ItemShortcutRowBinding,
+                pos: Int
+            ) {
+                val ctx = requireContext()
+                val appModes = Config.AppKeyMode.entries
+                val modeLabels = appModes.map { it.displayName(ctx) }
+                val currentMode = ShortcutMeta.getAppKeyMode(cfg, meta.key)
+
+                b.spAction.setAdapter(null)
+                b.spAction.setAdapter(ArrayAdapter(ctx, R.layout.dropdown_item_wrap, modeLabels))
+                b.spAction.threshold = Int.MAX_VALUE
+                b.spAction.setText(currentMode.displayName(ctx), false)
+                b.spAction.isEnabled = true
+                b.tilAction.isEnabled = true
+                b.tilAction.visibility = View.VISIBLE
+
+                b.root.setOnClickListener {
+                    if (openSpinnerPos == pos) {
+                        openSpinnerPos = -1
+                        return@setOnClickListener
+                    }
+                    b.spAction.showDropDown()
+                    openSpinnerPos = pos
+                }
+                b.root.setOnLongClickListener {
+                    AppKeySystemSettingsLauncher.open(ctx, meta.key)
+                    true
+                }
+
+                b.spAction.setOnItemClickListener { _, _, itemPos, _ ->
+                    openSpinnerPos = -1
+                    val selected = appModes[itemPos]
+                    ShortcutMeta.setAppKeyMode(cfg, meta.key, selected)
+                    cfg.save()
+                    Config.syncToSharedPrefs(ctx, cfg)
+                    b.spAction.setText(selected.displayName(ctx), false)
+                    LogHelper.log(LogHelper.VerboseLevel.INFO,
+                        "App key mode: ", meta.key, " → ", selected.name)
+                    if (selected == Config.AppKeyMode.CUSTOM) {
+                        AppKeyCommandDialog.show(ctx, meta.key) {
+                            notifyItemChanged(pos)
+                        }
+                    }
+                }
+            }
+
+            private fun bindWinLongSpin(
+                meta: ShortcutMeta,
+                cfg: Config,
+                b: ItemShortcutRowBinding,
+                pos: Int
+            ) {
+                val ctx = requireContext()
+                val modes = WinLongPressUiMode.entries
+                val modeLabels = modes.map { it.displayName(ctx) }
+                val currentMode = ShortcutMeta.getWinLongPressUiMode(cfg)
+
+                b.spAction.setAdapter(null)
+                b.spAction.setAdapter(ArrayAdapter(ctx, R.layout.dropdown_item_wrap, modeLabels))
+                b.spAction.threshold = Int.MAX_VALUE
+                b.spAction.setText(currentMode.displayName(ctx), false)
+                b.spAction.isEnabled = true
+                b.tilAction.isEnabled = true
+                b.tilAction.visibility = View.VISIBLE
+
+                b.root.setOnClickListener {
+                    if (openSpinnerPos == pos) {
+                        openSpinnerPos = -1
+                        return@setOnClickListener
+                    }
+                    b.spAction.showDropDown()
+                    openSpinnerPos = pos
+                }
+                b.root.setOnLongClickListener {
+                    if (ShortcutMeta.getWinLongPressUiMode(cfg) == WinLongPressUiMode.CUSTOM) {
+                        AppKeyCommandDialog.show(ctx, meta.key) {
+                            notifyItemChanged(pos)
+                        }
+                    }
+                    true
+                }
+
+                b.spAction.setOnItemClickListener { _, _, itemPos, _ ->
+                    openSpinnerPos = -1
+                    val selected = modes[itemPos]
+                    ShortcutMeta.setWinLongPressUiMode(cfg, selected)
+                    cfg.save()
+                    Config.syncToSharedPrefs(ctx, cfg)
+                    b.spAction.setText(selected.displayName(ctx), false)
+                    LogHelper.log(LogHelper.VerboseLevel.INFO,
+                        "Win long mode: ", selected.name)
+                    if (selected == WinLongPressUiMode.CUSTOM) {
+                        AppKeyCommandDialog.show(ctx, meta.key) {
+                            notifyItemChanged(pos)
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -662,6 +849,11 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                         host.startActivity(Intent(host.requireContext(), IMESettingsActivity::class.java))
                     }
                 ),
+                SettingItem.Tap(ctx.getString(R.string.settings_termux_perm_entry), ctx.getString(R.string.settings_termux_perm_entry_desc),
+                    onClick = {
+                        TermuxPermissionDialog.show(host.requireContext())
+                    }
+                ),
                 SettingItem.Switch(ctx.getString(R.string.settings_onevision), ctx.getString(R.string.settings_onevision_desc),
                     getChecked = { cfg.oneVisionFeatureEnabled },
                     onChanged = { cfg.oneVisionFeatureEnabled = it; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
@@ -693,10 +885,7 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                     },
                     onSelected = { idx ->
                         val tag = LocaleHelper.ENTRIES[idx].tag
-                        cfg.localeOverride = tag
-                        cfg.save()
-                        Config.syncToSharedPrefs(host.requireContext(), cfg)
-                        LocaleHelper.applyAndRecreate(tag)
+                        LocaleHelper.applyAndRecreate(host.requireContext(), tag)
                     }
                 ),
                 SettingItem.Combo(ctx.getString(R.string.settings_meta_label), ctx.getString(R.string.settings_meta_label_desc),

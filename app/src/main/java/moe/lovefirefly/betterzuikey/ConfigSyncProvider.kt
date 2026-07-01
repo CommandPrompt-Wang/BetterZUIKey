@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
+import moe.lovefirefly.betterzuikey.Utils.LogHelper
 
 /**
  * ContentProvider for App → system_server cross-process config sync via Binder IPC.
@@ -29,10 +30,21 @@ class ConfigSyncProvider : ContentProvider() {
         const val METHOD_BOOT_MARK = "bootMark"
         const val METHOD_BOOT_MARK_APP = "bootMarkApp"
         const val METHOD_ESC_CHECK_RESULT = "escCheckResult"
+        const val METHOD_SET_KEYBOARD_DETECT = "setKeyboardDetect"
+        const val METHOD_GET_KEYBOARD_DETECT = "getKeyboardDetect"
+        const val METHOD_RUN_APP_KEY_COMMAND = "runAppKeyCommand"
+        const val METHOD_OPEN_APP_KEY_EDITOR = "openAppKeyCommandEditor"
+        const val KEY_OPEN_APP_KEY_EDITOR = "open_app_key_editor"
         const val KEY_CONFIG_JSON = "config_json"
         const val KEY_BOOT_TIME = "boot_time"
         const val KEY_BOOT_TIME_APP = "boot_time_app"
         const val KEY_ESC_RESULT = "esc_check_result"
+        const val KEY_KEYBOARD_DETECT = "keyboard_detect_active"
+        const val KEY_APP_KEY_SCRIPT = "app_key_script"
+        const val KEY_APP_KEY_ROOT = "app_key_root"
+        const val KEY_APP_KEY_SINGLETON = "app_key_singleton"
+        const val KEY_APP_KEY_TIMEOUT_MIN = "app_key_timeout_min"
+        private const val PREF_KEYBOARD_DETECT = "keyboard_detect_active"
     }
 
     override fun onCreate(): Boolean = true
@@ -79,6 +91,45 @@ class ConfigSyncProvider : ContentProvider() {
                     ?.edit()?.putBoolean(KEY_ESC_RESULT, detected)
                     ?.putBoolean("esc_check_requested", false)
                     ?.apply()
+                null
+            }
+            METHOD_SET_KEYBOARD_DETECT -> {
+                val active = extras?.getBoolean(KEY_KEYBOARD_DETECT, false) ?: false
+                context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    ?.edit()?.putBoolean(PREF_KEYBOARD_DETECT, active)?.commit()
+                null
+            }
+            METHOD_GET_KEYBOARD_DETECT -> {
+                val prefs = context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                val active = prefs?.getBoolean(PREF_KEYBOARD_DETECT, false) ?: false
+                Bundle().apply { putBoolean(KEY_KEYBOARD_DETECT, active) }
+            }
+            METHOD_RUN_APP_KEY_COMMAND -> {
+                val script = extras?.getString(KEY_APP_KEY_SCRIPT) ?: return@call null
+                val root = extras?.getBoolean(KEY_APP_KEY_ROOT, false) ?: false
+                val singleton = extras?.getBoolean(KEY_APP_KEY_SINGLETON, true) ?: true
+                val timeoutMin = extras?.getInt(KEY_APP_KEY_TIMEOUT_MIN, 1) ?: 1
+                val ctx = context ?: return@call null
+                AppKeyCommandExecutor.runAsync(ctx, script, root, singleton, timeoutMin)
+                null
+            }
+            METHOD_OPEN_APP_KEY_EDITOR -> {
+                val appKey = extras?.getString(KEY_OPEN_APP_KEY_EDITOR) ?: run {
+                    LogHelper.log(LogHelper.VerboseLevel.WARNING, "AppKeyEditor: IPC missing appKey")
+                    return@call null
+                }
+                if (appKey != "keyApp1" && appKey != "keyApp2") {
+                    LogHelper.log(LogHelper.VerboseLevel.WARNING, "AppKeyEditor: IPC invalid appKey=", appKey)
+                    return@call null
+                }
+                val ctx = context ?: run {
+                    LogHelper.log(LogHelper.VerboseLevel.WARNING, "AppKeyEditor: IPC context null")
+                    return@call null
+                }
+                LogHelper.log(LogHelper.VerboseLevel.INFO, "AppKeyEditor: IPC received appKey=", appKey)
+                AppKeyEditorLauncher.open(ctx, appKey)
                 null
             }
             "getEscRequest" -> {
@@ -142,6 +193,24 @@ class ConfigSyncProvider : ContentProvider() {
                 context?.getSharedPreferences(
                     RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.remove("grant_secure_requested")?.apply()
+                null
+            }
+            "setGrantTermuxRequest" -> {
+                context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    ?.edit()?.putBoolean("grant_termux_requested", true)?.apply()
+                null
+            }
+            "getGrantTermuxRequest" -> {
+                val prefs = context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                Bundle().apply { putBoolean("requested",
+                    prefs?.getBoolean("grant_termux_requested", false) ?: false) }
+            }
+            "clearGrantTermuxRequest" -> {
+                context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    ?.edit()?.remove("grant_termux_requested")?.apply()
                 null
             }
             "drainSysWriteQueue" -> {

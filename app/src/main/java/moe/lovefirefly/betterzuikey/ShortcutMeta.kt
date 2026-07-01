@@ -38,6 +38,20 @@ enum class OnSpinSelectedNonDefault {
 }
 
 /**
+ * Win 长按卡片 UI 四档模式。
+ */
+enum class WinLongPressUiMode {
+    FOLLOW_SYSTEM, ZUI, BLOCK, CUSTOM;
+
+    fun displayName(context: Context): String = when (this) {
+        FOLLOW_SYSTEM -> context.getString(R.string.mode_follow_system)
+        ZUI -> context.getString(R.string.mode_zui)
+        BLOCK -> context.getString(R.string.mode_block)
+        CUSTOM -> context.getString(R.string.app_key_mode_custom)
+    }
+}
+
+/**
  * 快捷方式元数据 — UI 渲染所需信息。
  *
  * @param key             主 Config 字段 key（如 "winUp"）
@@ -97,7 +111,9 @@ data class ShortcutMeta(
 
             // ═══ Win (Meta) 单键 ═══
             ShortcutMeta("metaSingle",       R.string.shortcut_metaSingle,       R.string.shortcut_metaSingle_desc,       hasZui = true,  hasAosp = true, hasSystemSwitch = false, showOffOption = false),
-            ShortcutMeta("winLongPress",     R.string.shortcut_winLongPress,     R.string.shortcut_winLongPress_desc,     hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("winLongPress",     R.string.shortcut_winLongPress,     R.string.shortcut_winLongPress_desc,     hasZui = true,  hasSystemSwitch = false,
+                showOffOption = false, showAospOption = false,
+                onSpinSelectedNonDefault = OnSpinSelectedNonDefault.NOTHING),
 
             // ═══ Ctrl ═══
             ShortcutMeta("ctrlCard",    R.string.shortcut_ctrlCard,    R.string.shortcut_ctrlCard_desc,
@@ -111,25 +127,13 @@ data class ShortcutMeta(
             // ═══ Alt ═══
             ShortcutMeta("altTab",      R.string.shortcut_altTab,      R.string.shortcut_altTab_desc,      hasZui = true,  hasAosp = true),
 
-            // ═══ 功能键 ═══
-            ShortcutMeta("keyMute",         R.string.shortcut_keyMute,         R.string.shortcut_keyMute_desc,         hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyTouchpad",     R.string.shortcut_keyTouchpad,     R.string.shortcut_keyTouchpad_desc,     hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySplitScreen",  R.string.shortcut_keySplitScreen,  R.string.shortcut_keySplitScreen_desc,  hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySuperConnect", R.string.shortcut_keySuperConnect, R.string.shortcut_keySuperConnect_desc, hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySearch",       R.string.shortcut_keySearch,       R.string.shortcut_keySearch_desc,       hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySettings",     R.string.shortcut_keySettings,     R.string.shortcut_keySettings_desc,     hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyApp1",         R.string.shortcut_keyApp1,         R.string.shortcut_keyApp1_desc,         hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyApp2",         R.string.shortcut_keyApp2,         R.string.shortcut_keyApp2_desc,         hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyFnLock",       R.string.shortcut_keyFnLock,       R.string.shortcut_keyFnLock_desc,       hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyBacklight",    R.string.shortcut_keyBacklight,    R.string.shortcut_keyBacklight_desc,    hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyTpUp",         R.string.shortcut_keyTpUp,         R.string.shortcut_keyTpUp_desc,         hasZui = true,  hasAosp = true, hasSystemSwitch = false),
-            ShortcutMeta("keyScreenLock",   R.string.shortcut_keyScreenLock,   R.string.shortcut_keyScreenLock_desc,   hasZui = true,  hasSystemSwitch = false),
-
-            // ═══ 截图 & 键盘 ═══
-            ShortcutMeta("printScreenShort", R.string.shortcut_printScreenShort, R.string.shortcut_printScreenShort_desc, hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("printScreenLong",  R.string.shortcut_printScreenLong,  R.string.shortcut_printScreenLong_desc,  hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyKeyboardRestore",  R.string.shortcut_keyKeyboardRestore,  R.string.shortcut_keyKeyboardRestore_desc,  hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyKeyboardReverse",  R.string.shortcut_keyKeyboardReverse,  R.string.shortcut_keyKeyboardReverse_desc,  hasZui = true,  hasSystemSwitch = false),
+            // ═══ 智能键 (507/508) ═══
+            ShortcutMeta("keyApp1",         R.string.shortcut_keyApp1,         R.string.shortcut_keyApp1_desc,         hasZui = true,  hasSystemSwitch = false,
+                showOffOption = false, showAospOption = false,
+                onSpinSelectedNonDefault = OnSpinSelectedNonDefault.NOTHING),
+            ShortcutMeta("keyApp2",         R.string.shortcut_keyApp2,         R.string.shortcut_keyApp2_desc,         hasZui = true,  hasSystemSwitch = false,
+                showOffOption = false, showAospOption = false,
+                onSpinSelectedNonDefault = OnSpinSelectedNonDefault.NOTHING),
 
             // ═══ AOSP 辅助键 ═══
             ShortcutMeta("aospBounceKeys",  R.string.shortcut_aospBounceKeys,  R.string.shortcut_aospBounceKeys_desc,  hasZui = false, hasAosp = true, hasSystemSwitch = false,
@@ -143,6 +147,115 @@ data class ShortcutMeta(
         )
 
         // ── 直接字段访问：替代不可靠的反射（Config.java 字段命名不一致导致反射失败）──
+
+        fun isAppKey(key: String): Boolean = key == "keyApp1" || key == "keyApp2"
+
+        /** 智能键：三档 Spin（跟随系统 / 忽略 / 执行命令…） */
+        fun usesAppKeyMode(key: String): Boolean = isAppKey(key)
+
+        fun getWinLongPressUiMode(cfg: Config): WinLongPressUiMode = when {
+            cfg.winLongUseCommand -> WinLongPressUiMode.CUSTOM
+            cfg.overrideWinLongPress == Config.OverrideMode.BLOCK -> WinLongPressUiMode.BLOCK
+            cfg.overrideWinLongPress == Config.OverrideMode.ZUI -> WinLongPressUiMode.ZUI
+            else -> WinLongPressUiMode.FOLLOW_SYSTEM
+        }
+
+        fun setWinLongPressUiMode(cfg: Config, mode: WinLongPressUiMode) {
+            when (mode) {
+                WinLongPressUiMode.CUSTOM -> {
+                    cfg.winLongUseCommand = true
+                }
+                WinLongPressUiMode.BLOCK -> {
+                    cfg.winLongUseCommand = false
+                    cfg.overrideWinLongPress = Config.OverrideMode.BLOCK
+                }
+                WinLongPressUiMode.ZUI -> {
+                    cfg.winLongUseCommand = false
+                    cfg.overrideWinLongPress = Config.OverrideMode.ZUI
+                }
+                WinLongPressUiMode.FOLLOW_SYSTEM -> {
+                    cfg.winLongUseCommand = false
+                    cfg.overrideWinLongPress = Config.OverrideMode.FOLLOW_SYSTEM
+                }
+            }
+        }
+
+        fun getAppKeyMode(cfg: Config, key: String): Config.AppKeyMode = when (key) {
+            "keyApp1" -> cfg.app1Mode
+            "keyApp2" -> cfg.app2Mode
+            else -> Config.AppKeyMode.FOLLOW_SYSTEM
+        }
+
+        fun setAppKeyMode(cfg: Config, key: String, value: Config.AppKeyMode) {
+            when (key) {
+                "keyApp1" -> cfg.app1Mode = value
+                "keyApp2" -> cfg.app2Mode = value
+            }
+        }
+
+        fun getAppKeyCommand(cfg: Config, key: String): String = when (key) {
+            "keyApp1" -> cfg.app1Command ?: ""
+            "keyApp2" -> cfg.app2Command ?: ""
+            "winLongPress" -> cfg.winLongCommand ?: ""
+            else -> ""
+        }
+
+        fun setAppKeyCommand(cfg: Config, key: String, command: String) {
+            when (key) {
+                "keyApp1" -> cfg.app1Command = command
+                "keyApp2" -> cfg.app2Command = command
+                "winLongPress" -> cfg.winLongCommand = command
+            }
+        }
+
+        fun getAppKeyCommandRoot(cfg: Config, key: String): Boolean = when (key) {
+            "keyApp1" -> cfg.app1CommandRoot
+            "keyApp2" -> cfg.app2CommandRoot
+            "winLongPress" -> cfg.winLongCommandRoot
+            else -> false
+        }
+
+        fun setAppKeyCommandRoot(cfg: Config, key: String, root: Boolean) {
+            when (key) {
+                "keyApp1" -> cfg.app1CommandRoot = root
+                "keyApp2" -> cfg.app2CommandRoot = root
+                "winLongPress" -> cfg.winLongCommandRoot = root
+            }
+        }
+
+        fun getAppKeyCommandSingleton(cfg: Config, key: String): Boolean = when (key) {
+            "keyApp1" -> cfg.app1CommandSingleton
+            "keyApp2" -> cfg.app2CommandSingleton
+            "winLongPress" -> cfg.winLongCommandSingleton
+            else -> true
+        }
+
+        fun setAppKeyCommandSingleton(cfg: Config, key: String, singleton: Boolean) {
+            when (key) {
+                "keyApp1" -> cfg.app1CommandSingleton = singleton
+                "keyApp2" -> cfg.app2CommandSingleton = singleton
+                "winLongPress" -> cfg.winLongCommandSingleton = singleton
+            }
+        }
+
+        fun getAppKeyCommandTimeoutMin(cfg: Config, key: String): Int = when (key) {
+            "keyApp1" -> cfg.app1CommandTimeoutMin
+            "keyApp2" -> cfg.app2CommandTimeoutMin
+            "winLongPress" -> cfg.winLongCommandTimeoutMin
+            else -> 1
+        }
+
+        fun setAppKeyCommandTimeoutMin(cfg: Config, key: String, minutes: Int) {
+            val value = when (minutes) {
+                5, 10 -> minutes
+                else -> 1
+            }
+            when (key) {
+                "keyApp1" -> cfg.app1CommandTimeoutMin = value
+                "keyApp2" -> cfg.app2CommandTimeoutMin = value
+                "winLongPress" -> cfg.winLongCommandTimeoutMin = value
+            }
+        }
 
         /** 从 Config 读取 SwitchState（直接字段访问，不使用反射） */
         fun getSwitch(cfg: Config, key: String): Config.SwitchState = when (key) {
@@ -224,7 +337,16 @@ data class ShortcutMeta(
             "keyMute" -> cfg.overrideMute; "keyTouchpad" -> cfg.overrideTouchpad
             "keySplitScreen" -> cfg.overrideSplitScreen
             "keySuperConnect" -> cfg.overrideSuperConnect
-            "keyApp1" -> cfg.app1LongPressOverride; "keyApp2" -> cfg.app2LongPressOverride
+            "keyApp1" -> when (cfg.app1Mode) {
+                Config.AppKeyMode.FOLLOW_SYSTEM -> Config.OverrideMode.FOLLOW_SYSTEM
+                Config.AppKeyMode.BLOCK -> Config.OverrideMode.BLOCK
+                Config.AppKeyMode.CUSTOM -> Config.OverrideMode.ZUI
+            }
+            "keyApp2" -> when (cfg.app2Mode) {
+                Config.AppKeyMode.FOLLOW_SYSTEM -> Config.OverrideMode.FOLLOW_SYSTEM
+                Config.AppKeyMode.BLOCK -> Config.OverrideMode.BLOCK
+                Config.AppKeyMode.CUSTOM -> Config.OverrideMode.ZUI
+            }
             "keySearch" -> cfg.overrideSearch; "keySettings" -> cfg.overrideSettings
             "keyFnLock" -> cfg.overrideFnLock; "keyBacklight" -> cfg.overrideBacklight
             "keyTpUp" -> cfg.overrideTpUp; "keyScreenLock" -> cfg.overrideScreenLock
@@ -234,7 +356,11 @@ data class ShortcutMeta(
                 val v = cfg.overrideMetaSingle
                 if (v == Config.OverrideMode.OFF) Config.OverrideMode.BLOCK else v
             }
-            "winLongPress" -> cfg.overrideWinLongPress
+            "winLongPress" -> if (cfg.winLongUseCommand) {
+                Config.OverrideMode.ZUI
+            } else {
+                cfg.overrideWinLongPress
+            }
             "keyKeyboardRestore" -> cfg.overrideKeyboardRestore
             "keyKeyboardReverse" -> cfg.overrideKeyboardReverse
             "aospBounceKeys" -> cfg.overrideAospBounceKeys
@@ -262,8 +388,18 @@ data class ShortcutMeta(
                 "keyMute" -> cfg.overrideMute = value; "keyTouchpad" -> cfg.overrideTouchpad = value
                 "keySplitScreen" -> cfg.overrideSplitScreen = value
                 "keySuperConnect" -> cfg.overrideSuperConnect = value
-                "keyApp1" -> cfg.app1LongPressOverride = value
-                "keyApp2" -> cfg.app2LongPressOverride = value
+                "keyApp1" -> cfg.app1Mode = when (value) {
+                    Config.OverrideMode.BLOCK, Config.OverrideMode.OFF -> Config.AppKeyMode.BLOCK
+                    Config.OverrideMode.FOLLOW_SYSTEM, Config.OverrideMode.ZUI,
+                    Config.OverrideMode.AOSP -> Config.AppKeyMode.FOLLOW_SYSTEM
+                    else -> Config.AppKeyMode.CUSTOM
+                }
+                "keyApp2" -> cfg.app2Mode = when (value) {
+                    Config.OverrideMode.BLOCK, Config.OverrideMode.OFF -> Config.AppKeyMode.BLOCK
+                    Config.OverrideMode.FOLLOW_SYSTEM, Config.OverrideMode.ZUI,
+                    Config.OverrideMode.AOSP -> Config.AppKeyMode.FOLLOW_SYSTEM
+                    else -> Config.AppKeyMode.CUSTOM
+                }
                 "keySearch" -> cfg.overrideSearch = value; "keySettings" -> cfg.overrideSettings = value
                 "keyFnLock" -> cfg.overrideFnLock = value; "keyBacklight" -> cfg.overrideBacklight = value
                 "keyTpUp" -> cfg.overrideTpUp = value; "keyScreenLock" -> cfg.overrideScreenLock = value
@@ -271,7 +407,21 @@ data class ShortcutMeta(
                 "printScreenLong" -> cfg.overridePrintScreenLong = value
                 "metaSingle" -> cfg.overrideMetaSingle =
                     if (value == Config.OverrideMode.OFF) Config.OverrideMode.BLOCK else value
-                "winLongPress" -> cfg.overrideWinLongPress = value
+                "winLongPress" -> when (value) {
+                    Config.OverrideMode.BLOCK, Config.OverrideMode.OFF -> {
+                        cfg.winLongUseCommand = false
+                        cfg.overrideWinLongPress = Config.OverrideMode.BLOCK
+                    }
+                    Config.OverrideMode.ZUI, Config.OverrideMode.AOSP -> {
+                        cfg.winLongUseCommand = false
+                        cfg.overrideWinLongPress = Config.OverrideMode.ZUI
+                    }
+                    Config.OverrideMode.FOLLOW_SYSTEM -> {
+                        cfg.winLongUseCommand = false
+                        cfg.overrideWinLongPress = Config.OverrideMode.FOLLOW_SYSTEM
+                    }
+                    else -> cfg.winLongUseCommand = true
+                }
                 "keyKeyboardRestore" -> cfg.overrideKeyboardRestore = value
                 "keyKeyboardReverse" -> cfg.overrideKeyboardReverse = value
                 "aospBounceKeys" -> cfg.overrideAospBounceKeys = value
@@ -308,6 +458,18 @@ fun ShortcutMeta.displayDesc(context: Context): CharSequence {
     sp.setSpan(android.text.style.ForegroundColorSpan(0xFFCC8800.toInt()),
         idx, raw.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
     return sp
+}
+
+fun Config.AppKeyMode.displayName(context: Context): String = when (this) {
+    Config.AppKeyMode.FOLLOW_SYSTEM -> context.getString(R.string.app_key_mode_follow_system)
+    Config.AppKeyMode.BLOCK -> context.getString(R.string.app_key_mode_block)
+    Config.AppKeyMode.CUSTOM -> context.getString(R.string.app_key_mode_custom)
+}
+
+fun Config.AppKeyMode.displayName(): String = when (this) {
+    Config.AppKeyMode.FOLLOW_SYSTEM -> "Follow system"
+    Config.AppKeyMode.BLOCK -> "Block"
+    Config.AppKeyMode.CUSTOM -> "Run command…"
 }
 
 /**

@@ -219,7 +219,7 @@
 
     <!-- Win long press → Voice Assistant shortcut -->
     <string name="shortcut_winLongPress">%1$s (long press)</string>
-    <string name="shortcut_winLongPress_desc">Launch voice assistant</string>
+    <string name="shortcut_winLongPress_desc">Keep default: pass through (system decides). Use ZUX: module voice assistant. Run command…: long-press runs your script</string>
 
     <!-- ================================================================ -->
     <!-- AOSP Accessibility (activity_aosp_settings.xml + AospSettingsActivity) -->
@@ -360,6 +360,47 @@
     <string name="mode_off">Off</string>
     <string name="mode_block">Block</string>
 
+    <!-- Smart key (507/508) modes -->
+    <string name="app_key_mode_follow_system">Follow system</string>
+    <string name="app_key_mode_block">Block</string>
+    <string name="app_key_mode_custom">Run command…</string>
+    <string name="dialog_app_key_command_window_title">Run command: %1$s</string>
+    <string name="dialog_app_key_command_title">Script editor</string>
+    <string name="dialog_app_key_command_desc"><![CDATA[Enter your script here. It runs in the standard Android shell environment.<br/><br/>For advanced tasks, install <a href="https://github.com/termux/termux-app/releases">Termux</a> and its add-ons, then apply a Termux template and fill in your script. BetterZUIKey will invoke Termux to run it.<br/><br/>If the script does not run, <a href="betterzuikey://termux-permission">grant Termux RUN_COMMAND permission</a> and try again.]]></string>
+    <string name="dialog_app_key_command_apply_template">Load template</string>
+    <string name="dialog_app_key_command_save">Save</string>
+    <string name="dialog_app_key_command_paste">Paste from clipboard</string>
+    <string name="dialog_app_key_command_test">Test</string>
+    <string name="dialog_app_key_command_stdout">Stdout:</string>
+    <string name="dialog_app_key_command_running">Running…</string>
+    <string name="dialog_app_key_command_empty">Script is empty.</string>
+    <string name="dialog_app_key_command_no_output">(no output)</string>
+    <string name="dialog_app_key_command_exit_format">exit %1$d\n%2$s</string>
+    <string name="dialog_app_key_command_run_as_root">Run as root (su -c)</string>
+    <string name="dialog_app_key_command_singleton">Singleton (kill previous run)</string>
+    <string name="dialog_app_key_command_timeout_label">Timeout:</string>
+    <string name="dialog_app_key_command_timeout_1m">1 min</string>
+    <string name="dialog_app_key_command_timeout_5m">5 min</string>
+    <string name="dialog_app_key_command_timeout_10m">10 min</string>
+    <string name="dialog_app_key_command_termux_perm">Termux permission</string>
+    <string name="dialog_app_key_command_timeout_format">Timed out after %1$d min\n%2$s</string>
+    <string name="app_key_template_termux_full">Termux external (full)</string>
+    <string name="app_key_template_termux_short">Termux external (simple)</string>
+    <string name="app_key_template_launchapp_short">Launch app (simple)</string>
+    <string name="app_key_template_launchapp_full">Launch app (full)</string>
+
+    <!-- Termux RUN_COMMAND permission -->
+    <string name="dialog_termux_perm_title">Termux RUN_COMMAND permission</string>
+    <string name="dialog_termux_perm_message">Per the Termux RUN_COMMAND documentation, this app must be granted com.termux.permission.RUN_COMMAND before Termux can run scripts on its behalf.\n\nIf not yet granted, you can:\n1. Tap \"Try grant\" below to auto-grant\n2. Run one of these in a privileged shell (long-press to copy):</string>
+    <string name="dialog_termux_perm_try">Try grant</string>
+    <string name="dialog_termux_perm_close">Close</string>
+    <string name="dialog_termux_perm_loading">Please wait…</string>
+    <string name="dialog_termux_perm_success">Termux RUN_COMMAND permission granted.</string>
+    <string name="settings_termux_perm_entry">Termux RUN_COMMAND permission</string>
+    <string name="settings_termux_perm_entry_desc">Grant com.termux.permission.RUN_COMMAND for external script execution</string>
+    <string name="dialog_termux_perm_status_granted">Status: permission granted.</string>
+    <string name="dialog_termux_perm_failed">Unable to grant Termux permission.\n\nsu: %1$s\n\nTry the shell commands above, or grant manually in App info → Permissions.</string>
+
     <!-- Shortcut display names and descriptions -->
     <string name="shortcut_winD">%1$s + D</string>
     <string name="shortcut_winD_desc">Go to desktop</string>
@@ -413,10 +454,10 @@
     <string name="shortcut_keySplitScreen_desc">Split screen toggle</string>
     <string name="shortcut_keySuperConnect">505 Super Connect</string>
     <string name="shortcut_keySuperConnect_desc">Launch Super Connect</string>
-    <string name="shortcut_keyApp1">507 App1</string>
-    <string name="shortcut_keyApp1_desc">Custom key (short press behavior / long press settings)</string>
-    <string name="shortcut_keyApp2">508 App2</string>
-    <string name="shortcut_keyApp2_desc">Custom key (short press behavior / long press settings)</string>
+    <string name="shortcut_keyApp1">Smart Key 1 (507)</string>
+    <string name="shortcut_keyApp1_desc">Long-press here for system settings. When Run command… is selected, long-pressing the smart key opens the script editor instead</string>
+    <string name="shortcut_keyApp2">Smart Key 2 (508)</string>
+    <string name="shortcut_keyApp2_desc">Long-press here for system settings. When Run command… is selected, long-pressing the smart key opens the script editor instead\nNot available on some keyboards</string>
     <string name="shortcut_keySearch">509 Search</string>
     <string name="shortcut_keySearch_desc">Global search</string>
     <string name="shortcut_keySettings">510 Settings</string>

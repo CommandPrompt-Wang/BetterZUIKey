@@ -18,6 +18,12 @@ public class L4Interceptor  {
 
         public void intercept(HookCompat.HookParam param) {
         ctx.checkConfigChanged();
+
+        if (ctx.isDetectMode()) {
+            param.setResult(null);
+            return;
+        }
+
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
 
@@ -129,13 +135,6 @@ public class L4Interceptor  {
                     if (ctx.applyL4BlockAction(ctx.ra("winLeft", ctx.cfg.overrideWinLeft), "L4: Win+Arrow (312)"))
                         blocked = true;
                     break;
-                case 313: // 505 Super Connect key
-                    if (!ctx.r("keySuperConnect", ctx.cfg.switchKeySuperConnect).isEnabled())
-                        break;
-                    if (ctx.applyL4BlockAction(ctx.ra("keySuperConnect", ctx.cfg.overrideSuperConnect),
-                            "L4: SuperConnect (313)"))
-                        blocked = true;
-                    break;
                 case 21: // Meta single press → Start Menu
                     {
                         Config.OverrideMode override = ctx.ra("metaSingle",
@@ -149,6 +148,14 @@ public class L4Interceptor  {
                         }
                         if (override == Config.OverrideMode.BLOCK) {
                             MetaTrace.decision("L4", "BLOCK type=21", "BLOCK");
+                            param.setResult(-1);
+                            return;
+                        }
+                        if (ctx.metaSuppressStartMenu
+                                || ctx.metaSession.winComboUsed
+                                || ctx.metaSession.fnMapped) {
+                            MetaTrace.decision("L4", "BLOCK type=21", "Win combo used");
+                            ctx.metaSuppressStartMenu = false;
                             param.setResult(-1);
                             return;
                         }

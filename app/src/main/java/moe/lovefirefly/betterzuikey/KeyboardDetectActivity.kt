@@ -44,6 +44,16 @@ class KeyboardDetectActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        setDetectModeActive(true)
+    }
+
+    override fun onPause() {
+        setDetectModeActive(false)
+        super.onPause()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (Config.load().dynamicColorEnabled) {
@@ -77,6 +87,7 @@ class KeyboardDetectActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        setDetectModeActive(false)
         super.onDestroy()
         handler.removeCallbacks(propPollRunnable)
     }
@@ -253,30 +264,43 @@ class KeyboardDetectActivity : AppCompatActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.action != KeyEvent.ACTION_DOWN) return super.dispatchKeyEvent(event)
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            val device = event.device
+            val keyCode = event.keyCode
+            val scanCode = event.scanCode
+            currentKeyCode = keyCode
+            currentScanCode = scanCode
+            updateKeycodeDisplay(keyCode, scanCode)
 
-        val device = event.device ?: return super.dispatchKeyEvent(event)
-        val vid = device.vendorId
-        val pid = device.productId
-
-        if (vid == 0 && pid == 0) return super.dispatchKeyEvent(event)
-
-        val keyCode = event.keyCode
-        val scanCode = event.scanCode
-        currentKeyCode = keyCode
-        currentScanCode = scanCode
-        updateKeycodeDisplay(keyCode, scanCode)
-
-        if (!detected) {
-            detected = true
-            val vidPid = String.format("%04x:%04x", vid, pid)
-            binding.tvVidpid.text = vidPid
-            binding.tvDeviceName.text = device.name
-            binding.layoutResult.visibility = View.VISIBLE
-            binding.tvHint.text = getString(R.string.detect_hint_fill)
+            if (device != null) {
+                val vid = device.vendorId
+                val pid = device.productId
+                if ((vid != 0 || pid != 0) && !detected) {
+                    detected = true
+                    binding.tvVidpid.text = String.format("%04x:%04x", vid, pid)
+                    binding.tvDeviceName.text = device.name
+                    binding.layoutResult.visibility = View.VISIBLE
+                    binding.tvHint.text = getString(R.string.detect_hint_fill)
+                }
+            }
         }
-
+        // Consume every key on this page so ZUI/system shortcuts cannot fire.
         return true
+    }
+
+    private fun setDetectModeActive(active: Boolean) {
+        try {
+            contentResolver.call(
+                ConfigSyncProvider.RELOAD_URI,
+                ConfigSyncProvider.METHOD_SET_KEYBOARD_DETECT,
+                null,
+                Bundle().apply {
+                    putBoolean(ConfigSyncProvider.KEY_KEYBOARD_DETECT, active)
+                }
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("BetterZUIKey", "setKeyboardDetect IPC failed", e)
+        }
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()

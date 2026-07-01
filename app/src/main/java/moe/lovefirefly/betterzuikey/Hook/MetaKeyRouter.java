@@ -146,8 +146,10 @@ public class MetaKeyRouter {
 
         // Fn mapping consumed a key during this Meta press — Win was a modifier,
         // not a standalone press. Consume UP without opening Start Menu.
-        if (ctx.metaSession.fnMapped) {
-            consumed = consumeUp(param, zuiMeta, "fnMapped → suppress menu");
+        if (ctx.metaSession.fnMapped || ctx.metaSession.winComboUsed) {
+            String reason = ctx.metaSession.fnMapped
+                    ? "fnMapped → suppress menu" : "winCombo → suppress menu";
+            consumed = consumeUp(param, zuiMeta, reason);
             ctx.metaSession.clear();
             return consumed;
         }
@@ -195,22 +197,25 @@ public class MetaKeyRouter {
             LogHelper.log(VerboseLevel.INFO,
                     "MetaRouter: arm IME long timer 500ms (acceptingText=true)");
             ctx.fnKeyManager.startWinLongPressTimer(looperSource, () -> onModuleLongFiredIme());
-        } else if (isVoiceLongPressEnabled()) {
-            Config.OverrideMode winLong = ctx.ra("winLongPress", ctx.cfg.overrideWinLongPress);
+        } else if (isWinLongTimerEnabled()) {
+            Config.OverrideMode winLong = getWinLongOverride();
+            boolean cmd = isWinLongUseCommand();
             PassthroughTrace.note("Router",
-                    "arm voice timer 2000ms winLong=" + winLong.name(), event);
+                    "arm winLong timer 2000ms override=" + winLong.name()
+                            + " cmd=" + cmd, event);
             LogHelper.log(VerboseLevel.INFO,
-                    "MetaRouter: arm voice long timer 2000ms winLong=", winLong.name(),
+                    "MetaRouter: arm win long timer 2000ms override=", winLong.name(),
+                    " cmd=", String.valueOf(cmd),
                     " dev=", String.valueOf(ctx.metaSession.deviceId));
             ctx.fnKeyManager.startWinLongPressOnce(looperSource,
                     HookContext.ZUI_META_LONG_PRESS_MS,
-                    this::onModuleLongFiredVoice);
+                    this::onModuleLongFiredWinLong);
         } else {
-            Config.OverrideMode winLong = ctx.ra("winLongPress", ctx.cfg.overrideWinLongPress);
             PassthroughTrace.note("Router",
-                    "voice disabled winLong=" + winLong.name(), event);
+                    "win long pass-through override=" + getWinLongOverride().name(), event);
             LogHelper.log(VerboseLevel.INFO,
-                    "MetaRouter: voice long disabled (winLongPress OFF/BLOCK)");
+                    "MetaRouter: win long pass-through (override=",
+                    getWinLongOverride().name(), ")");
         }
     }
 
@@ -221,13 +226,27 @@ public class MetaKeyRouter {
                 () -> ctx.dispatchWinLongPressIme());
     }
 
-    private void onModuleLongFiredVoice() {
-        if (!isVoiceLongPressEnabled()) return;
+    private void onModuleLongFiredWinLong() {
+        if (!isWinLongTimerEnabled()) return;
+        dispatchWinLongAction();
+    }
+
+    private void dispatchWinLongAction() {
         ctx.metaSession.longFired = true;
-        MetaTrace.decision("Router", "module long → voice");
-        PassthroughTrace.noteMsg("Router", "voice timer fired → launchVoiceAssistant");
-        LogHelper.log(VerboseLevel.INFO, "MetaRouter: module long → voice (2s fired)");
-        ctx.launchVoiceAssistant();
+        if (isWinLongUseCommand()) {
+            MetaTrace.decision("Router", "module long → command");
+            PassthroughTrace.noteMsg("Router", "win long timer fired → RUN_COMMAND");
+            LogHelper.log(VerboseLevel.INFO, "MetaRouter: module long → RUN_COMMAND");
+            ctx.dispatchWinLongCommand();
+            return;
+        }
+        Config.OverrideMode mode = getWinLongOverride();
+        if (mode == Config.OverrideMode.ZUI) {
+            MetaTrace.decision("Router", "module long → voice");
+            PassthroughTrace.noteMsg("Router", "voice timer fired → launchVoiceAssistant");
+            LogHelper.log(VerboseLevel.INFO, "MetaRouter: module long → voice (2s fired)");
+            ctx.launchVoiceAssistant();
+        }
     }
 
     public boolean handleAssistantLongPress() {
@@ -255,23 +274,39 @@ public class MetaKeyRouter {
             return true;
         }
 
-        Config.OverrideMode winLong = ctx.ra("winLongPress", ctx.cfg.overrideWinLongPress);
-        if (winLong == Config.OverrideMode.OFF || winLong == Config.OverrideMode.BLOCK) {
-            LogHelper.log(VerboseLevel.INFO,
-                    "MetaRouter: 2s long → suppress voice (winLong=", winLong.name(), ")");
+        if (isWinLongUseCommand()) {
+            dispatchWinLongAction();
             return true;
         }
-        ctx.metaSession.longFired = true;
-        if (winLong == Config.OverrideMode.ZUI || winLong == Config.OverrideMode.AOSP) {
+
+        Config.OverrideMode winLong = getWinLongOverride();
+        if (winLong == Config.OverrideMode.BLOCK) {
             LogHelper.log(VerboseLevel.INFO,
-                    "MetaRouter: 2s long → voice (winLong=", winLong.name(), ")");
-        } else {
-            // FOLLOW_SYSTEM: ZUI native only handles scanCode=787345; module must call for others.
-            LogHelper.log(VerboseLevel.INFO,
-                    "MetaRouter: 2s long → voice (winLong=FOLLOW_SYSTEM, module)");
+                    "MetaRouter: 2s long → suppress (winLong=", winLong.name(), ")");
+            return true;
         }
-        ctx.launchVoiceAssistant();
-        return true;
+        if (winLong == Config.OverrideMode.ZUI) {
+            dispatchWinLongAction();
+            return true;
+        }
+        // FOLLOW_SYSTEM: 透传，由系统 / ZUI 原生 case 117 决定
+        LogHelper.log(VerboseLevel.INFO,
+                "MetaRouter: 2s long → pass-through (winLong=FOLLOW_SYSTEM)");
+        return false;
+    }
+
+    private boolean isWinLongUseCommand() {
+        return ctx.cfg != null && ctx.cfg.winLongUseCommand;
+    }
+
+    private Config.OverrideMode getWinLongOverride() {
+        if (ctx.cfg == null) return Config.OverrideMode.FOLLOW_SYSTEM;
+        return ctx.ra("winLongPress", ctx.cfg.overrideWinLongPress);
+    }
+
+    private boolean isWinLongTimerEnabled() {
+        if (isWinLongUseCommand()) return true;
+        return getWinLongOverride() == Config.OverrideMode.ZUI;
     }
 
     private boolean isImeWinActive() {
@@ -290,11 +325,6 @@ public class MetaKeyRouter {
                 || imeWinActive;
     }
 
-    private boolean isVoiceLongPressEnabled() {
-        Config.OverrideMode mode = ctx.ra("winLongPress", ctx.cfg.overrideWinLongPress);
-        return mode != Config.OverrideMode.OFF && mode != Config.OverrideMode.BLOCK;
-    }
-
     private static boolean shouldOpenStartMenu(Config.OverrideMode mode) {
         return mode == Config.OverrideMode.ZUI
                 || mode == Config.OverrideMode.FOLLOW_SYSTEM
@@ -307,6 +337,8 @@ public class MetaKeyRouter {
             MetaTrace.decision("Router", "WOULD", "BLOCK UP (any duration)");
         } else if (ctx.metaSession.longFired) {
             MetaTrace.decision("Router", "WOULD", "consume longFired UP (no menu)");
+        } else if (ctx.metaSession.fnMapped || ctx.metaSession.winComboUsed) {
+            MetaTrace.decision("Router", "WOULD", "consume combo UP (no menu)");
         } else if (shortPress && imeWinActive) {
             MetaTrace.decision("Router", "WOULD", "consume + triggerShowAllApps (imeWin)");
         } else if (shortPress && shouldOpenStartMenu(metaSingle)) {

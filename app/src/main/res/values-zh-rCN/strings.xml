@@ -294,6 +294,46 @@
     <string name="mode_off">关闭</string>
     <string name="mode_block">忽略</string>
 
+    <!-- 智能键 (507/508) 模式 -->
+    <string name="app_key_mode_follow_system">跟随系统</string>
+    <string name="app_key_mode_block">忽略</string>
+    <string name="app_key_mode_custom">执行命令…</string>
+    <string name="dialog_app_key_command_window_title">执行命令：%1$s</string>
+    <string name="dialog_app_key_command_title">脚本编辑器</string>
+    <string name="dialog_app_key_command_desc"><![CDATA[在此处键入您的脚本，脚本将使用 Android 标准 shell 环境。<br/><br/>如果您希望调用更复杂的功能，强烈推荐您安装 <a href="https://github.com/termux/termux-app/releases">Termux</a> 和其配套组件，然后点击「加载模板」应用 Termux 模板并填入您的 Termux 脚本信息，此时 BetterZUIKey 将尝试拉起 Termux 执行您的脚本。<br/><br/>如果脚本没有执行，请 <a href="betterzuikey://termux-permission">尝试获取 Termux 执行权限</a> 再试。]]></string>
+    <string name="dialog_app_key_command_apply_template">加载模板</string>
+    <string name="dialog_app_key_command_save">保存</string>
+    <string name="dialog_app_key_command_paste">粘贴自剪贴板</string>
+    <string name="dialog_app_key_command_test">测试</string>
+    <string name="dialog_app_key_command_stdout">标准输出:</string>
+    <string name="dialog_app_key_command_running">运行中…</string>
+    <string name="dialog_app_key_command_empty">脚本为空。</string>
+    <string name="dialog_app_key_command_no_output">（无输出）</string>
+    <string name="dialog_app_key_command_exit_format">exit %1$d\n%2$s</string>
+    <string name="dialog_app_key_command_run_as_root">以 Root 身份运行 (su -c)</string>
+    <string name="dialog_app_key_command_singleton">单例（自动终止旧进程）</string>
+    <string name="dialog_app_key_command_timeout_label">超时：</string>
+    <string name="dialog_app_key_command_timeout_1m">1 分钟</string>
+    <string name="dialog_app_key_command_timeout_5m">5 分钟</string>
+    <string name="dialog_app_key_command_timeout_10m">10 分钟</string>
+    <string name="dialog_app_key_command_termux_perm">Termux 权限</string>
+    <string name="dialog_app_key_command_timeout_format">已超时（%1$d 分钟）\n%2$s</string>
+    <string name="app_key_template_termux_full">Termux 外部调用（完整）</string>
+    <string name="app_key_template_termux_short">Termux 外部调用（简单）</string>
+    <string name="app_key_template_launchapp_short">启动应用（简单）</string>
+    <string name="app_key_template_launchapp_full">启动应用（完整）</string>
+
+    <string name="dialog_termux_perm_title">Termux 执行权限</string>
+    <string name="dialog_termux_perm_message">根据 Termux 文档的要求，应用必须被授予 com.termux.permission.RUN_COMMAND 方能使用 Termux 执行脚本。\n\n如果尚未授权，你可以：\n1. 点击下面按钮尝试自授权\n2. 在有权限的 shell 下面之一执行（长按可复制）：</string>
+    <string name="dialog_termux_perm_try">尝试授权</string>
+    <string name="dialog_termux_perm_close">关闭</string>
+    <string name="dialog_termux_perm_loading">请稍等…</string>
+    <string name="dialog_termux_perm_success">Termux 执行权限已授予。</string>
+    <string name="settings_termux_perm_entry">Termux 执行权限</string>
+    <string name="settings_termux_perm_entry_desc">授予 com.termux.permission.RUN_COMMAND，以便调用 Termux 执行脚本</string>
+    <string name="dialog_termux_perm_status_granted">当前状态：已授予执行权限。</string>
+    <string name="dialog_termux_perm_failed">无法自动授予 Termux 权限。\n\nsu：%1$s\n\n请尝试上方 shell 命令，或在应用信息 → 权限中手动授予。</string>
+
     <!-- 各快捷方式显示名和描述 -->
     <string name="shortcut_winD">%1$s + D</string>
     <string name="shortcut_winD_desc">回到桌面</string>
@@ -347,10 +387,10 @@
     <string name="shortcut_keySplitScreen_desc">分屏开关</string>
     <string name="shortcut_keySuperConnect">505 超级互联</string>
     <string name="shortcut_keySuperConnect_desc">启动超级互联</string>
-    <string name="shortcut_keyApp1">507 App1</string>
-    <string name="shortcut_keyApp1_desc">自定义按键（短按行为 / 长按设置）</string>
-    <string name="shortcut_keyApp2">508 App2</string>
-    <string name="shortcut_keyApp2_desc">自定义按键（短按行为 / 长按设置）</string>
+    <string name="shortcut_keyApp1">智能键1 (507)</string>
+    <string name="shortcut_keyApp1_desc">长按此处打开系统设置。选中「执行命令…」时，长按智能键改为跳转到编辑器</string>
+    <string name="shortcut_keyApp2">智能键2 (508)</string>
+    <string name="shortcut_keyApp2_desc">长按此处打开系统设置。选中「执行命令…」时，长按智能键改为跳转到编辑器\n部分键盘无</string>
     <string name="shortcut_keySearch">509 搜索</string>
     <string name="shortcut_keySearch_desc">全局搜索</string>
     <string name="shortcut_keySettings">510 设置</string>
@@ -478,7 +518,7 @@
 
     <!-- Win 长按 → 语音助手 -->
     <string name="shortcut_winLongPress">%1$s（长按）</string>
-    <string name="shortcut_winLongPress_desc">启动语音助手</string>
+    <string name="shortcut_winLongPress_desc">保持默认：透传，由系统决定。启用 ZUX：模块接管语音助手。「执行命令…」时长按运行脚本</string>
 
     <!-- Meta 键称呼 -->
     <string name="settings_meta_label">按键称呼</string>

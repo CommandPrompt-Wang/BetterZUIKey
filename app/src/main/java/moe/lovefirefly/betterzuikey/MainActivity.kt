@@ -1,5 +1,6 @@
 package moe.lovefirefly.betterzuikey
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
@@ -103,7 +104,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         applyTheme()
-        applyLocale()
+        applyLocale(this)
         super.onCreate(savedInstanceState)
         val cfg = Config.load()
         Config.lastLoadError?.let { showWarningBanner(it); Config.lastLoadError = null }
@@ -187,6 +188,51 @@ class MainActivity : AppCompatActivity() {
                 (frag as? Refreshable)?.triggerRefresh()
             }
         })
+
+        handleOpenAppKeyEditorIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleOpenAppKeyEditorIntent(intent)
+    }
+
+    private fun handleOpenAppKeyEditorIntent(intent: Intent?) {
+        val appKey = intent?.getStringExtra(AppKeyCommandDialog.EXTRA_OPEN_APP_KEY) ?: return
+        intent.removeExtra(AppKeyCommandDialog.EXTRA_OPEN_APP_KEY)
+        moe.lovefirefly.betterzuikey.Utils.LogHelper.log(
+            moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel.INFO,
+            "AppKeyEditor: MainActivity intent key=", appKey,
+        )
+        openAppKeyEditor(appKey)
+    }
+
+    private fun openAppKeyEditor(appKey: String) {
+        fun showDialog() {
+            AppKeyCommandDialog.show(this, appKey)
+        }
+        fun tryScroll(retry: Int = 0) {
+            val frag = supportFragmentManager.findFragmentByTag("f$TAB_SHORTCUTS") as? GlobalFragment
+            if (frag != null && frag.isAdded) {
+                frag.navigateToShortcutKey(appKey, onReady = ::showDialog)
+            } else if (retry < 12) {
+                binding.root.postDelayed({ tryScroll(retry + 1) }, 50)
+            } else {
+                showDialog()
+            }
+        }
+        binding.root.post {
+            switchToShortcutsTab()
+            binding.root.post { tryScroll() }
+        }
+    }
+
+    private fun switchToShortcutsTab() {
+        if (binding.viewPager.currentItem == TAB_SHORTCUTS) return
+        binding.viewPager.setCurrentItem(TAB_SHORTCUTS, false)
+        binding.bottomNav.menu.getItem(TAB_SHORTCUTS).isChecked = true
+        binding.toolbar.title = titles[TAB_SHORTCUTS]
     }
 
     /** 使用协议对话框：首次启动强制阅读帮助文档 */
@@ -235,10 +281,24 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        refreshCurrentPage()
         val cfg = Config.load()
         Config.lastLoadError?.let { showWarningBanner(it); Config.lastLoadError = null }
-        if (cfg.dynamicColorEnabled != appliedDynamicColor || cfg.nightMode != appliedNightMode || cfg.localeOverride != appliedLocaleTag) {
+
+        if (LocaleHelper.consumePendingUserLocaleChange()) {
+            appliedLocaleTag = cfg.localeOverride
+            return
+        }
+
+        refreshCurrentPage()
+
+        val synced = LocaleHelper.syncFromSystemStorage(this)
+        if (synced != appliedLocaleTag) {
+            appliedLocaleTag = synced
+            recreate()
+            return
+        }
+
+        if (cfg.dynamicColorEnabled != appliedDynamicColor || cfg.nightMode != appliedNightMode) {
             recreate()
         }
     }
@@ -275,9 +335,10 @@ class MainActivity : AppCompatActivity() {
         // 0=green (correct scope + root), 1=amber (correct scope, no root),
         // 2=orange (wrong scope), 3=red (not active)
         private fun statusOrdinal(): Int {
+            val ctx = context ?: return 3
             if (!ModuleServiceBridge.isActive()) return 3
 
-            val prefs = requireContext().getSharedPreferences(
+            val prefs = ctx.getSharedPreferences(
                 RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
             val myBoot = System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()
             val sysAlive = isBootMatch(prefs, "boot_time", myBoot)
@@ -311,6 +372,7 @@ class MainActivity : AppCompatActivity() {
             title: android.widget.TextView,
             subtitle: android.widget.TextView
         ) {
+            if (!isAdded) return
             val ctx = requireContext()
             val ord = statusOrdinal()
             val cardBg: Int
@@ -467,8 +529,11 @@ class MainActivity : AppCompatActivity() {
                     sRootGranted = false
                 }
                 sRootChecked = true
-                // Refresh the card once root check completes
                 view.post {
+                    if (!isAdded) {
+                        onComplete?.invoke()
+                        return@post
+                    }
                     val card = view.findViewById<com.google.android.material.card.MaterialCardView>(R.id.card_module_status)
                     val icon = view.findViewById<android.widget.ImageView>(R.id.iv_status_icon)
                     val title = view.findViewById<android.widget.TextView>(R.id.tv_status_title)
@@ -508,6 +573,7 @@ class MainActivity : AppCompatActivity() {
                         android.os.Bundle().apply { putBoolean("requested", true) })
                     sLastCommandOutput = "OK"
                     view.post {
+                        if (!isAdded) return@post
                         (requireActivity() as MainActivity).showWarningBanner(
                             getString(R.string.warn_write_deferred), copyable = false, timeoutMs = 1500)
                     }
@@ -517,6 +583,8 @@ class MainActivity : AppCompatActivity() {
     }
 
         companion object {
+        const val TAB_SHORTCUTS = 1
+
         /** 在 setContentView 之前调用，按配置应用夜间模式 */
         fun applyTheme() {
             val cfg = Config.load()
@@ -529,8 +597,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         /** 在 setContentView 之前调用，按配置应用语言设置 */
-        fun applyLocale() {
-            LocaleHelper.applyFromConfig()
+        fun applyLocale(context: android.content.Context) {
+            LocaleHelper.applyFromConfig(context)
         }
     }
 

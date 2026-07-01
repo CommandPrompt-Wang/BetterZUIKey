@@ -334,6 +334,7 @@ public class FnKeyManager {
             // from also opening Start Menu (Win was used as modifier, not standalone).
             if (mHookCtx != null) {
                 mHookCtx.metaSession.fnMapped = true;
+                mHookCtx.metaSuppressStartMenu = true;
                 cancelWinLongPressTimer();
             }
             return true;
@@ -459,7 +460,7 @@ public class FnKeyManager {
             map.put(KeyEvent.KEYCODE_SYSRQ,        138);  // Screenshot → F8
             map.put(500,                           139);  // Maximize → F9
             map.put(504,                           140);  // Split → F10
-            map.put(507,                           141);  // App1/Star → F11
+            // 507/508 smart keys — handled by handleZuiAppKey(), not Fn remap
             map.put(KeyEvent.KEYCODE_FORWARD_DEL,  142);  // Delete → F12
             return map;
         }

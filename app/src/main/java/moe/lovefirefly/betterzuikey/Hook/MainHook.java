@@ -431,6 +431,7 @@ public class MainHook extends XposedModule {
                 processSysWriteRequest();
                 processLsposedOpenRequest();
                 processGrantSecureRequest();
+                processGrantTermuxRequest();
                 handler.postDelayed(this, 1000); // 1s polling (Binder IPC overhead <1ms)
             }
         }, 5000);
@@ -522,6 +523,33 @@ public class MainHook extends XposedModule {
             LogHelper.log(VerboseLevel.INFO, "GrantSecure: granted via Binder");
         } catch (Exception e) {
             LogHelper.log(VerboseLevel.INFO, "GrantSecure: failed:", e.getMessage());
+        }
+    }
+
+    /** Process pending com.termux.permission.RUN_COMMAND grant via system_server pm. */
+    private void processGrantTermuxRequest() {
+        if (mConfigIPC == null || mConfigIPC.getResolver() == null) return;
+        try {
+            android.os.Bundle req = mConfigIPC.getResolver().call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                "getGrantTermuxRequest", null, null);
+            if (req == null || !req.getBoolean("requested", false)) return;
+
+            mConfigIPC.getResolver().call(
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                "clearGrantTermuxRequest", null, null);
+
+            LogHelper.log(VerboseLevel.INFO, "GrantTermux: granting RUN_COMMAND via PackageManager...");
+            Object pm = Class.forName("android.app.ActivityThread")
+                    .getMethod("getPackageManager").invoke(null);
+            pm.getClass().getMethod("grantRuntimePermission",
+                    String.class, String.class, int.class)
+                    .invoke(pm, "moe.lovefirefly.betterzuikey",
+                            "com.termux.permission.RUN_COMMAND",
+                            0 /* userId 0 = owner */);
+            LogHelper.log(VerboseLevel.INFO, "GrantTermux: granted via Binder");
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.INFO, "GrantTermux: failed:", e.getMessage());
         }
     }
 

@@ -122,7 +122,7 @@ public class Config {
     public OverrideMode overrideAltTab = OverrideMode.FOLLOW_SYSTEM;
 
     // ================================================================
-    // 四、ZUI 专用物理键 (501–521)
+    // 四、ZUI 专用物理键 (501–521)；Hook/UI 仅接 507/508 App 自定义键
     // ================================================================
 
     /** 501 静音*/
@@ -143,13 +143,32 @@ public class Config {
 
     /** 507 App1 自定义行*/
     public SwitchState switchKeyApp1 = SwitchState.ON;
+    /** @deprecated 已由 {@link #app1Mode} 取代；加载时自动迁移 */
+    @Deprecated
     public Behavior app1ShortPressBehavior = Behavior.AI_SUMMARY;
+    @Deprecated
     public OverrideMode app1LongPressOverride = OverrideMode.FOLLOW_SYSTEM;
+    public AppKeyMode app1Mode = AppKeyMode.FOLLOW_SYSTEM;
+    /** CUSTOM 模式：shell 脚本内容 */
+    public String app1Command = "";
+    /** CUSTOM 模式：是否以 root (su -c) 执行 */
+    public boolean app1CommandRoot = false;
+    /** CUSTOM 模式：单例 — 新运行前终止旧进程 */
+    public boolean app1CommandSingleton = true;
+    /** CUSTOM 模式：超时（分钟），1 / 5 / 10 */
+    public int app1CommandTimeoutMin = 1;
 
     /** 508 App2 自定义行*/
     public SwitchState switchKeyApp2 = SwitchState.ON;
+    @Deprecated
     public Behavior app2ShortPressBehavior = Behavior.AI_SUMMARY;
+    @Deprecated
     public OverrideMode app2LongPressOverride = OverrideMode.FOLLOW_SYSTEM;
+    public AppKeyMode app2Mode = AppKeyMode.FOLLOW_SYSTEM;
+    public String app2Command = "";
+    public boolean app2CommandRoot = false;
+    public boolean app2CommandSingleton = true;
+    public int app2CommandTimeoutMin = 1;
 
     /** 509 搜索*/
     public SwitchState switchKeySearch = SwitchState.ON;
@@ -176,7 +195,7 @@ public class Config {
     public OverrideMode overrideScreenLock = OverrideMode.FOLLOW_SYSTEM;
 
     // ================================================================
-    // 五、截/ 特殊
+    // 五、Print Screen — Config 保留；Hook/UI 已移除
     // ================================================================
 
     /** Print Screen 短按 区域截图 */
@@ -194,8 +213,18 @@ public class Config {
     /** Win 短按 开始菜单 (type=21) */
     public OverrideMode overrideMetaSingle = OverrideMode.FOLLOW_SYSTEM;
 
-    /** Win 长按 语音助手（非输入态）；输入态由输入法增强 WIN 绑定接管。与输入法增强 WIN 互斥 */
+    /** Win 长按（非输入态）；输入态由输入法增强 WIN 绑定接管。与输入法增强 WIN 互斥 */
+    /** FOLLOW_SYSTEM=透传由系统决定；ZUI=模块接管语音助手；BLOCK=忽略 */
     public OverrideMode overrideWinLongPress = OverrideMode.FOLLOW_SYSTEM;
+    /** true → 长按运行 {@link #winLongCommand}，忽略 overrideWinLongPress */
+    public boolean winLongUseCommand = false;
+    /** @deprecated AppKeyMode 过渡期字段；加载后迁移并忽略 */
+    @Deprecated
+    public AppKeyMode winLongMode = AppKeyMode.FOLLOW_SYSTEM;
+    public String winLongCommand = "";
+    public boolean winLongCommandRoot = false;
+    public boolean winLongCommandSingleton = true;
+    public int winLongCommandTimeoutMin = 1;
 
     /** 520 键盘恢复 禁用物理键盘 */
     public SwitchState switchKeyKeyboardRestore = SwitchState.ON;
@@ -224,6 +253,9 @@ public class Config {
 
     /** 日志 Verbose 级别 */
     public LogHelper.VerboseLevel verboseLevel = LogHelper.VerboseLevel.INFO;
+
+    /** 配置结构版本；&lt;2 时迁移 Win 长按字段 */
+    public int configRevision = 2;
 
     /** 匹配系统主题色（关闭则强制亮色） */
     public boolean matchSystemTheme = true;
@@ -358,6 +390,18 @@ public class Config {
         AOSP,
         OFF,
         BLOCK,
+    }
+
+    /**
+     * 507/508 智能键模式（与 Win 组合键的 OverrideMode 无关）
+     * FOLLOW_SYSTEM — 拦截权交给 ZUI（读 Settings.System app*_shortcut_function）
+     * BLOCK         — 忽略（消费按键，不触发任何行为）
+     * CUSTOM        — 执行 shell 脚本（app*Command + app*CommandRoot）
+     */
+    public enum AppKeyMode {
+        FOLLOW_SYSTEM,
+        BLOCK,
+        CUSTOM,
     }
 
     /**
@@ -499,6 +543,8 @@ public class Config {
 
         // metaSingle 不再支持 OFF（透传）；旧 OFF → BLOCK 并写回
         migrateMetaSingleOffToBlock(cfg);
+        migrateAppKeyModes(cfg);
+        migrateWinLongPressConfig(cfg);
 
         // State sync is handled at boot by system_server (MainHook).
         // App process does NOT read Settings.System — see ipc-contentprovider.md.
@@ -541,6 +587,81 @@ public class Config {
                     "Config: migrated metaSingle OFF → BLOCK");
             cfg.save();
         }
+    }
+
+    /** app1/app2LongPressOverride → app1/app2Mode（一次性语义映射） */
+    private static void migrateAppKeyModes(Config cfg) {
+        boolean changed = false;
+        changed |= migrateOneAppKeyMode(cfg.app1LongPressOverride, mode -> {
+            cfg.app1Mode = mode;
+            cfg.app1LongPressOverride = OverrideMode.FOLLOW_SYSTEM;
+        });
+        changed |= migrateOneAppKeyMode(cfg.app2LongPressOverride, mode -> {
+            cfg.app2Mode = mode;
+            cfg.app2LongPressOverride = OverrideMode.FOLLOW_SYSTEM;
+        });
+        if (changed) {
+            LogHelper.log(LogHelper.VerboseLevel.INFO,
+                    "Config: migrated app key OverrideMode → AppKeyMode");
+            cfg.save();
+        }
+    }
+
+    /**
+     * Win 长按：AppKeyMode 三档 → overrideWinLongPress + winLongUseCommand。
+     * 保持默认 (FOLLOW_SYSTEM) 恢复为透传，模块不介入。
+     */
+    private static void migrateWinLongPressConfig(Config cfg) {
+        if (cfg.configRevision >= 2) return;
+        boolean changed = false;
+
+        if (cfg.winLongMode == AppKeyMode.CUSTOM
+                || (cfg.winLongCommand != null && !cfg.winLongCommand.trim().isEmpty())) {
+            cfg.winLongUseCommand = true;
+            changed = true;
+        } else if (cfg.winLongMode == AppKeyMode.BLOCK) {
+            cfg.overrideWinLongPress = OverrideMode.BLOCK;
+            cfg.winLongUseCommand = false;
+            changed = true;
+        } else if (cfg.overrideWinLongPress == OverrideMode.BLOCK
+                || cfg.overrideWinLongPress == OverrideMode.OFF) {
+            cfg.overrideWinLongPress = OverrideMode.BLOCK;
+            cfg.winLongUseCommand = false;
+            changed = true;
+        } else if (cfg.overrideWinLongPress == OverrideMode.ZUI
+                || cfg.overrideWinLongPress == OverrideMode.AOSP) {
+            cfg.overrideWinLongPress = OverrideMode.ZUI;
+            cfg.winLongUseCommand = false;
+            changed = true;
+        }
+        // overrideWinLongPress == FOLLOW_SYSTEM → 保持透传
+
+        cfg.configRevision = 2;
+        changed = true;
+        if (changed) {
+            LogHelper.log(LogHelper.VerboseLevel.INFO,
+                    "Config: migrated winLongPress → override + command flag");
+            cfg.save();
+        }
+    }
+
+    private static boolean migrateOneAppKeyMode(OverrideMode legacy,
+                                                java.util.function.Consumer<AppKeyMode> apply) {
+        if (legacy == null || legacy == OverrideMode.FOLLOW_SYSTEM) return false;
+        AppKeyMode mode;
+        switch (legacy) {
+            case BLOCK:
+            case OFF:
+                mode = AppKeyMode.BLOCK;
+                break;
+            case ZUI:
+            case AOSP:
+            default:
+                mode = AppKeyMode.FOLLOW_SYSTEM;
+                break;
+        }
+        apply.accept(mode);
+        return true;
     }
 
     /**
@@ -654,9 +775,19 @@ public class Config {
         switchKeySplitScreen = SwitchState.ON;      overrideSplitScreen = OverrideMode.FOLLOW_SYSTEM;
         switchKeySuperConnect = SwitchState.ON;     overrideSuperConnect = OverrideMode.FOLLOW_SYSTEM;
         switchKeyApp1 = SwitchState.ON;
+        app1Mode = AppKeyMode.FOLLOW_SYSTEM;
+        app1Command = "";
+        app1CommandRoot = false;
+        app1CommandSingleton = true;
+        app1CommandTimeoutMin = 1;
         app1ShortPressBehavior = Behavior.AI_SUMMARY;
         app1LongPressOverride = OverrideMode.FOLLOW_SYSTEM;
         switchKeyApp2 = SwitchState.ON;
+        app2Mode = AppKeyMode.FOLLOW_SYSTEM;
+        app2Command = "";
+        app2CommandRoot = false;
+        app2CommandSingleton = true;
+        app2CommandTimeoutMin = 1;
         app2ShortPressBehavior = Behavior.AI_SUMMARY;
         app2LongPressOverride = OverrideMode.FOLLOW_SYSTEM;
         switchKeySearch = SwitchState.ON;           overrideSearch = OverrideMode.FOLLOW_SYSTEM;
@@ -671,6 +802,12 @@ public class Config {
         switchCapsLock = SwitchState.ON;            overrideCapsLock = OverrideMode.OFF;
         overrideMetaSingle = OverrideMode.FOLLOW_SYSTEM;
         overrideWinLongPress = OverrideMode.FOLLOW_SYSTEM;
+        winLongUseCommand = false;
+        winLongCommand = "";
+        configRevision = 2;
+        winLongCommandRoot = false;
+        winLongCommandSingleton = true;
+        winLongCommandTimeoutMin = 1;
         switchKeyKeyboardRestore = SwitchState.ON;  overrideKeyboardRestore = OverrideMode.FOLLOW_SYSTEM;
         switchKeyKeyboardReverse = SwitchState.ON;  overrideKeyboardReverse = OverrideMode.FOLLOW_SYSTEM;
         // 六、全局

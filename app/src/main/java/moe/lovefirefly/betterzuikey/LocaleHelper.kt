@@ -4,20 +4,17 @@ import android.content.Context
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import moe.lovefirefly.betterzuikey.Config.Config
+import moe.lovefirefly.betterzuikey.Utils.LogHelper
+import moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel
 import java.util.Locale
 
 /**
- * 应用内语言切换工具。
+ * 应用内语言切换，与 Android 13+ 系统「应用语言」共用 [AppCompatDelegate.setApplicationLocales]。
  *
- * 语言映射表（语言代码 | 语言自称 | 英文名）：
- *   ""      → 跟随系统 (Follow System)
+ * 语言映射：
+ *   ""      → 跟随系统（空 LocaleList）
  *   "en-US" → English (US)
- *   "zh-CN" → 简体中文 (Chinese Simplified)
- *
- * 回退链：zh-HK → zh-CN → en
- * Android 7.0+ 会将 zh-HK (Hant) 和 zh-CN (Hans) 视为不同脚本，
- * 因此 zh-HK 设备选择"跟随系统"时不会自动回退到 values-zh-rCN/。
- * resolveSystemLocale() 强制所有 zh-* → zh-CN 来修复此问题。
+ *   "zh-CN" → 简体中文
  */
 object LocaleHelper {
 
@@ -26,14 +23,12 @@ object LocaleHelper {
         val tag: String
     )
 
-    /** 支持的语言标签列表，按显示顺序排列 */
     val ENTRIES = listOf(
         LocaleEntry(""),
         LocaleEntry("en-US"),
         LocaleEntry("zh-CN"),
     )
 
-    /** 根据 tag 获取本地化显示名称 */
     fun getDisplayName(context: Context, tag: String): String = when (tag) {
         ""      -> context.getString(R.string.locale_follow_system)
         "en-US" -> context.getString(R.string.locale_en_us)
@@ -41,70 +36,121 @@ object LocaleHelper {
         else    -> tag
     }
 
-    /** 上次已应用的 effective tag，避免在 onCreate 入口重复 setApplicationLocales 导致循环 recreate */
+    /** 上次已应用的 Config tag（"" / en-US / zh-CN），避免重复 setApplicationLocales */
     private var lastAppliedTag: String? = null
 
-    // ── 公开 API ──
+    /** 应用内刚切换语言；AppCompat 会 recreate，onResume 勿再 sync/recreate */
+    private var pendingUserLocaleChange = false
 
     /**
-     * 从 Config 读取语言设置并应用到进程。
-     * 在 Activity.onCreate() 的 super.onCreate() 之前调用。
-     * 自动跳过已应用的语言，避免循环 recreate。
+     * 读取 AppCompat / 系统 per-app 语言存储，映射为 Config 用的 tag。
+     * 空列表 → ""（跟随系统）。
      */
-    fun applyFromConfig() {
+    @JvmStatic
+    fun tagFromAppLocales(): String {
+        val list = AppCompatDelegate.getApplicationLocales()
+        if (list.isEmpty) return ""
+        val raw = list[0]?.toLanguageTag().orEmpty()
+        return normalizeSupportedTag(raw)
+    }
+
+    /**
+     * 将系统存储与 [Config.localeOverride] 对齐（仅用于进程冷启动或从系统设置返回）。
+     * 勿在 [setApplicationLocales] 之后立即调用——存储可能尚未更新，会把 Config 写回旧值。
+     */
+    @JvmStatic
+    fun syncFromSystemStorage(context: Context): String {
+        val fromApp = tagFromAppLocales()
         val cfg = Config.load()
-        val tag = if (cfg.localeOverride.isEmpty()) resolveSystemLocale() else cfg.localeOverride
-        val effective = tag.ifBlank { "en" } // "" = follow system → fallback is English (values/)
-        if (effective == lastAppliedTag) return  // already applied, skip to prevent cascading recreates
-        lastAppliedTag = effective
-
-        if (tag.isBlank()) {
-            AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
-        } else {
-            val locale = Locale.forLanguageTag(tag)
-            AppCompatDelegate.setApplicationLocales(LocaleListCompat.create(locale))
+        LogHelper.log(
+            VerboseLevel.DEBUG, "LocaleHelper: syncFromSystemStorage",
+            " app=", fromApp.ifBlank { "(follow system)" },
+            " cfg=", cfg.localeOverride.ifBlank { "(follow system)" }
+        )
+        if (cfg.localeOverride != fromApp) {
+            cfg.localeOverride = fromApp
+            cfg.save()
+            Config.syncToSharedPrefs(context, cfg)
+            LogHelper.log(
+                VerboseLevel.INFO, "LocaleHelper: config updated from app locales →",
+                fromApp.ifBlank { "(follow system)" }
+            )
         }
+        return fromApp
     }
 
     /**
-     * 用户手动切换语言时调用。
-     * 与 applyFromConfig 不同：始终强制执行（更新 lastAppliedTag），
-     * AppCompatDelegate 会自动触发 Activity recreate。
+     * 启动时应用语言。进程首次调用时与系统存储 reconciling；之后仅按 Config 应用（避免覆盖刚写入的值）。
      */
-    fun applyAndRecreate(tag: String) {
-        val effective = tag.ifBlank { "en" }
-        lastAppliedTag = effective
-
-        if (tag.isBlank()) {
-            AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
+    @JvmStatic
+    fun applyFromConfig(context: Context) {
+        val cfgTag = Config.load().localeOverride
+        val tag = if (lastAppliedTag == null && tagFromAppLocales() != cfgTag) {
+            syncFromSystemStorage(context)
         } else {
-            val locale = Locale.forLanguageTag(tag)
-            AppCompatDelegate.setApplicationLocales(LocaleListCompat.create(locale))
+            cfgTag
         }
-        // AppCompatDelegate.setApplicationLocales() triggers activity recreation internally.
-        // Do NOT call recreate() ourselves — it would race with AppCompat's deferred apply.
+        LogHelper.log(
+            VerboseLevel.DEBUG, "LocaleHelper: applyFromConfig",
+            " tag=", tag.ifBlank { "(follow system)" },
+            " lastApplied=", lastAppliedTag?.ifBlank { "(follow system)" } ?: "null"
+        )
+        applyTag(tag)
     }
 
-    /** 获取当前 Config 设置对应的显示文本 */
+    /** 应用内下拉切换；写入 Config + setApplicationLocales（AppCompat 负责 recreate）。 */
+    @JvmStatic
+    fun applyAndRecreate(context: Context, tag: String) {
+        LogHelper.log(
+            VerboseLevel.INFO, "LocaleHelper: applyAndRecreate",
+            tag.ifBlank { "(follow system)" }
+        )
+        pendingUserLocaleChange = true
+        val cfg = Config.load()
+        cfg.localeOverride = tag
+        cfg.save()
+        Config.syncToSharedPrefs(context, cfg)
+        applyTag(tag, force = true)
+    }
+
+    /** onResume：若刚在应用内切换语言，跳过外部 sync，避免与 AppCompat recreate 打架。 */
+    @JvmStatic
+    fun consumePendingUserLocaleChange(): Boolean {
+        if (!pendingUserLocaleChange) return false
+        pendingUserLocaleChange = false
+        LogHelper.log(VerboseLevel.DEBUG, "LocaleHelper: consume pending user locale change")
+        return true
+    }
+
+    @JvmStatic
     fun currentEntryDisplay(context: Context, cfg: Config): String {
-        val tag = cfg.localeOverride
-        return getDisplayName(context, tag)
+        return getDisplayName(context, cfg.localeOverride)
     }
 
-    // ── 内部 ──
+    private fun applyTag(tag: String, force: Boolean = false) {
+        if (!force && tag == lastAppliedTag) {
+            LogHelper.log(VerboseLevel.DEBUG, "LocaleHelper: applyTag skipped (unchanged)")
+            return
+        }
+        lastAppliedTag = tag
+        LogHelper.log(
+            VerboseLevel.DEBUG, "LocaleHelper: applyTag",
+            tag.ifBlank { "(follow system)" }
+        )
 
-    /**
-     * 解析系统语言到我们支持的标签。
-     *
-     * 回退链：zh-* → zh-CN → "" (en via values/)
-     * 原因：Android 7.0+ 将 zh-HK (Hant) 和 zh-CN (Hans) 视为不同脚本，
-     * "跟随系统" 时 zh-HK 会直接跳到 values/ (en)，跳过 values-zh-rCN/。
-     */
-    private fun resolveSystemLocale(): String {
-        val sysLang = Locale.getDefault().language
-        // 所有中文变体统一用 zh-CN
-        if (sysLang == "zh") return "zh-CN"
-        // 其他语言：跟随系统（Android 资源回退到 values/）
-        return ""
+        if (tag.isBlank()) {
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.getEmptyLocaleList())
+        } else {
+            AppCompatDelegate.setApplicationLocales(
+                LocaleListCompat.create(Locale.forLanguageTag(tag))
+            )
+        }
+    }
+
+    private fun normalizeSupportedTag(raw: String): String = when {
+        raw.isBlank() -> ""
+        raw.startsWith("zh", ignoreCase = true) -> "zh-CN"
+        raw.startsWith("en", ignoreCase = true) -> "en-US"
+        else -> ""
     }
 }

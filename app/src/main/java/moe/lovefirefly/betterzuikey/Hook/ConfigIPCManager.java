@@ -13,7 +13,11 @@ import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
  */
 public class ConfigIPCManager {
 
+    private static final String PKG = "moe.lovefirefly.betterzuikey";
+    private static final String MAIN_ACTIVITY = PKG + ".MainActivity";
+
     ContentResolver mConfigResolver = null;
+    private android.content.Context mSystemContext = null;
     private String mLastConfigSync = "";
 
     /**
@@ -33,6 +37,7 @@ public class ConfigIPCManager {
                     .getMethod("currentActivityThread").invoke(null);
             android.content.Context sysCtx = (android.content.Context)
                     at.getClass().getMethod("getSystemContext").invoke(at);
+            mSystemContext = sysCtx;
             mConfigResolver = sysCtx.getContentResolver();
             // Read initial config via Binder IPC
             String sync = pullConfigSync();
@@ -146,6 +151,131 @@ public class ConfigIPCManager {
                     result != null ? "ok" : "null");
         } catch (Exception e) {
             LogHelper.log(VerboseLevel.WARNING, "sendBootMark(", method, ") failed:", e.getMessage());
+        }
+    }
+
+    /** Read keyboard-detect Activity flag via ContentProvider (app → system_server). */
+    public boolean isKeyboardDetectActive() {
+        try {
+            if (mConfigResolver == null) return false;
+            Bundle result = mConfigResolver.call(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.METHOD_GET_KEYBOARD_DETECT,
+                    null, null);
+            if (result == null) return false;
+            return result.getBoolean(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_KEYBOARD_DETECT, false);
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.DEBUG, "isKeyboardDetectActive failed:", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Run a smart-key shell script in the module app process via ContentProvider IPC.
+     * Default execution uses {@code /system/bin/sh -c}; {@code root=true} uses {@code su -c}.
+     */
+    public void runAppKeyCommand(String script, boolean root, boolean singleton, int timeoutMin) {
+        if (mConfigResolver == null || script == null || script.trim().isEmpty()) return;
+        try {
+            android.os.Bundle extras = new android.os.Bundle();
+            extras.putString(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_APP_KEY_SCRIPT, script);
+            extras.putBoolean(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_APP_KEY_ROOT, root);
+            extras.putBoolean(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_APP_KEY_SINGLETON, singleton);
+            extras.putInt(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_APP_KEY_TIMEOUT_MIN,
+                    timeoutMin > 0 ? timeoutMin : 1);
+            mConfigResolver.call(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.METHOD_RUN_APP_KEY_COMMAND,
+                    null, extras);
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.WARNING, "runAppKeyCommand failed:", e.getMessage());
+        }
+    }
+
+    /** Bring up the module script editor for keyApp1 / keyApp2. */
+    public void openAppKeyCommandEditor(String appKey) {
+        if (appKey == null) {
+            LogHelper.log(VerboseLevel.WARNING, "AppKeyIPC: open editor skipped appKey=null");
+            return;
+        }
+        if (!"keyApp1".equals(appKey) && !"keyApp2".equals(appKey)) {
+            LogHelper.log(VerboseLevel.WARNING, "AppKeyIPC: open editor invalid appKey=", appKey);
+            return;
+        }
+        if (launchEditorFromSystem(appKey)) {
+            return;
+        }
+        if (mConfigResolver == null) {
+            LogHelper.log(VerboseLevel.WARNING, "AppKeyIPC: open editor fallback skipped resolver=null");
+            return;
+        }
+        try {
+            LogHelper.log(VerboseLevel.INFO, "AppKeyIPC: open editor app-process fallback appKey=", appKey);
+            android.os.Bundle extras = new android.os.Bundle();
+            extras.putString(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_OPEN_APP_KEY_EDITOR, appKey);
+            mConfigResolver.call(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.METHOD_OPEN_APP_KEY_EDITOR,
+                    null, extras);
+            LogHelper.log(VerboseLevel.INFO, "AppKeyIPC: open editor fallback IPC returned appKey=", appKey);
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.WARNING, "AppKeyIPC: open editor failed appKey=", appKey,
+                    " err=", e.getMessage());
+        }
+    }
+
+    /**
+     * Start MainActivity from system_server — bypasses app-process background-activity limits.
+     */
+    private boolean launchEditorFromSystem(String appKey) {
+        if (mSystemContext == null) {
+            LogHelper.log(VerboseLevel.WARNING, "AppKeyIPC: system launch skipped (no system context)");
+            return false;
+        }
+        try {
+            android.content.Intent intent = new android.content.Intent();
+            intent.setClassName(PKG, MAIN_ACTIVITY);
+            intent.addFlags(
+                    android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                            | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            | android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+                            | android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            intent.putExtra(
+                    moe.lovefirefly.betterzuikey.AppKeyCommandDialog.EXTRA_OPEN_APP_KEY, appKey);
+
+            int userId = 0;
+            try {
+                userId = (Integer) Class.forName("android.app.ActivityManager")
+                        .getMethod("getCurrentUser").invoke(null);
+            } catch (Throwable ignored) {
+                try {
+                    userId = (Integer) android.os.UserHandle.class
+                            .getMethod("getUserId", int.class)
+                            .invoke(null, android.os.Process.myUid());
+                } catch (Throwable ignored2) {
+                }
+            }
+
+            Object userHandle = android.os.UserHandle.class
+                    .getMethod("of", int.class).invoke(null, userId);
+
+            mSystemContext.getClass()
+                    .getMethod("startActivityAsUser",
+                            android.content.Intent.class, android.os.UserHandle.class)
+                    .invoke(mSystemContext, intent, userHandle);
+            LogHelper.log(VerboseLevel.INFO, "AppKeyIPC: system startActivity user=",
+                    String.valueOf(userId), " appKey=", appKey);
+            return true;
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.WARNING, "AppKeyIPC: system launch failed appKey=", appKey,
+                    " err=", e.getMessage());
+            return false;
         }
     }
 

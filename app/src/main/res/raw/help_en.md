@@ -71,6 +71,31 @@ When you change the dropdown from Keep Default, if the system switch exists and 
 | `Win + Alt + 6` (Slow Keys) | Same as above |
 | Ctrl card | Switch controls "Long-press Ctrl", dropdown controls "Ctrl + /" — two independent functions |
 
+**Smart keys (507 and 508):**
+
+These do not use the five modes above. They have their own three options:
+
+| Mode | Short press | Long press |
+|------|-------------|------------|
+| **Follow system** | Pass through to ZUI | Pass through to ZUI (system shortcut settings) |
+| **Block** | No action | No action |
+| **Run command…** | Run script | Open command editor |
+
+**Long-press the card** to open the matching system keyboard shortcut settings page.
+
+**Win long-press (Meta long-press):**
+
+Also has its own options (not the five modes above):
+
+| Mode | Description |
+|------|-------------|
+| **Keep default** | Pass through; system decides (voice assistant, etc.; may not fire on unsupported keyboards) |
+| **Use ZUX** | Module handles voice assistant |
+| **Block** | No action |
+| **Run command…** | Win long-press (≥2s) runs script; select this mode or **long-press the card** to open the command editor |
+
+If IME Enhancement binds Win long-press to switching while accepting text, IME switch (500ms) takes priority; the table above applies when not accepting text.
+
 ---
 
 ## 📱 App Templates
@@ -295,14 +320,16 @@ Profiles are JSON files imported via "IME Enhancement → Manage Profiles". Each
 | 502 | Touchpad | Touchpad toggle |
 | 504 | Split Screen | Split-screen toggle |
 | 505 | SuperConnect | Launch SuperConnect |
-| 507 | App1 | Custom key (short press / long press → settings) |
-| 508 | App2 | Custom key (short press / long press → settings) |
+| 507 | Smart Key 1 | Custom shortcut (system Keyboard App Functions) |
+| 508 | Smart Key 2 | Custom shortcut; not on all keyboards |
 | 509 | Search | Global search |
 | 510 | Settings | ⚠ Disabled when unlocked (ZUI Bug) |
 | 511 | Fn Lock | Fn lock toggle + LED |
 | 512 | Backlight | Keyboard backlight cycle |
 | 514 | Touchpad Up | Open notification panel |
 | 515 | Screen Lock | Lock screen |
+
+> 💡 Except for 507 and 508, other ZUI physical keys and Print Screen **no longer** have module overrides on the Shortcuts tab — ZUI / the system handles them natively.
 
 ### Screenshot / Special Keys
 
@@ -312,7 +339,7 @@ Profiles are JSON files imported via "IME Enhancement → Manage Profiles". Each
 | Print Screen (long) | Full-screen screenshot |
 | Caps Lock | Show Toast + pass-through to app |
 | Meta (short press) | Start menu (`overrideMetaSingle` controls override mode) |
-| Meta (long press) | Voice assistant (non-787345 keyboards); IME switch if accepting text and bound to WIN |
+| Meta (long press) | Voice assistant, etc.; module override available (incl. Run command…); IME switch if accepting text and bound in IME Enhancement |
 | 520 Keyboard Restore | Disable physical keyboard |
 | 521 Keyboard Flip | Enable physical keyboard + show on-screen keyboard |
 
