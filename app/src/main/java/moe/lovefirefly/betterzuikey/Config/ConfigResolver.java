@@ -61,15 +61,29 @@ public class ConfigResolver {
      * 模板有覆写 → 用模板；否则回退全局。
      */
     public Config.OverrideMode effectiveAction(Config.OverrideMode globalValue, String key) {
-        if (mActiveTemplate == null) return globalValue;
-        PerKeyOverride ov = mActiveTemplate.get(key);
-        if (ov != null && ov.overrideMode != null) {
-            LogHelper.log(VerboseLevel.DEBUG, "Template override action: ",
-                key, " → ", ov.overrideMode.name(),
-                " (template=", mActiveTemplate.name, ")");
-            return ov.overrideMode;
+        Config.OverrideMode mode;
+        if (mActiveTemplate == null) {
+            mode = globalValue;
+        } else {
+            PerKeyOverride ov = mActiveTemplate.get(key);
+            if (ov != null && ov.overrideMode != null) {
+                LogHelper.log(VerboseLevel.DEBUG, "Template override action: ",
+                    key, " → ", ov.overrideMode.name(),
+                    " (template=", mActiveTemplate.name, ")");
+                mode = ov.overrideMode;
+            } else {
+                mode = globalValue;
+            }
         }
-        return globalValue;
+        return normalizeMetaSingle(key, mode);
+    }
+
+    /** metaSingle no longer supports OFF (passthrough); legacy OFF → BLOCK. */
+    private static Config.OverrideMode normalizeMetaSingle(String key, Config.OverrideMode mode) {
+        if ("metaSingle".equals(key) && mode == Config.OverrideMode.OFF) {
+            return Config.OverrideMode.BLOCK;
+        }
+        return mode;
     }
 
     /**

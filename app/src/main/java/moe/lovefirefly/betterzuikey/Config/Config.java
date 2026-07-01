@@ -15,6 +15,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -104,22 +105,6 @@ public class Config {
     /** Ctrl 长按快捷键菜单 (L1 type=12, 通过 keyboard_combo_ctrl_3 开关控制) */
     public SwitchState switchCtrlLongPress = SwitchState.ON;
 
-    /** Ctrl+Shift 切换输入ROW (L1 type=311 L4) */
-    public SwitchState switchCtrlShift = SwitchState.ON;
-    public OverrideMode overrideCtrlShift = OverrideMode.FOLLOW_SYSTEM;
-
-    /** Ctrl+Shift → Ctrl+Space 重映射开关（仅当无自定义适配器绑定时生效）。
-     *  启用时，输入状态下 Ctrl+Shift 被拦截并重定向为 Ctrl+Space 注入到 IME。 */
-    public boolean ctrlShiftRemapEnabled = false;
-
-    /** Ctrl+Space 双投递：输入状态下同时发给 IME（切语言）和 App（如代码补全）。
-     *  启用时 Ctrl+Space 原始事件被拦截，通过两条独立管线同时投喂两端。 */
-    public boolean ctrlSpaceDualDelivery = false;
-
-    /** Alt+Shift 切换语言 ROW (L1 type=310 L4) */
-    public SwitchState switchAltShift = SwitchState.ON;
-    public OverrideMode overrideAltShift = OverrideMode.FOLLOW_SYSTEM;
-
     /** Ctrl+Shift+T 切换触控(L4 type=308) */
     public SwitchState switchCtrlShiftT = SwitchState.ON;
     public OverrideMode overrideCtrlShiftT = OverrideMode.FOLLOW_SYSTEM;
@@ -137,7 +122,7 @@ public class Config {
     public OverrideMode overrideAltTab = OverrideMode.FOLLOW_SYSTEM;
 
     // ================================================================
-    // 四、ZUI 专用物理
+    // 四、ZUI 专用物理键 (501–521) — Config 保留；Hook/UI 已禁用，见 ZUIKeyHook
     // ================================================================
 
     /** 501 静音*/
@@ -206,21 +191,11 @@ public class Config {
     public SwitchState switchCapsLock = SwitchState.ON;
     public OverrideMode overrideCapsLock = OverrideMode.OFF;
 
-    /** Meta (117) 单按 开始菜(L2 delegate + AOSP L3 type=21) */
-    public SwitchState switchMetaSingle = SwitchState.ON;
-    public OverrideMode overrideMetaSingle = OverrideMode.OFF;
+    /** Win 短按 开始菜单 (type=21) */
+    public OverrideMode overrideMetaSingle = OverrideMode.FOLLOW_SYSTEM;
 
-    /** Meta (117) ROW 短按 切换语言 */
-    public SwitchState switchMetaShortRow = SwitchState.ON;
-    public OverrideMode overrideMetaShortRow = OverrideMode.FOLLOW_SYSTEM;
-
-    /** Meta (117) ROW 长按 语音助手 */
-    public SwitchState switchMetaLongRow = SwitchState.ON;
-    public OverrideMode overrideMetaLongRow = OverrideMode.FOLLOW_SYSTEM;
-
-    /** Meta (117) ROW 长按 连续切语言 */
-    public SwitchState switchMetaHoldNonRow = SwitchState.ON;
-    public OverrideMode overrideMetaHoldNonRow = OverrideMode.FOLLOW_SYSTEM;
+    /** Win 长按 语音助手（非输入态）；输入态由输入法增强 WIN 绑定接管。与输入法增强 WIN 互斥 */
+    public OverrideMode overrideWinLongPress = OverrideMode.FOLLOW_SYSTEM;
 
     /** 520 键盘恢复 禁用物理键盘 */
     public SwitchState switchKeyKeyboardRestore = SwitchState.ON;
@@ -229,10 +204,6 @@ public class Config {
     /** 521 键盘翻转 启用物理键盘 + 弹出屏幕键盘 */
     public SwitchState switchKeyKeyboardReverse = SwitchState.ON;
     public OverrideMode overrideKeyboardReverse = OverrideMode.FOLLOW_SYSTEM;
-
-    /** Alt_RIGHT (58) KR 韩国版切换语言 */
-    public SwitchState switchAltRightKR = SwitchState.ON;
-    public OverrideMode overrideAltRightKR = OverrideMode.FOLLOW_SYSTEM;
 
     // ================================================================
     // 六、全局开关（我们的设置，非系统状态）
@@ -254,15 +225,6 @@ public class Config {
     /** 日志 Verbose 级别 */
     public LogHelper.VerboseLevel verboseLevel = LogHelper.VerboseLevel.INFO;
 
-    /** 区域覆写 DEFAULT 表示不干预，使用系统原生区域设定 (ro.config.lgsi.region) */
-    public RegionProfile regionOverride = RegionProfile.DEFAULT;
-
-    /** 自定义区域值（regionOverride=CUSTOM 时生效，"TW"JP"*/
-    public String regionCustomValue = "";
-
-    /** 国家/地区覆写 (ro.config.lgsi.countrycode) 不干 "KR"=韩国 */
-    public String countryOverride = "";
-
     /** 匹配系统主题色（关闭则强制亮色） */
     public boolean matchSystemTheme = true;
 
@@ -275,31 +237,9 @@ public class Config {
     /** 应用内语言覆盖：""=跟随系统, "en-US"=英语, "zh-CN"=简体中文 */
     public String localeOverride = "";
 
-    // ================================================================
-    // 七、区域差异化行为（独立开关）
-    // 覆盖 RegionProfile 的默认值，允许混合搭配
-    // ================================================================
+    /** Meta 键的称呼：\"Win\" 或 \"Meta\" */
+    public String metaKeyLabel = "Win";
 
-    /** 键盘固件 ScanCode 覆写=不覆写；787345=特殊键盘固件触发 Meta 三级分发*/
-    public int keyboardScanCode = 0;
-
-    /** Ctrl+Shift 切输入法（ROW 特性，type=311*/
-    public boolean rowInputMethodSwitch = true;
-    /** Alt+Shift 切语言（ROW 特性，type=310*/
-    public boolean rowLanguageSwitch = true;
-
-    /** 快捷键 → IME 适配器路径的绑定。
-     *  key 为 shortcut key（如 "ctrlShift"），value 为适配器 .dex/.jar 的绝对路径。
-     *  示例: {"ctrlShift": "/data/data/moe.lovefirefly.betterzuikey/files/adapters/GBoardAdapter.dex"} */
-    public java.util.Map<String, String> imeAdapterBindings = new java.util.LinkedHashMap<>();
-    /** Meta 短按 &lt;2s 行为 */
-    public MetaAction metaShortPressAction = MetaAction.DEFAULT;
-    /** Meta 长按 s 行为 */
-    public MetaAction metaLongPressAction = MetaAction.DEFAULT;
-    /** Meta 按住行为（非 ROW 连续切语言，DOWN 后每 50ms 重复注入 204*/
-    public MetaAction metaHoldAction = MetaAction.DEFAULT;
-    /** Alt_RIGHT(58) 韩国版切语言 */
-    public boolean krAltRightSwitch = true;
     /** AI 代理选择（App1/App2 AI_AGENT 行为及系统级 AI 入口*/
     public AiAgent aiAgent = AiAgent.DEFAULT;
     /** 文件管理器选择（Win+E 启动的目标） */
@@ -308,7 +248,7 @@ public class Config {
     public boolean aiSummaryEnabled = true;
 
     // ================================================================
-    // 八、AOSP 原生辅助键（Win+Alt+3~6
+    // 七、AOSP 原生辅助键（Win+Alt+3~6
     // ZUI 未显式处理，直接AOSP 底层消费；入口在系统 UI 中被隐藏
     // ================================================================
 
@@ -351,8 +291,33 @@ public class Config {
     public boolean fnToastEnabled = true;
 
     // ================================================================
+    // 十一、输入法增强
+    // ================================================================
+
+    /** 输入法增强总开关 */
+    public boolean imeMasterEnabled = true;
+    /** 切换输入法/语言时弹出 Toast */
+    public boolean imeToastEnabled = true;
+    /** 切换输入法绑定的物理按键 */
+    public IMEBinding imeSwitchBinding = IMEBinding.FOLLOW_SYSTEM;
+    /** 切换语言绑定的物理按键 */
+    public IMEBinding languageSwitchBinding = IMEBinding.FOLLOW_SYSTEM;
+
+    // ================================================================
     // 内部枚举定义
     // ================================================================
+
+    /** 输入法切换/语言切换的物理按键绑定 */
+    public enum IMEBinding {
+        FOLLOW_SYSTEM,   // 不拦截，透传给 ZUI
+        CTRL_SHIFT,      // Ctrl+Shift
+        CTRL_SPACE,      // Ctrl+Space
+        ALT_SHIFT,       // Alt+Shift
+        RIGHT_ALT,       // 右 Alt (keyCode=58)
+        WIN,             // Win/Meta 长按
+        OFF,             // 关闭（L1 透传，L4 阻止 ZUI action）
+        BLOCK,           // 强制消费
+    }
 
     /**
      * 系统侧开关状—反映系统是否支持/强制该快捷键
@@ -505,6 +470,7 @@ public class Config {
      */
     public static Config load() {
         Config cfg;
+        lastLoadError = null;
         try (FileReader reader = new FileReader(CONFIG_PATH)) {
             cfg = GSON.fromJson(reader, Config.class);
         } catch (FileNotFoundException e) {
@@ -514,6 +480,14 @@ public class Config {
             cfg.save();
         } catch (IOException e) {
             // 读取失败，回退默认
+            lastLoadError = "Config read failed: " + e.getMessage();
+            cfg = new Config();
+            cfg.resetToDefault();
+        } catch (Exception e) {
+            // JSON 解析失败（JsonSyntaxException 等），回退默认，避免崩溃
+            lastLoadError = "Config parse error: " + e.getMessage();
+            LogHelper.log(LogHelper.VerboseLevel.WARNING,
+                    "Config parse failed, resetting to default:", e.getMessage());
             cfg = new Config();
             cfg.resetToDefault();
         }
@@ -522,6 +496,9 @@ public class Config {
 
         // 迁移旧配置：FORCED_ON/FO→ON/OFF（不再灰显）
         migrateSwitchStates(cfg);
+
+        // metaSingle 不再支持 OFF（透传）；旧 OFF → BLOCK 并写回
+        migrateMetaSingleOffToBlock(cfg);
 
         // State sync is handled at boot by system_server (MainHook).
         // App process does NOT read Settings.System — see ipc-contentprovider.md.
@@ -540,6 +517,30 @@ public class Config {
             } catch (Throwable ignored) { }
         }
         if (changed) cfg.save();
+    }
+
+    /** metaSingle no longer supports OFF (passthrough); migrate stored OFF → BLOCK. */
+    private static void migrateMetaSingleOffToBlock(Config cfg) {
+        boolean changed = false;
+        if (cfg.overrideMetaSingle == OverrideMode.OFF) {
+            cfg.overrideMetaSingle = OverrideMode.BLOCK;
+            changed = true;
+        }
+        if (cfg.templates != null) {
+            for (KeyTemplate t : cfg.templates) {
+                if (t.overrides == null) continue;
+                PerKeyOverride ov = t.overrides.get("metaSingle");
+                if (ov != null && ov.overrideMode == OverrideMode.OFF) {
+                    ov.overrideMode = OverrideMode.BLOCK;
+                    changed = true;
+                }
+            }
+        }
+        if (changed) {
+            LogHelper.log(LogHelper.VerboseLevel.INFO,
+                    "Config: migrated metaSingle OFF → BLOCK");
+            cfg.save();
+        }
     }
 
     /**
@@ -580,7 +581,7 @@ public class Config {
             android.content.SharedPreferences prefs = ctx.getSharedPreferences(
                     moe.lovefirefly.betterzuikey.RemotePrefProvider.PREF_FILE,
                     android.content.Context.MODE_PRIVATE);
-            prefs.edit().putString("config_sync", json).commit();
+            prefs.edit().putString("config_sync", json).apply();
 
             // GravityBox WorldReadablePrefs pattern: fix entire directory chain
             // so system_server (uid=1000) can traverse and read the prefs file.
@@ -643,10 +644,6 @@ public class Config {
         // 三、Ctrl/Alt/Shift
         overrideCtrlSlash = OverrideMode.OFF;
         switchCtrlLongPress = SwitchState.ON;
-        switchCtrlShift = SwitchState.ON;     overrideCtrlShift = OverrideMode.FOLLOW_SYSTEM;
-        ctrlShiftRemapEnabled = false;
-        ctrlSpaceDualDelivery = false;
-        switchAltShift = SwitchState.ON;      overrideAltShift = OverrideMode.FOLLOW_SYSTEM;
         switchCtrlShiftT = SwitchState.ON;    overrideCtrlShiftT = OverrideMode.FOLLOW_SYSTEM;
         switchCtrlSpace = SwitchState.ON;     overrideCtrlSpace = OverrideMode.OFF;
         switchCtrlEnter = SwitchState.ON;     overrideCtrlEnter = OverrideMode.OFF;
@@ -672,35 +669,23 @@ public class Config {
         switchPrintScreenShort = SwitchState.ON;    overridePrintScreenShort = OverrideMode.FOLLOW_SYSTEM;
         switchPrintScreenLong = SwitchState.ON;     overridePrintScreenLong = OverrideMode.FOLLOW_SYSTEM;
         switchCapsLock = SwitchState.ON;            overrideCapsLock = OverrideMode.OFF;
-        switchMetaSingle = SwitchState.ON;          overrideMetaSingle = OverrideMode.OFF;
-        switchMetaShortRow = SwitchState.ON;        overrideMetaShortRow = OverrideMode.FOLLOW_SYSTEM;
-        switchMetaLongRow = SwitchState.ON;         overrideMetaLongRow = OverrideMode.FOLLOW_SYSTEM;
-        switchMetaHoldNonRow = SwitchState.ON;      overrideMetaHoldNonRow = OverrideMode.FOLLOW_SYSTEM;
+        overrideMetaSingle = OverrideMode.FOLLOW_SYSTEM;
+        overrideWinLongPress = OverrideMode.FOLLOW_SYSTEM;
         switchKeyKeyboardRestore = SwitchState.ON;  overrideKeyboardRestore = OverrideMode.FOLLOW_SYSTEM;
         switchKeyKeyboardReverse = SwitchState.ON;  overrideKeyboardReverse = OverrideMode.FOLLOW_SYSTEM;
-        switchAltRightKR = SwitchState.ON;          overrideAltRightKR = OverrideMode.FOLLOW_SYSTEM;
         // 六、全局
         zuxKeyboardFuncEnabled = true;
         injected = false;
         injectError = "";
         oneVisionFeatureEnabled = true;
-        // 七、日+ 区域
+        // 七、日志 + 外观
         verboseLevel = LogHelper.VerboseLevel.INFO;
-        regionOverride = RegionProfile.DEFAULT;
-        regionCustomValue = "";
         matchSystemTheme = true;
         nightMode = 0;
         dynamicColorEnabled = false;
         localeOverride = "";
-        // 八、区域行
-        keyboardScanCode = 0;
-        rowInputMethodSwitch = true;
-        rowLanguageSwitch = true;
-        imeAdapterBindings = new java.util.LinkedHashMap<>();
-        metaShortPressAction = MetaAction.DEFAULT;
-        metaLongPressAction = MetaAction.DEFAULT;
-        metaHoldAction = MetaAction.DEFAULT;
-        krAltRightSwitch = true;
+        metaKeyLabel = "Win";
+        // 八、杂项
         aiAgent = AiAgent.DEFAULT;
         fileManager = FileManager.DEFAULT;
         aiSummaryEnabled = true;
@@ -717,6 +702,11 @@ public class Config {
         fnProfileKey = "";
         fnCustomProfiles = new java.util.LinkedHashMap<>();
         fnToastEnabled = true;
+        // 十二、输入法增强
+        imeMasterEnabled = true;
+        imeToastEnabled = true;
+        imeSwitchBinding = IMEBinding.FOLLOW_SYSTEM;
+        languageSwitchBinding = IMEBinding.FOLLOW_SYSTEM;
     }
 
     /**
@@ -744,8 +734,6 @@ public class Config {
         switchWinN = SwitchState.ON;
         // Win+↑↓: L3 AOSP type=53/52 窗口最大化/还原 (共用)
         switchWinUp = SwitchState.ON;
-        // Meta 单按: L3 AOSP type=21 triggerShowAllApps（开始菜单）
-        switchMetaSingle = SwitchState.ON;
 
         // --- ZUI 特有功能 尝试反射检---
         if (classLoader != null) {
@@ -767,6 +755,9 @@ public class Config {
         systemDetected = true;
     }
 
+    /** 最近一次 load() 是否因错误而回退到默认值（null=无错误, 否则为错误信息） */
+    public static String lastLoadError = null;
+
     /** 是否已完成系统能力检*/
     private boolean systemDetected = false;
 
@@ -776,7 +767,9 @@ public class Config {
      * 共享的 shortKey → Settings.System key 映射表
      * 供 readSystemSwitches / writeSystemSwitch / syncSwitchesFromSystem 共用
      */
-    private static java.util.Map<String, String> getSwitchKeyMap() {
+    /** Exposed for system_server to look up sysKey without loading Config. */
+    public static final java.util.Map<String, String> SWITCH_KEY_MAP;
+    static {
         java.util.Map<String, String> map = new java.util.LinkedHashMap<>();
         map.put("winD",        "keyboard_combo_win_d");
         map.put("winS",        "keyboard_combo_win_s");
@@ -794,12 +787,10 @@ public class Config {
         map.put("winLeft",     "keyboard_combo_lr_arrow");
         map.put("winUp",       "keyboard_combo_ud_arrow");
         map.put("ctrlLongPress","keyboard_combo_ctrl_3");
-        map.put("ctrlShift",   "keyboard_combo_ctrl_shift");
-        map.put("altShift",    "keyboard_combo_alt_shift");
         map.put("altTab",      "keyboard_combo_alt_tab");
         map.put("ctrlEnter",   "keyboard_combo_ctrl_enter");
         map.put("ctrlSpace",   "keyboard_combo_ctrl_space");
-        return map;
+        SWITCH_KEY_MAP = Collections.unmodifiableMap(map);
     }
 
     /**
@@ -832,7 +823,7 @@ public class Config {
     /** 从 ContentResolver 读取所有系统开关并更新 SwitchState */
     private void readSwitchStatesFromResolver(android.content.ContentResolver cr) {
         int readOk = 0, readFail = 0;
-        java.util.Map<String, String> map = getSwitchKeyMap();
+        java.util.Map<String, String> map = SWITCH_KEY_MAP;
 
         for (java.util.Map.Entry<String, String> e : map.entrySet()) {
             String key = e.getKey();
@@ -875,23 +866,12 @@ public class Config {
      * @return null 表示成功，否则返回错误信
      */
     public static String writeSystemSwitch(android.content.Context ctx, String shortKey, boolean enabled) {
-        String sysKey = getSwitchKeyMap().get(shortKey);
+        String sysKey = SWITCH_KEY_MAP.get(shortKey);
         if (sysKey == null) return "Unknown shortcut key: " + shortKey;
 
         int val = enabled ? 1 : 0;
-        String error = null;
 
-        // 方式一：尝试通过 ContentResolver 直接写入（需WRITE_SETTINGS
-        if (ctx != null) {
-            try {
-                android.provider.Settings.System.putInt(ctx.getContentResolver(), sysKey, val);
-                return null;
-            } catch (Throwable t) {
-                error = t.getMessage();
-            }
-        }
-
-        // 方式二：回退su -c settings put（以 system UID 执行）
+        // su -c settings put (ZUI SettingsProvider blocks putInt, skip directly)
         try {
             String cmd = "settings put system " + sysKey + " " + val;
             // Use ProcessBuilder with merged stderr to avoid pipe buffer deadlock
@@ -913,11 +893,9 @@ public class Config {
             }
             String suOutput = outputSb.toString().trim();
             return "su exit=" + su.exitValue() +
-                (suOutput.isEmpty() ? "" : ": " + suOutput) +
-                (error != null ? " | ContentResolver: " + error : "");
+                (suOutput.isEmpty() ? "" : ": " + suOutput);
         } catch (Throwable t) {
-            return "su error: " + t.getMessage() +
-                (error != null ? " | ContentResolver: " + error : "");
+            return "su error: " + t.getMessage();
         }
     }
 
@@ -941,12 +919,7 @@ public class Config {
             switchWinTab = SwitchState.ON;
             switchWinLeft = SwitchState.ON;
             switchCtrlLongPress = SwitchState.ON;
-            switchCtrlShift = SwitchState.ON;
-            switchAltShift = SwitchState.ON;
             switchCtrlShiftT = SwitchState.ON;
-            switchMetaShortRow = SwitchState.ON;
-            switchMetaLongRow = SwitchState.ON;
-            switchMetaHoldNonRow = SwitchState.ON;
 
             // ZUI 物理
             switchKeyMute = SwitchState.ON;
@@ -963,7 +936,6 @@ public class Config {
             switchKeyScreenLock = SwitchState.ON;
             switchKeyKeyboardRestore = SwitchState.ON;
             switchKeyKeyboardReverse = SwitchState.ON;
-            switchAltRightKR = SwitchState.ON;
         } catch (ClassNotFoundException e) {
             // KSC 类不存在 ZUI 设备，所ZUI 特有功能保持 FORCED_ON
         }

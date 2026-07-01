@@ -40,41 +40,77 @@ object IMEDispatcher {
     fun isInjecting(): Boolean = INJECTING.get() == true
 
     // -----------------------------------------------------------------
-    // IME 状态
+    // IME 状态 (system_server ClassLoader required for com.android.server.*)
     // -----------------------------------------------------------------
 
-    private var cachedSytemContext: Context? = null
-    private var cachedImm: InputMethodManager? = null
+    @Volatile
+    @JvmField
+    var systemClassLoader: ClassLoader? = null
 
-    /**
-     * 获取 system_server 下的 InputMethodManager。
-     * 通过 ActivityThread.systemContext 反射获取。
-     */
-    private fun getIMM(): InputMethodManager? {
-        if (cachedImm != null) return cachedImm
-        try {
-            val at = Class.forName("android.app.ActivityThread")
-                .getMethod("currentActivityThread").invoke(null)
-            val sysCtx = at.javaClass.getMethod("getSystemContext").invoke(at) as Context
-            cachedSytemContext = sysCtx
-            cachedImm = sysCtx.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+    /** Called from MainHook with system_server ClassLoader before any IME state queries. */
+    @JvmStatic
+    fun initClassLoader(classLoader: ClassLoader) {
+        systemClassLoader = classLoader
+        cachedIms = null
+    }
+
+    @Volatile
+    private var cachedIms: Any? = null
+
+    private fun getInputMethodManagerService(): Any? {
+        cachedIms?.let { return it }
+        val cl = systemClassLoader ?: return null
+        return try {
+            val immInternal = Class.forName(
+                "com.android.server.inputmethod.InputMethodManagerInternal", false, cl)
+            val svc = immInternal.getMethod("get").invoke(null)
+                ?: return null
+            if (!svc.javaClass.name.endsWith("LocalServiceImpl")) {
+                LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: IMMInternal.get() not LocalServiceImpl")
+                return null
+            }
+            val ims = svc.javaClass.getDeclaredField("this\$0").apply { isAccessible = true }.get(svc)
+            cachedIms = ims
+            ims
         } catch (t: Throwable) {
-            LogHelper.log(VerboseLevel.ERROR, "IMEDispatcher: getIMM failed:", t.message)
+            LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: getIMS failed:", t.message)
+            null
         }
-        return cachedImm
+    }
+
+    private fun getVisibilityComputer(): Any? {
+        val ims = getInputMethodManagerService() ?: return null
+        return try {
+            val userId = ims.javaClass.getDeclaredField("mCurrentImeUserId")
+                .apply { isAccessible = true }.getInt(ims)
+            val userData = ims.javaClass.getMethod("getUserData", Int::class.javaPrimitiveType)
+                .invoke(ims, userId) ?: return null
+            userData.javaClass.getDeclaredField("mVisibilityStateComputer")
+                .apply { isAccessible = true }.get(userData)
+        } catch (t: Throwable) {
+            LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: getVisibilityComputer failed:", t.message)
+            null
+        }
     }
 
     /**
-     * 当前是否有输入框获焦、IME 正在接收文本输入。
-     * 对应 [InputMethodManager.isAcceptingText]。
+     * IME 是否正在显示（键盘展开）。
+     * 走 InputMethodManagerInternal → IMS.getUserData → ImeVisibilityStateComputer.isInputShown()。
      */
     @JvmStatic
     fun isAcceptingText(): Boolean {
-        return try {
-            getIMM()?.isAcceptingText ?: false
+        try {
+            val vc = getVisibilityComputer()
+            if (vc == null) {
+                LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: isAcceptingText=false (vc=null)")
+                return false
+            }
+            val shown = vc.javaClass.getMethod("isInputShown").invoke(vc) as Boolean
+            LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: isAcceptingText=", shown.toString(), " (isInputShown)")
+            return shown
         } catch (t: Throwable) {
-            LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: isAcceptingText failed:", t.message)
-            false
+            LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: isAcceptingText=false (err:", t.message, ")")
+            return false
         }
     }
 
@@ -84,11 +120,13 @@ object IMEDispatcher {
      */
     @JvmStatic
     fun getCurrentIMEPackage(): String? {
-        return try {
-            getIMM()?.currentInputMethodInfo?.packageName
-        } catch (t: Throwable) {
-            null
-        }
+        try {
+            val at = Class.forName("android.app.ActivityThread")
+                .getMethod("currentActivityThread").invoke(null)
+            val sysCtx = at.javaClass.getMethod("getSystemContext").invoke(at) as Context
+            val imm = sysCtx.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            return imm.currentInputMethodInfo?.packageName
+        } catch (t: Throwable) { return null }
     }
 
     // -----------------------------------------------------------------

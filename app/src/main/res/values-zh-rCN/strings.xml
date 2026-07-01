@@ -35,8 +35,8 @@
     <string name="home_status_checking_sub">正在检测模块与 Root 状态</string>
     <string name="home_status_active_root_ok">模块已激活</string>
     <string name="home_status_active_root_ok_sub">已获得 Root 权限</string>
-    <string name="home_status_active_no_root">模块已激活，但未获得 Root 权限</string>
-    <string name="home_status_active_no_root_sub">部分功能可能无法正常工作。如刚获得 Root 权限，可能需要重启应用</string>
+    <string name="home_status_active_no_root">模块已激活（无 Root）</string>
+    <string name="home_status_active_no_root_sub">部分写入操作会稍有延迟</string>
     <string name="home_status_wrong_scope">作用域错误 — 未作用于系统框架</string>
     <string name="home_status_wrong_scope_sub">模块已加载但不在 system_server 中。请在 LSPosed 中将作用域设为「系统框架」。</string>
     <string name="home_status_inactive">模块未激活</string>
@@ -64,6 +64,14 @@
     <!-- 系统设置写入警告卡片 (fragment_recycler.xml) -->
     <!-- ================================================================ -->
     <string name="warn_cannot_write_settings">⚠ 无法写入系统设置</string>
+    <string name="warn_write_deferred">请稍等</string>
+    <string name="warn_queue_injection">⚠ 检测到写入队列被篡改，系统可能已受攻击</string>
+    <string name="secure_perm_card_title">缺少 WRITE_SECURE_SETTINGS 权限</string>
+    <string name="secure_perm_card_msg">缺少 WRITE_SECURE_SETTINGS 权限，操作可能有延迟\n\n要消除延迟，可以：\n1. 点击下方「尝试获取」，自动获取相关权限\n2. 授予应用 root 权限\n3. 在有权限的命令行执行下面命令之一（长按选中复制）：\n%1$s\n%2$s</string>
+    <string name="secure_perm_card_try">尝试获取</string>
+    <string name="secure_perm_card_close">关闭</string>
+    <string name="secure_perm_card_copy">复制</string>
+    <string name="secure_perm_card_never">不再提示</string>
     <string name="warn_write_error_reason">原因: %1$s</string>
     <string name="warn_write_solution">方法一：前往系统授权页\n方法二：使用 Root 自授权（需 Magisk/KSU）</string>
     <string name="btn_grant_settings">前往授权</string>
@@ -82,7 +90,7 @@
     <!-- ================================================================ -->
     <string name="templates_new_template">新建模板</string>
     <string name="templates_name_dialog_title">模板名称</string>
-    <string name="templates_name_duplicate">名称 \"%s\" 已存在，自动重命名为 \"%s\"</string>
+    <string name="templates_name_duplicate">名称 \"%1$s\" 已存在，自动重命名为 \"%2$s\"</string>
     <string name="templates_select_apps">选择应用（已选择 %1$d 个）</string>
     <string name="templates_delete_title">删除模板</string>
     <string name="templates_delete_msg">确定删除「%1$s」？</string>
@@ -144,7 +152,7 @@
 
     <!-- ESC→BACK remap warning -->
     <string name="fn_esc_remap_warning_title">⚠ 检测到 ESC→BACK 辅助键重映射</string>
-    <string name="fn_esc_remap_warning_desc">Android 辅助键重映射中，ESC 被映射为 BACK。\n\n这与默认 Fn 配置文件（ESC→F1）不兼容。重映射后，ESC 按键变为 BACK，而 Win+Back 快捷键恰好与 F1 映射冲突。\n\n提示：Win+Backspace（退格键）效果等同于 Back。\n\n解决方案：\n• 创建新的键盘配置文件（警告将自动消失）\n• 或前往系统设置 → 实体键盘 → 辅助键，恢复默认映射</string>
+    <string name="fn_esc_remap_warning_desc">Android 辅助键重映射中，ESC 被映射为 BACK。\n\n这与默认 Fn 配置文件（ESC→F1）不兼容。重映射后，ESC 按键变为 BACK，而 %1$s+Back 快捷键恰好与 F1 映射冲突。\n\n提示：%1$s+Backspace（退格键）效果等同于 Back。\n\n解决方案：\n• 创建新的键盘配置文件（警告将自动消失）\n• 或前往系统设置 → 实体键盘 → 辅助键，恢复默认映射</string>
     <string name="fn_btn_create_profile">制作配置文件</string>
     <string name="fn_btn_modifier_keys">前往辅助键设置</string>
     <string name="fn_modifier_keys_failed">无法打开辅助键设置</string>
@@ -287,35 +295,35 @@
     <string name="mode_block">忽略</string>
 
     <!-- 各快捷方式显示名和描述 -->
-    <string name="shortcut_winD">Win + D</string>
+    <string name="shortcut_winD">%1$s + D</string>
     <string name="shortcut_winD_desc">回到桌面</string>
-    <string name="shortcut_winS">Win + S</string>
+    <string name="shortcut_winS">%1$s + S</string>
     <string name="shortcut_winS_desc">全局搜索</string>
-    <string name="shortcut_winA">Win + A</string>
+    <string name="shortcut_winA">%1$s + A</string>
     <string name="shortcut_winA_desc">隐藏/显示任务栏</string>
-    <string name="shortcut_winBack">Win + Back</string>
+    <string name="shortcut_winBack">%1$s + Back</string>
     <string name="shortcut_winBack_desc">发送 ESC / 返回\n设置-实体键盘-辅助键 可改 ESC 功能</string>
-    <string name="shortcut_winE">Win + E</string>
+    <string name="shortcut_winE">%1$s + E</string>
     <string name="shortcut_winE_desc">打开文件管理器</string>
-    <string name="shortcut_winI">Win + I</string>
+    <string name="shortcut_winI">%1$s + I</string>
     <string name="shortcut_winI_desc">打开设置</string>
-    <string name="shortcut_winL">Win + L</string>
+    <string name="shortcut_winL">%1$s + L</string>
     <string name="shortcut_winL_desc">锁屏</string>
-    <string name="shortcut_winM">Win + M</string>
+    <string name="shortcut_winM">%1$s + M</string>
     <string name="shortcut_winM_desc">最小化窗口</string>
-    <string name="shortcut_winN">Win + N</string>
+    <string name="shortcut_winN">%1$s + N</string>
     <string name="shortcut_winN_desc">通知面板</string>
-    <string name="shortcut_winP">Win + P</string>
+    <string name="shortcut_winP">%1$s + P</string>
     <string name="shortcut_winP_desc">切换 PC 模式</string>
-    <string name="shortcut_winW">Win + W</string>
+    <string name="shortcut_winW">%1$s + W</string>
     <string name="shortcut_winW_desc">关闭前台应用（保护5个系统进程）</string>
-    <string name="shortcut_winNumber">Win + 1~8</string>
+    <string name="shortcut_winNumber">%1$s + 1~8</string>
     <string name="shortcut_winNumber_desc">打开 Dock 栏对应位置应用</string>
-    <string name="shortcut_winTab">Win + Tab</string>
+    <string name="shortcut_winTab">%1$s + Tab</string>
     <string name="shortcut_winTab_desc">最近任务</string>
-    <string name="shortcut_winUp">Win + ↑ / Win + ↓</string>
+    <string name="shortcut_winUp">%1$s + ↑ / Win + ↓</string>
     <string name="shortcut_winUp_desc">窗口最大化 / 窗口还原\n系统开关 ↑↓ 共用</string>
-    <string name="shortcut_winLeft">Win + ← / Win + →</string>
+    <string name="shortcut_winLeft">%1$s + ← / Win + →</string>
     <string name="shortcut_winLeft_desc">分屏到左侧 / 分屏到右侧\n系统开关 ←→ 共用</string>
     <string name="shortcut_ctrlCard">长按 Ctrl 和 Ctrl + /</string>
     <string name="shortcut_ctrlCard_desc">Ctrl 长按开关 | Ctrl+/ 行为模式\n注意：「长按 Ctrl」功能仅在开关开启且「Ctrl+/ 」为“保持默认”时有效。</string>
@@ -359,8 +367,8 @@
     <string name="shortcut_printScreenShort_desc">区域截图</string>
     <string name="shortcut_printScreenLong">Print Screen 长按</string>
     <string name="shortcut_printScreenLong_desc">全屏截图</string>
-    <string name="shortcut_metaSingle">Meta 单按</string>
-    <string name="shortcut_metaSingle_desc">开始菜单\n「关闭/忽略」时需稍长按（约300ms）以触发注入，短按可能不响应</string>
+    <string name="shortcut_metaSingle">%1$s 单按</string>
+    <string name="shortcut_metaSingle_desc">开始菜单\n⚠ 设为忽略后，长按功能（语音助手 / 输入法切换）同样不可用</string>
     <string name="shortcut_metaShortRow">Meta ROW 短按</string>
     <string name="shortcut_metaShortRow_desc">切换语言（需 ROW+特殊键盘）</string>
     <string name="shortcut_metaLongRow">Meta ROW 长按</string>
@@ -373,13 +381,13 @@
     <string name="shortcut_keyKeyboardReverse_desc">启用物理键盘</string>
     <string name="shortcut_altRightKR">Alt_RIGHT KR</string>
     <string name="shortcut_altRightKR_desc">韩国版切语言</string>
-    <string name="shortcut_aospBounceKeys">Win+Alt+3 防抖</string>
+    <string name="shortcut_aospBounceKeys">%1$s+Alt+3 防抖</string>
     <string name="shortcut_aospBounceKeys_desc">AOSP 原生防抖键</string>
-    <string name="shortcut_aospMouseKeys">Win+Alt+4 鼠标</string>
+    <string name="shortcut_aospMouseKeys">%1$s+Alt+4 鼠标</string>
     <string name="shortcut_aospMouseKeys_desc">AOSP 原生鼠标键</string>
-    <string name="shortcut_aospStickyKeys">Win+Alt+5 粘滞</string>
+    <string name="shortcut_aospStickyKeys">%1$s+Alt+5 粘滞</string>
     <string name="shortcut_aospStickyKeys_desc">AOSP 原生粘滞键</string>
-    <string name="shortcut_aospSlowKeys">Win+Alt+6 慢速</string>
+    <string name="shortcut_aospSlowKeys">%1$s+Alt+6 慢速</string>
     <string name="shortcut_aospSlowKeys_desc">AOSP 原生慢速键</string>
 
     <!-- ================================================================ -->
@@ -415,4 +423,64 @@
     <string name="label_output">输出: %1$s</string>
     <string name="help_no_document">当前语言没有帮助文档。</string>
     <string name="clipboard_config_label">键盘配置</string>
+
+    <!-- ================================================================ -->
+    <!-- 输入法增强 -->
+    <!-- ================================================================ -->
+    <string name="ime_title">输入法增强</string>
+    <string name="ime_enabled">启用</string>
+    <string name="ime_toast">切换时弹出提示</string>
+    <string name="ime_switch_label">切换输入法</string>
+    <string name="ime_switch_desc">选择切换输入法的物理按键组合</string>
+    <string name="ime_language_label">切换语言</string>
+    <string name="ime_language_desc">选择切换输入法语言的物理按键组合</string>
+    <string name="settings_ime_entry">输入法增强</string>
+    <string name="settings_ime_entry_desc">配置输入法和语言切换的按键绑定</string>
+    <string name="ime_binding_follow_system">保持默认</string>
+    <string name="ime_binding_ctrl_shift">Ctrl+Shift</string>
+    <string name="ime_binding_ctrl_space">Ctrl+Space</string>
+    <string name="ime_binding_alt_shift">Alt+Shift</string>
+    <string name="ime_binding_right_alt">右 Alt</string>
+    <string name="ime_binding_win">%1$s（长按）</string>
+    <string name="ime_binding_off">关闭</string>
+    <string name="ime_binding_block">忽略</string>
+    <string name="ime_held_released">"%1$s" 被另一卡片占用，已释放为关闭</string>
+    <string name="ime_win_voice_warn">您在输入法增强中启用了 %1$s 键，输入状态下该功能优先于语音助手</string>
+        <string name="ime_import_profile">导入输入法适配配置</string>
+    <string name="ime_import_invalid">无效的输入法配置：缺少 ime 字段</string>
+    <string name="ime_import_success">输入法配置 "%1$s" 已导入</string>
+    <string name="ime_manage_profiles">管理输入法适配配置</string>
+    <string name="ime_manage_title">输入法适配配置</string>
+    <string name="ime_manage_empty">未找到输入法配置</string>
+    <string name="ime_manage_strategy">策略</string>
+    <string name="ime_manage_search_hint">搜索配置…</string>
+    <string name="profile_manage_search_hint">搜索配置…</string>
+    <string name="ime_manage_delete">删除</string>
+    <string name="ime_manage_delete_msg">删除 "%1$s"？</string>
+    <string name="ime_manage_deleted">"%1$s" 已删除</string>
+    <string name="ime_builtin_nodelete">内置配置不可删除</string>
+    <string name="ime_import_fail_title">导入失败</string>
+    <string name="ime_import_raw">您的输入：</string>
+    <string name="ime_err_parse">解析错误</string>
+    <string name="ime_err_unknown">未知内部错误</string>
+    <string name="ime_err_missing_ime">缺少必填字段：ime</string>
+    <string name="ime_err_missing_strategy">缺少必填字段：strategy</string>
+    <string name="ime_err_hook_missing_object">hook 策略缺少 \"hook\" 对象</string>
+    <string name="ime_err_hook_missing_class">hook 策略缺少 \"hook.class\"</string>
+    <string name="ime_err_hook_missing_method">hook 策略缺少 \"hook.method\"</string>
+    <string name="ime_err_keyremap_missing_target">keyremap 策略缺少 \"remap-to\"</string>
+    <string name="ime_err_unknown_strategy">未知或缺少策略类型</string>
+    <string name="ime_import_text_hint">在此粘贴 JSON…</string>
+    <string name="ime_import_from_file">从文件导入</string>
+    <string name="ime_import_from_text">从文本导入</string>
+    <string name="ime_problem_title">发现问题：%1$s</string>
+    <string name="ime_problem_msg">您的配置文件 "%1$s" (uuid: %2$s) 有问题：\n%3$s\n\n配置文件内容（长按选中）：\n%4$s\n\n即将删除此配置文件。</string>
+
+    <!-- Win 长按 → 语音助手 -->
+    <string name="shortcut_winLongPress">%1$s（长按）</string>
+    <string name="shortcut_winLongPress_desc">启动语音助手</string>
+
+    <!-- Meta 键称呼 -->
+    <string name="settings_meta_label">按键称呼</string>
+    <string name="settings_meta_label_desc">界面中 Meta 键的显示名称</string>
 </resources>

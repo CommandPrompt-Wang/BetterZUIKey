@@ -35,8 +35,8 @@
     <string name="home_status_checking_sub">Detecting module and root status</string>
     <string name="home_status_active_root_ok">Module active</string>
     <string name="home_status_active_root_ok_sub">Root access granted</string>
-    <string name="home_status_active_no_root">Module active, but root not granted</string>
-    <string name="home_status_active_no_root_sub">Some features may not work. If root was just granted, try restarting the app.</string>
+    <string name="home_status_active_no_root">Module active (no root)</string>
+    <string name="home_status_active_no_root_sub">Some writes may be slightly delayed.</string>
     <string name="home_status_wrong_scope">Wrong scope — not in system framework</string>
     <string name="home_status_wrong_scope_sub">Hooks are loaded but not in system_server. Set scope to \"System Framework\" in LSPosed.</string>
     <string name="home_status_inactive">Module not active</string>
@@ -66,6 +66,14 @@
     <string name="warn_cannot_write_settings">⚠ Cannot write to system settings</string>
     <string name="warn_write_error_reason">Reason: %1$s</string>
     <string name="warn_write_solution">Method 1: Go to system authorization page\nMethod 2: Root self-grant (requires Magisk/KSU)</string>
+    <string name="warn_write_deferred">Please wait…</string>
+    <string name="warn_queue_injection">⚠ Detected unauthorized write queue tampering. Your system may be compromised.</string>
+    <string name="secure_perm_card_title">WRITE_SECURE_SETTINGS Required</string>
+    <string name="secure_perm_card_msg">Missing WRITE_SECURE_SETTINGS — operations may be delayed.\n\nTo resolve:\n1. Tap "Try Grant" to auto-grant\n2. Grant root to this app\n3. Run one of these (long-press to copy):\n%1$s\n%2$s</string>
+    <string name="secure_perm_card_try">Try Grant</string>
+    <string name="secure_perm_card_close">Close</string>
+    <string name="secure_perm_card_copy">Copy</string>
+    <string name="secure_perm_card_never">Don\'t show again</string>
     <string name="btn_grant_settings">Grant</string>
     <string name="btn_su_grant">su grant</string>
     <string name="dialog_su_grant_success_title">Grant Successful</string>
@@ -82,7 +90,7 @@
     <!-- ================================================================ -->
     <string name="templates_new_template">New Template</string>
     <string name="templates_name_dialog_title">Template Name</string>
-    <string name="templates_name_duplicate">Name \"%s\" already exists, auto-renamed to \"%s\"</string>
+    <string name="templates_name_duplicate">Name \"%1$s\" already exists, auto-renamed to \"%2$s\"</string>
     <string name="templates_select_apps">Select apps (%1$d selected)</string>
     <string name="templates_delete_title">Delete Template</string>
     <string name="templates_delete_msg">Delete \"%1$s\"?</string>
@@ -144,10 +152,74 @@
 
     <!-- ESC→BACK remap warning -->
     <string name="fn_esc_remap_warning_title">⚠ ESC → BACK remapping detected</string>
-    <string name="fn_esc_remap_warning_desc">Android modifier key remapping is ESC → BACK.\n\nThis is incompatible with the default Fn profile (ESC → F1). After remapping, ESC becomes BACK, and Win+Back conflicts with the F1 mapping.\n\nTip: Win+Backspace has the same effect as Back.\n\nSolutions:\n• Create a new keyboard profile (auto-dismiss this warning)\n• Or go to system Settings to restore the default modifier key layout</string>
+    <string name="fn_esc_remap_warning_desc">Android modifier key remapping is ESC → BACK.\n\nThis is incompatible with the default Fn profile (ESC → F1). After remapping, ESC becomes BACK, and %1$s+Back conflicts with the F1 mapping.\n\nTip: %1$s+Backspace has the same effect as Back.\n\nSolutions:\n• Create a new keyboard profile (auto-dismiss this warning)\n• Or go to system Settings to restore the default modifier key layout</string>
     <string name="fn_btn_create_profile">Create Profile</string>
     <string name="fn_btn_modifier_keys">Open Modifier Keys</string>
     <string name="fn_modifier_keys_failed">Unable to open modifier key settings</string>
+
+    <!-- ================================================================ -->
+    <!-- IME Settings (activity_ime_settings.xml + IMESettingsActivity) -->
+    <!-- ================================================================ -->
+    <string name="ime_title">IME Enhancement</string>
+    <string name="ime_enabled">Enable</string>
+    <string name="ime_toast">Show Toast on switch</string>
+    <string name="ime_switch_label">Switch IME</string>
+    <string name="ime_switch_desc">Select physical key combination to switch input method</string>
+    <string name="ime_language_label">Switch Language</string>
+    <string name="ime_language_desc">Select physical key combination to switch IME language</string>
+    <string name="settings_ime_entry">IME Enhancement</string>
+    <string name="settings_ime_entry_desc">Configure IME and language switching key bindings</string>
+
+    <!-- IMEBinding display names -->
+    <string name="ime_binding_follow_system">Follow System</string>
+    <string name="ime_binding_ctrl_shift">Ctrl+Shift</string>
+    <string name="ime_binding_ctrl_space">Ctrl+Space</string>
+    <string name="ime_binding_alt_shift">Alt+Shift</string>
+    <string name="ime_binding_right_alt">Right Alt</string>
+    <string name="ime_binding_win">%1$s (long press)</string>
+    <string name="ime_binding_off">Off</string>
+    <string name="ime_binding_block">Block</string>
+    <string name="ime_held_released">\"%1$s\" held by another card, released to Off</string>
+    <string name="ime_win_voice_warn">%1$s is enabled in IME Enhancement; while typing, that binding takes priority over voice assistant</string>
+
+    <!-- Meta key label setting -->
+    <string name="settings_meta_label">Key name</string>
+    <string name="settings_meta_label_desc">How the Meta key is referred to in UI</string>
+
+    <!-- IME Profile import -->
+    <string name="ime_import_profile">Import IME Profile</string>
+    <string name="ime_import_invalid">Invalid IME profile: missing or blank ime field</string>
+    <string name="ime_import_success">IME profile \"%1$s\" imported</string>
+    <string name="ime_manage_profiles">Manage IME Profiles</string>
+    <string name="ime_manage_title">IME Profiles</string>
+    <string name="ime_manage_empty">No IME profiles found</string>
+    <string name="ime_manage_strategy">Strategy</string>
+    <string name="ime_manage_search_hint">Search profiles…</string>
+    <string name="profile_manage_search_hint">Search profiles…</string>
+    <string name="ime_manage_delete">Delete</string>
+    <string name="ime_manage_delete_msg">Delete \"%1$s\"?</string>
+    <string name="ime_manage_deleted">\"%1$s\" deleted</string>
+    <string name="ime_builtin_nodelete">Cannot delete built-in profile</string>
+    <string name="ime_import_fail_title">Import Failed</string>
+    <string name="ime_import_raw">Your input:</string>
+    <string name="ime_err_parse">Parse error</string>
+    <string name="ime_err_unknown">Unknown internal error</string>
+    <string name="ime_err_missing_ime">Missing required field: ime</string>
+    <string name="ime_err_missing_strategy">Missing required field: strategy</string>
+    <string name="ime_err_hook_missing_object">hook strategy requires \"hook\" object</string>
+    <string name="ime_err_hook_missing_class">hook strategy requires \"hook.class\"</string>
+    <string name="ime_err_hook_missing_method">hook strategy requires \"hook.method\"</string>
+    <string name="ime_err_keyremap_missing_target">keyremap strategy requires \"remap-to\"</string>
+    <string name="ime_err_unknown_strategy">Unknown or missing strategy type</string>
+    <string name="ime_import_text_hint">Paste JSON here…</string>
+    <string name="ime_import_from_file">From file</string>
+    <string name="ime_import_from_text">From text</string>
+    <string name="ime_problem_title">Problem: %1$s</string>
+    <string name="ime_problem_msg">Your profile \"%1$s\" (uuid: %2$s) has problems:\n%3$s\n\nProfile content (long-press to select):\n%4$s\n\nThis profile will be deleted.</string>
+
+    <!-- Win long press → Voice Assistant shortcut -->
+    <string name="shortcut_winLongPress">%1$s (long press)</string>
+    <string name="shortcut_winLongPress_desc">Launch voice assistant</string>
 
     <!-- ================================================================ -->
     <!-- AOSP Accessibility (activity_aosp_settings.xml + AospSettingsActivity) -->
@@ -289,35 +361,35 @@
     <string name="mode_block">Block</string>
 
     <!-- Shortcut display names and descriptions -->
-    <string name="shortcut_winD">Win + D</string>
+    <string name="shortcut_winD">%1$s + D</string>
     <string name="shortcut_winD_desc">Go to desktop</string>
-    <string name="shortcut_winS">Win + S</string>
+    <string name="shortcut_winS">%1$s + S</string>
     <string name="shortcut_winS_desc">Global search</string>
-    <string name="shortcut_winA">Win + A</string>
+    <string name="shortcut_winA">%1$s + A</string>
     <string name="shortcut_winA_desc">Hide/show taskbar</string>
-    <string name="shortcut_winBack">Win + Back</string>
+    <string name="shortcut_winBack">%1$s + Back</string>
     <string name="shortcut_winBack_desc">Send ESC / Back\nSettings → Physical keyboard → Assist key to change ESC behavior</string>
-    <string name="shortcut_winE">Win + E</string>
+    <string name="shortcut_winE">%1$s + E</string>
     <string name="shortcut_winE_desc">Open file manager</string>
-    <string name="shortcut_winI">Win + I</string>
+    <string name="shortcut_winI">%1$s + I</string>
     <string name="shortcut_winI_desc">Open Settings</string>
-    <string name="shortcut_winL">Win + L</string>
+    <string name="shortcut_winL">%1$s + L</string>
     <string name="shortcut_winL_desc">Lock screen</string>
-    <string name="shortcut_winM">Win + M</string>
+    <string name="shortcut_winM">%1$s + M</string>
     <string name="shortcut_winM_desc">Minimize window</string>
-    <string name="shortcut_winN">Win + N</string>
+    <string name="shortcut_winN">%1$s + N</string>
     <string name="shortcut_winN_desc">Notification panel</string>
-    <string name="shortcut_winP">Win + P</string>
+    <string name="shortcut_winP">%1$s + P</string>
     <string name="shortcut_winP_desc">Switch PC mode</string>
-    <string name="shortcut_winW">Win + W</string>
+    <string name="shortcut_winW">%1$s + W</string>
     <string name="shortcut_winW_desc">Force close foreground app (protects 5 system processes)</string>
-    <string name="shortcut_winNumber">Win + 1~8</string>
+    <string name="shortcut_winNumber">%1$s + 1~8</string>
     <string name="shortcut_winNumber_desc">Launch dock app at corresponding position</string>
-    <string name="shortcut_winTab">Win + Tab</string>
+    <string name="shortcut_winTab">%1$s + Tab</string>
     <string name="shortcut_winTab_desc">Recent tasks</string>
-    <string name="shortcut_winUp">Win + ↑ / Win + ↓</string>
+    <string name="shortcut_winUp">%1$s + ↑ / %1$s + ↓</string>
     <string name="shortcut_winUp_desc">Maximize / Restore window\nSystem switches ↑↓ are shared</string>
-    <string name="shortcut_winLeft">Win + ← / Win + →</string>
+    <string name="shortcut_winLeft">%1$s + ← / %1$s + →</string>
     <string name="shortcut_winLeft_desc">Split-screen left / Split-screen right\nSystem switches ←→ are shared</string>
     <string name="shortcut_ctrlCard">Long-press Ctrl + Ctrl + /</string>
     <string name="shortcut_ctrlCard_desc">Ctrl long-press toggle | Ctrl+/ behavior mode\nNote: \"Long-press Ctrl\" only works when the switch is ON and \"Ctrl+/\" is set to \"Keep Default\".</string>
@@ -361,27 +433,20 @@
     <string name="shortcut_printScreenShort_desc">Region screenshot</string>
     <string name="shortcut_printScreenLong">Print Screen (long)</string>
     <string name="shortcut_printScreenLong_desc">Full screen screenshot</string>
-    <string name="shortcut_metaSingle">Meta (single press)</string>
-    <string name="shortcut_metaSingle_desc">Start menu\nWhen set to \"Off\" or \"Ignore\", slightly long-press (~300ms) to trigger injection; quick taps may not respond</string>
-    <string name="shortcut_metaShortRow">Meta ROW (short press)</string>
-    <string name="shortcut_metaShortRow_desc">Switch language (requires ROW + special keyboard)</string>
-    <string name="shortcut_metaLongRow">Meta ROW (long press)</string>
-    <string name="shortcut_metaLongRow_desc">Voice assistant (requires ROW + special keyboard)</string>
-    <string name="shortcut_metaHoldNonRow">Meta non-ROW (hold)</string>
-    <string name="shortcut_metaHoldNonRow_desc">Continuous language switch (requires non-ROW + special keyboard)</string>
-    <string name="shortcut_keyKeyboardRestore">520 Keyboard Restore</string>
+    <string name="shortcut_metaSingle">%1$s (short press)</string>
+    <string name="shortcut_metaSingle_desc">Start menu\n⚠ Setting to Block also disables Meta long-press (voice assistant / IME switching)</string>    <string name="shortcut_keyKeyboardRestore">520 Keyboard Restore</string>
     <string name="shortcut_keyKeyboardRestore_desc">Disable physical keyboard</string>
     <string name="shortcut_keyKeyboardReverse">521 Keyboard Flip</string>
     <string name="shortcut_keyKeyboardReverse_desc">Enable physical keyboard</string>
     <string name="shortcut_altRightKR">Alt_RIGHT KR</string>
     <string name="shortcut_altRightKR_desc">Korean language switch</string>
-    <string name="shortcut_aospBounceKeys">Win+Alt+3 Bounce</string>
+    <string name="shortcut_aospBounceKeys">%1$s+Alt+3 Bounce</string>
     <string name="shortcut_aospBounceKeys_desc">AOSP native bounce keys</string>
-    <string name="shortcut_aospMouseKeys">Win+Alt+4 Mouse</string>
+    <string name="shortcut_aospMouseKeys">%1$s+Alt+4 Mouse</string>
     <string name="shortcut_aospMouseKeys_desc">AOSP native mouse keys</string>
-    <string name="shortcut_aospStickyKeys">Win+Alt+5 Sticky</string>
+    <string name="shortcut_aospStickyKeys">%1$s+Alt+5 Sticky</string>
     <string name="shortcut_aospStickyKeys_desc">AOSP native sticky keys</string>
-    <string name="shortcut_aospSlowKeys">Win+Alt+6 Slow</string>
+    <string name="shortcut_aospSlowKeys">%1$s+Alt+6 Slow</string>
     <string name="shortcut_aospSlowKeys_desc">AOSP native slow keys</string>
 
     <!-- ================================================================ -->

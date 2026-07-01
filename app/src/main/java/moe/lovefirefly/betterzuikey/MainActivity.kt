@@ -19,6 +19,70 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var binding: ActivityMainBinding
+    /** 需要 onDestroy 时取消的 pending Runnable */
+    private var longPressRunnable: Runnable? = null
+    /** 上次 showWarningBanner 显示的错误信息（供复制按钮使用） */
+    var lastWarningMessage: String? = null
+
+    /** 红色告警横幅（安全事件，如检测到队列注入） */
+    fun showWarningBannerRed(message: String) {
+        showWarningBanner(message, timeoutMs = 10000,
+            buttonText = getString(R.string.dialog_confirm_ok),
+            onButtonClick = {
+                // 清除告警 flag
+                getSharedPreferences(RemotePrefProvider.PREF_FILE, MODE_PRIVATE)
+                    .edit().remove("sys_write_alert").apply()
+                findViewById<android.view.View>(R.id.warning_banner)?.visibility = android.view.View.GONE
+            },
+            bgColor = 0xFF_D32F2F.toInt())
+    }
+
+    /** 底部悬浮警告横幅
+     *  @param message 显示文本
+     *  @param timeoutMs 自动消失时间（ms）
+     *  @param buttonText 按钮文案，null=不显示按钮
+     *  @param onButtonClick 按钮点击回调
+     *  @param copyable 是否显示复制按钮（旧接口兼容）
+     *  @param bgColor 背景色，null=默认琥珀色 */
+    fun showWarningBanner(message: String,
+                          timeoutMs: Long = 5000,
+                          buttonText: String? = null,
+                          onButtonClick: (() -> Unit)? = null,
+                          copyable: Boolean = true,
+                          bgColor: Int? = null) {
+        lastWarningMessage = message
+        val banner = findViewById<android.view.View>(R.id.warning_banner) ?: return
+        if (bgColor != null) banner.setBackgroundColor(bgColor)
+        val tv = findViewById<android.widget.TextView>(R.id.tv_warning_text)
+        tv?.text = message
+        banner.visibility = android.view.View.VISIBLE
+
+        val btn = findViewById<android.widget.TextView>(R.id.btn_copy_error) ?: return
+        if (buttonText != null) {
+            btn.visibility = android.view.View.VISIBLE
+            btn.text = buttonText
+            btn.setOnClickListener { onButtonClick?.invoke() }
+        } else if (copyable) {
+            btn.visibility = android.view.View.VISIBLE
+            btn.text = getString(R.string.home_warning_copy_error)
+            btn.setOnClickListener {
+                val text = lastWarningMessage ?: message
+                val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                    as android.content.ClipboardManager
+                clipboard.setPrimaryClip(
+                    android.content.ClipData.newPlainText("BetterZUIKey error", text))
+                (it as? android.widget.TextView)?.text = "✓"
+                it.postDelayed({ (it as? android.widget.TextView)?.text =
+                    getString(R.string.home_warning_copy_error) }, 1500)
+            }
+        } else {
+            btn.visibility = android.view.View.GONE
+        }
+
+        val hideRunnable = Runnable { banner.visibility = android.view.View.GONE }
+        banner.postDelayed(hideRunnable, timeoutMs)
+    }
+
     /** 用于页面切换 / onResume 时触发当前可刷新页面的刷新 */
     private fun refreshCurrentPage() {
         val pos = binding.viewPager.currentItem
@@ -42,6 +106,7 @@ class MainActivity : AppCompatActivity() {
         applyLocale()
         super.onCreate(savedInstanceState)
         val cfg = Config.load()
+        Config.lastLoadError?.let { showWarningBanner(it); Config.lastLoadError = null }
         appliedDynamicColor = cfg.dynamicColorEnabled
         appliedNightMode = cfg.nightMode
         appliedLocaleTag = cfg.localeOverride
@@ -56,9 +121,6 @@ class MainActivity : AppCompatActivity() {
         binding.viewPager.adapter = adapter
         binding.viewPager.offscreenPageLimit = 3
 
-        // 自动通过 su 授予 WRITE_SECURE_SETTINGS
-        grantSecureSettings()
-
         // 首次启动 → 显示使用协议对话框
         val prefs = getSharedPreferences("app", MODE_PRIVATE)
         if (!prefs.getBoolean("agreement_shown", false)) {
@@ -69,11 +131,28 @@ class MainActivity : AppCompatActivity() {
         }
 
         // 调试：长按标题栏 3s 弹出协议对话框（不可退出）
-        var longPressRunnable: Runnable? = null
         binding.toolbar.setOnTouchListener { _, event ->
             when (event.action) {
                 android.view.MotionEvent.ACTION_DOWN -> {
-                    val r = Runnable { showAgreementDialog(onAccept = { }, canExit = false) }
+                    val r = Runnable {
+                        val items = arrayOf(
+                            getString(R.string.agreement_title),
+                            "Reset Secure Permission Warning"
+                        )
+                        androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                            .setTitle("Debug")
+                            .setItems(items) { _, which ->
+                                when (which) {
+                                    0 -> showAgreementDialog(onAccept = { }, canExit = false)
+                                    1 -> {
+                                        getSharedPreferences(RemotePrefProvider.PREF_FILE, MODE_PRIVATE)
+                                            .edit().remove("secure_perm_dismissed").apply()
+                                        android.widget.Toast.makeText(this@MainActivity,
+                                            "Secure permission warning reset", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }.show()
+                    }
                     longPressRunnable = r
                     binding.toolbar.postDelayed(r, 3000)
                     false  // 不消费，让 toolbar 正常处理（不影响点击、滚动等）
@@ -158,9 +237,16 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         refreshCurrentPage()
         val cfg = Config.load()
+        Config.lastLoadError?.let { showWarningBanner(it); Config.lastLoadError = null }
         if (cfg.dynamicColorEnabled != appliedDynamicColor || cfg.nightMode != appliedNightMode || cfg.localeOverride != appliedLocaleTag) {
             recreate()
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        longPressRunnable?.let { binding.toolbar.removeCallbacks(it) }
+        findViewById<android.view.View>(R.id.warning_banner)?.clearAnimation()
     }
 
     private class TabAdapter(fa: FragmentActivity) : FragmentStateAdapter(fa) {
@@ -197,6 +283,15 @@ class MainActivity : AppCompatActivity() {
             val sysAlive = isBootMatch(prefs, "boot_time", myBoot)
 
             if (!sysAlive) {
+                // boot_time 可能因 ContentProvider 未就绪而写入失败
+                // 如果模块确认活跃，App 进程自行补写（App 进程拥有 SP 直接写权限）
+                if (prefs.getLong("boot_time", 0L) == 0L) {
+                    prefs.edit().putLong("boot_time", myBoot).apply()
+                    // 重试匹配
+                    if (isBootMatch(prefs, "boot_time", myBoot)) {
+                        return if (sRootGranted) 0 else 1
+                    }
+                }
                 // Module active but no boot_time match → wrong scope
                 return 2
             }
@@ -386,78 +481,38 @@ class MainActivity : AppCompatActivity() {
             }.start()
         }
 
-        /** 尝试通过 secret code 广播打开 LSPosed 管理器（5776733 = LSPosed on T9）*/
+        /** 尝试打开 LSPosed 管理器：
+         * ① su -c am broadcast (root，唯一有效途径)
+         * ② [仅无 root 时] sendBroadcast + 直接打开 org.lsposed.manager（做做样子）
+         * 全部失败才显示警告 */
         private fun tryOpenLSPosedManager(view: android.view.View) {
             Thread {
-                var success = false
-                val intent = android.content.Intent("android.telephony.action.SECRET_CODE").apply {
-                    data = android.net.Uri.parse("android_secret_code://5776733")
-                    addFlags(android.content.Intent.FLAG_RECEIVER_FOREGROUND)
-                    setPackage("android")
-                }
-
                 if (sRootGranted) {
-                    // 有 su → 用 am broadcast
+                    // ① su -c am broadcast (root, 最快)
                     try {
                         val proc = Runtime.getRuntime().exec(arrayOf(
                             "su", "-c",
                             "am broadcast -a android.telephony.action.SECRET_CODE -d android_secret_code://5776733 -f 0x400000 android"
                         ))
-                        val stdout = proc.inputStream.bufferedReader().use { it.readText() }
-                        val stderr = proc.errorStream.bufferedReader().use { it.readText() }
+                        proc.inputStream.bufferedReader().use { it.readText() }
+                        proc.errorStream.bufferedReader().use { it.readText() }
                         val exit = proc.waitFor()
-                        success = (exit == 0)
-                        sLastCommandOutput = "stdout:\n$stdout\nstderr:\n$stderr"
-                    } catch (e: Exception) {
-                        success = false
-                        sLastCommandOutput = e.toString()
-                    }
-                } else {
-                    // 没有 su → 尝试 sendBroadcast
-                    try {
-                        requireActivity().sendBroadcast(intent)
-                        success = true
-                        sLastCommandOutput = "sendBroadcast succeeded"
-                    } catch (e: SecurityException) {
-                        success = false
-                        sLastCommandOutput = "SecurityException: ${e.message}"
-                    } catch (e: Exception) {
-                        success = false
-                        sLastCommandOutput = e.toString()
-                    }
+                        if (exit == 0) { sLastCommandOutput = "OK"; return@Thread }
+                    } catch (_: Exception) {}
                 }
-
-                if (!success) {
-                    view.post { showWarningBanner(view) }
-                }
+                // ② system_server am broadcast (system UID, 100% 可靠)
+                try {
+                    requireContext().contentResolver.call(
+                        ConfigSyncProvider.RELOAD_URI,
+                        "setLsposedOpenRequest", null,
+                        android.os.Bundle().apply { putBoolean("requested", true) })
+                    sLastCommandOutput = "OK"
+                    view.post {
+                        (requireActivity() as MainActivity).showWarningBanner(
+                            getString(R.string.warn_write_deferred), copyable = false, timeoutMs = 1500)
+                    }
+                } catch (_: Exception) {}
             }.start()
-        }
-
-        /** 底部悬浮警告，持续 5s，可复制错误信息 */
-        private fun showWarningBanner(view: android.view.View) {
-            val activity = requireActivity()
-            val banner = activity.findViewById<android.view.View>(R.id.warning_banner)
-            banner?.visibility = android.view.View.VISIBLE
-
-            // 复制按钮
-            activity.findViewById<android.widget.TextView>(R.id.btn_copy_error)?.setOnClickListener {
-                val text = sLastCommandOutput
-                    ?: getString(R.string.home_warning_open_lsposed_failed)
-                val clipboard = requireContext().getSystemService(android.content.Context.CLIPBOARD_SERVICE)
-                    as android.content.ClipboardManager
-                clipboard.setPrimaryClip(
-                    android.content.ClipData.newPlainText("LSPosed broadcast error", text))
-                // 短暂显示"已复制"
-                (it as? android.widget.TextView)?.text = "✓"
-                it.postDelayed({
-                    (it as? android.widget.TextView)?.text = getString(R.string.home_warning_copy_error)
-                }, 1500)
-            }
-
-            val hideRunnable = Runnable {
-                banner?.visibility = android.view.View.GONE
-            }
-            banner?.postDelayed(hideRunnable, 5000)
         }
     }
 
@@ -479,25 +534,4 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** 在后台线程通过 su 授予 WRITE_SECURE_SETTINGS，避免阻塞 UI */
-    private fun grantSecureSettings() {
-        Thread {
-            try {
-                val proc = Runtime.getRuntime().exec(arrayOf(
-                    "su", "-c",
-                    "pm grant moe.lovefirefly.betterzuikey android.permission.WRITE_SECURE_SETTINGS"
-                ))
-                // Consume stdout/stderr to prevent pipe buffer deadlock
-                proc.inputStream.bufferedReader().use { it.readText() }
-                proc.errorStream.bufferedReader().use { it.readText() }
-                val exitCode = proc.waitFor()
-                if (exitCode != 0) {
-                    android.util.Log.w("BetterZUIKey",
-                        "su pm grant failed, exit=$exitCode")
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("BetterZUIKey", "su pm grant error", e)
-            }
-        }.start()
-    }
 }

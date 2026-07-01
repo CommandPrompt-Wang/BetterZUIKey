@@ -31,6 +31,14 @@ class ProfileManageActivity : AppCompatActivity() {
         adapter = ProfileAdapter()
         binding.recycler.layoutManager = LinearLayoutManager(this)
         binding.recycler.adapter = adapter
+
+        binding.searchView.setOnQueryTextListener(object : androidx.appcompat.widget.SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(q: String?) = false
+            override fun onQueryTextChange(q: String?): Boolean {
+                adapter.filter(q ?: "")
+                return true
+            }
+        })
     }
 
     override fun onResume() {
@@ -40,10 +48,20 @@ class ProfileManageActivity : AppCompatActivity() {
 
     inner class ProfileAdapter : RecyclerView.Adapter<ProfileAdapter.VH>() {
 
+        private var allItems = listOf<Pair<String, KeyboardProfiles.Profile>>()
         private var items = listOf<Pair<String, KeyboardProfiles.Profile>>()
+        private var query = ""
 
         fun refresh() {
-            items = KeyboardProfiles.all(this@ProfileManageActivity).toList()
+            allItems = KeyboardProfiles.all(this@ProfileManageActivity).toList()
+            filter(query)
+        }
+
+        fun filter(q: String) {
+            query = q
+            items = if (q.isBlank()) allItems else allItems.filter { (_, p) ->
+                p.friendlyName.contains(q, true) || p.name.contains(q, true)
+            }
             notifyDataSetChanged()
         }
 
@@ -75,6 +93,10 @@ class ProfileManageActivity : AppCompatActivity() {
                 }
                 b.tvApps.text = summary
                 b.tvApps.isClickable = false
+
+                // Hide unused move sections (template editor leftover)
+                (b.tvMoveUp.parent as View).visibility = View.GONE
+                (b.tvMoveDown.parent as View).visibility = View.GONE
 
                 b.tvDelete.text = if (p.isCustom) getString(R.string.profile_btn_delete) else getString(R.string.profile_builtin_label)
                 b.tvDelete.isClickable = p.isCustom

@@ -4,11 +4,9 @@ import io.github.libxposed.api.XposedInterface;
 import io.github.libxposed.api.XposedModule;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 
 /**
  * Compatibility adapter: bridges the legacy Xposed callback API
@@ -253,7 +251,17 @@ public final class HookCompat {
         }
     }
 
-    /** Replacement for HookCompat.callMethod. */
+    /**
+     * Call a method by reflection.
+     *
+     * <p><b>IMPORTANT:</b> {@code args[i].getClass()} yields the runtime type
+     * (e.g. {@code KeyEvent.class}) which may be narrower than the declared
+     * parameter type (e.g. {@code InputEvent.class}).  The count-only fallback
+     * in {@link #findMethod} compensates for this mismatch.  Do NOT attempt to
+     * "fix" the try-catch into a direct throw — callers such as
+     * {@code KeyInjector.injectKeyDown} rely on silent {@code null} return
+     * for best-effort injection that must never crash the hook chain.
+     */
     @SuppressWarnings("unchecked")
     public static <T> T callMethod(Object obj, String methodName, Object... args) {
         try {
@@ -279,37 +287,27 @@ public final class HookCompat {
 
     // ---- internal ----
 
+    /**
+     * Find a declared method, with count-only fallback.
+     *
+     * <p>The exact match can fail when {@link #callMethod} passes runtime
+     * types (e.g. {@code KeyEvent.class}) but the method is declared with a
+     * parent type (e.g. {@code injectInputEvent(InputEvent, int)}).  The
+     * count-only fallback handles this mismatch.
+     */
     private static Method findMethod(Class<?> clazz, String name, Class<?>[] paramTypes)
             throws NoSuchMethodException {
-        try {
-            Method m = clazz.getDeclaredMethod(name, paramTypes);
-            m.setAccessible(true);
-            return m;
-        } catch (NoSuchMethodException e) {
-            for (Method m : clazz.getDeclaredMethods()) {
-                if (m.getName().equals(name) && m.getParameterCount() == paramTypes.length) {
-                    m.setAccessible(true);
-                    return m;
-                }
-            }
-            throw e;
-        }
+        // Strict exact match only — no count-only fallback (consistent with ZUI SDK ReflectClass)
+        Method m = clazz.getDeclaredMethod(name, paramTypes);
+        m.setAccessible(true);
+        return m;
     }
 
     private static Constructor<?> findConstructor(Class<?> clazz, Class<?>[] paramTypes)
             throws NoSuchMethodException {
-        try {
-            Constructor<?> c = clazz.getDeclaredConstructor(paramTypes);
-            c.setAccessible(true);
-            return c;
-        } catch (NoSuchMethodException e) {
-            for (Constructor<?> c : clazz.getDeclaredConstructors()) {
-                if (c.getParameterCount() == paramTypes.length) {
-                    c.setAccessible(true);
-                    return c;
-                }
-            }
-            throw e;
-        }
+        // Strict exact match only — no count-only fallback
+        Constructor<?> c = clazz.getDeclaredConstructor(paramTypes);
+        c.setAccessible(true);
+        return c;
     }
 }

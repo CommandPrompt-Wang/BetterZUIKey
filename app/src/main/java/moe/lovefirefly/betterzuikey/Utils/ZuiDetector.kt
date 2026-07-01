@@ -8,10 +8,16 @@ object ZuiDetector {
 
     private var _cached: Boolean? = null
 
+    private var _cachedVersion: String? = null
+    private var _versionCacheValid = false
+
     val isZuxOS: Boolean
         get() {
             if (_cached != null) return _cached!!
-            _cached = !rawZuiVersion.isNullOrBlank()
+            val ver = rawZuiVersion
+            _cachedVersion = ver
+            _versionCacheValid = true
+            _cached = !ver.isNullOrBlank()
             return _cached!!
         }
 
@@ -22,16 +28,19 @@ object ZuiDetector {
     }
 
     val result: Result by lazy {
-        Result(isZux = isZuxOS, zuiVersion = rawZuiVersion)
+        Result(isZux = isZuxOS, zuiVersion = _cachedVersion)
     }
 
     val rawZuiVersion: String?
-        get() = try {
+        get() {
+            if (_versionCacheValid) return _cachedVersion
             val v = getSystemProperty("ro.com.zui.version", "")
-            if (v.isNullOrBlank()) null else v
-        } catch (_: Exception) { null }
+            _cachedVersion = if (v.isNullOrBlank()) null else v
+            _versionCacheValid = true
+            return _cachedVersion
+        }
 
-    fun invalidateCache() { _cached = null }
+    fun invalidateCache() { _cached = null; _versionCacheValid = false }
 
     private fun getSystemProperty(key: String, def: String): String {
         return try {

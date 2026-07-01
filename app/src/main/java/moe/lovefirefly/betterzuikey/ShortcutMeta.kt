@@ -48,20 +48,23 @@ enum class OnSpinSelectedNonDefault {
  * @param hasAosp         有 AOSP 原生实现
  * @param hasSystemSwitch 系统设置有 GUI 开关
  * @param showAospOption  Whether to show AOSP as a selectable option in the dropdown.
+ * @param showOffOption  Whether to show OFF (passthrough) in the dropdown. metaSingle excludes it.
  * @param showSwitch      Whether to show the switch control.
  * @param cardClick       卡片点击行为。默认 AUTO
  * @param onSpinSelectedNonDefault Spinner 选中非默认项时的附加行为。
  */
 data class ShortcutMeta(
     val key: String,
-    @StringRes val displayResId: Int,
-    @StringRes val descResId: Int = 0,
+    @param:StringRes val displayResId: Int,
+    @param:StringRes val descResId: Int = 0,
     val groupKeys: List<String> = emptyList(),
     val hasZui: Boolean = false,
     val hasAosp: Boolean = false,
     val hasSystemSwitch: Boolean = true,
     /** Whether to show AOSP as a selectable option in the dropdown. Default: hasAosp. */
     val showAospOption: Boolean = hasAosp,
+    /** Whether to show OFF (passthrough) in the dropdown. Default: true. */
+    val showOffOption: Boolean = true,
     /** Whether to show the switch control. Defaults to hasSystemSwitch value. */
     val showSwitch: Boolean = hasSystemSwitch,
     /** 卡片点击行为。默认 AUTO：优先 ExpandSpin → Switch → None */
@@ -92,11 +95,14 @@ data class ShortcutMeta(
             ShortcutMeta("winLeft",     R.string.shortcut_winLeft,     R.string.shortcut_winLeft_desc,     hasZui = true,
                 groupKeys = listOf("winRight")),
 
+            // ═══ Win (Meta) 单键 ═══
+            ShortcutMeta("metaSingle",       R.string.shortcut_metaSingle,       R.string.shortcut_metaSingle_desc,       hasZui = true,  hasAosp = true, hasSystemSwitch = false, showOffOption = false),
+            ShortcutMeta("winLongPress",     R.string.shortcut_winLongPress,     R.string.shortcut_winLongPress_desc,     hasZui = true,  hasSystemSwitch = false),
+
             // ═══ Ctrl ═══
             ShortcutMeta("ctrlCard",    R.string.shortcut_ctrlCard,    R.string.shortcut_ctrlCard_desc,
                          hasZui = false,  hasAosp = false, hasSystemSwitch = false, showSwitch = true,
                          onSpinSelectedNonDefault = OnSpinSelectedNonDefault.NOTHING),
-            ShortcutMeta("ctrlShift",   R.string.shortcut_ctrlShift,   R.string.shortcut_ctrlShift_desc,   hasZui = true),
             ShortcutMeta("ctrlShiftT",  R.string.shortcut_ctrlShiftT,  R.string.shortcut_ctrlShiftT_desc,  hasZui = true,  hasSystemSwitch = false),
             ShortcutMeta("ctrlSpace",   R.string.shortcut_ctrlSpace,   R.string.shortcut_ctrlSpace_desc,   hasZui = false, hasAosp = false,
                 hasSystemSwitch = false, showSwitch = true, showAospOption = false),
@@ -104,34 +110,11 @@ data class ShortcutMeta(
 
             // ═══ Alt ═══
             ShortcutMeta("altTab",      R.string.shortcut_altTab,      R.string.shortcut_altTab_desc,      hasZui = true,  hasAosp = true),
-            ShortcutMeta("altShift",    R.string.shortcut_altShift,    R.string.shortcut_altShift_desc,    hasZui = true),
-            ShortcutMeta("altRightKR",  R.string.shortcut_altRightKR,  R.string.shortcut_altRightKR_desc,  hasZui = true,  hasSystemSwitch = false),
 
-            // ═══ Meta 单按 ═══
-            ShortcutMeta("metaSingle",       R.string.shortcut_metaSingle,       R.string.shortcut_metaSingle_desc,       hasZui = true,  hasAosp = true, hasSystemSwitch = false),
-            ShortcutMeta("metaShortRow",     R.string.shortcut_metaShortRow,     R.string.shortcut_metaShortRow_desc,     hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("metaLongRow",      R.string.shortcut_metaLongRow,      R.string.shortcut_metaLongRow_desc,      hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("metaHoldNonRow",   R.string.shortcut_metaHoldNonRow,   R.string.shortcut_metaHoldNonRow_desc,   hasZui = true,  hasSystemSwitch = false),
-
-            // ═══ 功能键 ═══
-            ShortcutMeta("keyMute",         R.string.shortcut_keyMute,         R.string.shortcut_keyMute_desc,         hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyTouchpad",     R.string.shortcut_keyTouchpad,     R.string.shortcut_keyTouchpad_desc,     hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySplitScreen",  R.string.shortcut_keySplitScreen,  R.string.shortcut_keySplitScreen_desc,  hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySuperConnect", R.string.shortcut_keySuperConnect, R.string.shortcut_keySuperConnect_desc, hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySearch",       R.string.shortcut_keySearch,       R.string.shortcut_keySearch_desc,       hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keySettings",     R.string.shortcut_keySettings,     R.string.shortcut_keySettings_desc,     hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyApp1",         R.string.shortcut_keyApp1,         R.string.shortcut_keyApp1_desc,         hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyApp2",         R.string.shortcut_keyApp2,         R.string.shortcut_keyApp2_desc,         hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyFnLock",       R.string.shortcut_keyFnLock,       R.string.shortcut_keyFnLock_desc,       hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyBacklight",    R.string.shortcut_keyBacklight,    R.string.shortcut_keyBacklight_desc,    hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyTpUp",         R.string.shortcut_keyTpUp,         R.string.shortcut_keyTpUp_desc,         hasZui = true,  hasAosp = true, hasSystemSwitch = false),
-            ShortcutMeta("keyScreenLock",   R.string.shortcut_keyScreenLock,   R.string.shortcut_keyScreenLock_desc,   hasZui = true,  hasSystemSwitch = false),
-
-            // ═══ 截图 & 键盘 ═══
+            // ═══ 截图 ═══
+            // 50x ZUI 专用物理键 (501–521) 已从 UI 移除 — Hook 未接线，Config 字段保留兼容
             ShortcutMeta("printScreenShort", R.string.shortcut_printScreenShort, R.string.shortcut_printScreenShort_desc, hasZui = true,  hasSystemSwitch = false),
             ShortcutMeta("printScreenLong",  R.string.shortcut_printScreenLong,  R.string.shortcut_printScreenLong_desc,  hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyKeyboardRestore",  R.string.shortcut_keyKeyboardRestore,  R.string.shortcut_keyKeyboardRestore_desc,  hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("keyKeyboardReverse",  R.string.shortcut_keyKeyboardReverse,  R.string.shortcut_keyKeyboardReverse_desc,  hasZui = true,  hasSystemSwitch = false),
 
             // ═══ AOSP 辅助键 ═══
             ShortcutMeta("aospBounceKeys",  R.string.shortcut_aospBounceKeys,  R.string.shortcut_aospBounceKeys_desc,  hasZui = false, hasAosp = true, hasSystemSwitch = false,
@@ -154,10 +137,11 @@ data class ShortcutMeta(
             "winP" -> cfg.switchWinP; "winW" -> cfg.switchWinW; "winNumber" -> cfg.switchWinNumber
             "winTab" -> cfg.switchWinTab; "winUp" -> cfg.switchWinUp
             "winLeft" -> cfg.switchWinLeft
-            "ctrlShift" -> cfg.switchCtrlShift; "ctrlSpace" -> cfg.switchCtrlSpace
-            "altShift" -> cfg.switchAltShift
+            "ctrlLongPress" -> cfg.switchCtrlLongPress
+            "ctrlSpace" -> cfg.switchCtrlSpace
             "ctrlShiftT" -> cfg.switchCtrlShiftT; "ctrlEnter" -> cfg.switchCtrlEnter
             "altTab" -> cfg.switchAltTab
+            // 50x 物理键 — UI/Hook 已禁用，保留读写供旧配置与模板迁移
             "keyMute" -> cfg.switchKeyMute; "keyTouchpad" -> cfg.switchKeyTouchpad
             "keySplitScreen" -> cfg.switchKeySplitScreen; "keySuperConnect" -> cfg.switchKeySuperConnect
             "keyApp1" -> cfg.switchKeyApp1; "keyApp2" -> cfg.switchKeyApp2
@@ -165,14 +149,13 @@ data class ShortcutMeta(
             "keyFnLock" -> cfg.switchKeyFnLock; "keyBacklight" -> cfg.switchKeyBacklight
             "keyTpUp" -> cfg.switchKeyTpUp; "keyScreenLock" -> cfg.switchKeyScreenLock
             "printScreenShort" -> cfg.switchPrintScreenShort; "printScreenLong" -> cfg.switchPrintScreenLong
-            "metaSingle" -> cfg.switchMetaSingle; "metaShortRow" -> cfg.switchMetaShortRow
-            "metaLongRow" -> cfg.switchMetaLongRow; "metaHoldNonRow" -> cfg.switchMetaHoldNonRow
+            "winLongPress" -> Config.SwitchState.ON  // no system switch, always active
+            "metaSingle" -> Config.SwitchState.ON     // no system switch, always active
             "keyKeyboardRestore" -> cfg.switchKeyKeyboardRestore
             "keyKeyboardReverse" -> cfg.switchKeyKeyboardReverse
-            "altRightKR" -> cfg.switchAltRightKR
             "aospBounceKeys" -> cfg.switchAospBounceKeys; "aospMouseKeys" -> cfg.switchAospMouseKeys
             "aospStickyKeys" -> cfg.switchAospStickyKeys; "aospSlowKeys" -> cfg.switchAospSlowKeys
-            else -> Config.SwitchState.ON // fallback
+            else -> Config.SwitchState.OFF // fallback: unknown keys default to off
         }
 
         /** 向 Config 写入 SwitchState */
@@ -187,8 +170,7 @@ data class ShortcutMeta(
                 "winTab" -> cfg.switchWinTab = value; "winUp" -> cfg.switchWinUp = value
                 "winLeft" -> cfg.switchWinLeft = value
                 "ctrlLongPress" -> cfg.switchCtrlLongPress = value
-                "ctrlShift" -> cfg.switchCtrlShift = value; "ctrlSpace" -> cfg.switchCtrlSpace = value
-                "altShift" -> cfg.switchAltShift = value
+                "ctrlSpace" -> cfg.switchCtrlSpace = value
                 "ctrlShiftT" -> cfg.switchCtrlShiftT = value; "ctrlEnter" -> cfg.switchCtrlEnter = value
                 "altTab" -> cfg.switchAltTab = value
                 "keyMute" -> cfg.switchKeyMute = value; "keyTouchpad" -> cfg.switchKeyTouchpad = value
@@ -200,12 +182,10 @@ data class ShortcutMeta(
                 "keyTpUp" -> cfg.switchKeyTpUp = value; "keyScreenLock" -> cfg.switchKeyScreenLock = value
                 "printScreenShort" -> cfg.switchPrintScreenShort = value
                 "printScreenLong" -> cfg.switchPrintScreenLong = value
-                "metaSingle" -> cfg.switchMetaSingle = value; "metaShortRow" -> cfg.switchMetaShortRow = value
-                "metaLongRow" -> cfg.switchMetaLongRow = value
-                "metaHoldNonRow" -> cfg.switchMetaHoldNonRow = value
+                "winLongPress" -> { /* no switch field */ }
+                "metaSingle" -> { /* no switch field */ }
                 "keyKeyboardRestore" -> cfg.switchKeyKeyboardRestore = value
                 "keyKeyboardReverse" -> cfg.switchKeyKeyboardReverse = value
-                "altRightKR" -> cfg.switchAltRightKR = value
                 "aospBounceKeys" -> cfg.switchAospBounceKeys = value
                 "aospMouseKeys" -> cfg.switchAospMouseKeys = value
                 "aospStickyKeys" -> cfg.switchAospStickyKeys = value
@@ -223,7 +203,6 @@ data class ShortcutMeta(
             "winUp" -> cfg.overrideWinUp
             "winLeft" -> cfg.overrideWinLeft
             "ctrlSlash" -> cfg.overrideCtrlSlash
-            "ctrlShift" -> cfg.overrideCtrlShift; "altShift" -> cfg.overrideAltShift
             "ctrlShiftT" -> cfg.overrideCtrlShiftT
             "ctrlEnter" -> cfg.overrideCtrlEnter; "altTab" -> cfg.overrideAltTab
             "ctrlSpace" -> cfg.overrideCtrlSpace
@@ -237,11 +216,13 @@ data class ShortcutMeta(
             "keyTpUp" -> cfg.overrideTpUp; "keyScreenLock" -> cfg.overrideScreenLock
             "printScreenShort" -> cfg.overridePrintScreenShort
             "printScreenLong" -> cfg.overridePrintScreenLong
-            "metaSingle" -> cfg.overrideMetaSingle; "metaShortRow" -> cfg.overrideMetaShortRow
-            "metaLongRow" -> cfg.overrideMetaLongRow; "metaHoldNonRow" -> cfg.overrideMetaHoldNonRow
+            "metaSingle" -> {
+                val v = cfg.overrideMetaSingle
+                if (v == Config.OverrideMode.OFF) Config.OverrideMode.BLOCK else v
+            }
+            "winLongPress" -> cfg.overrideWinLongPress
             "keyKeyboardRestore" -> cfg.overrideKeyboardRestore
             "keyKeyboardReverse" -> cfg.overrideKeyboardReverse
-            "altRightKR" -> cfg.overrideAltRightKR
             "aospBounceKeys" -> cfg.overrideAospBounceKeys
             "aospMouseKeys" -> cfg.overrideAospMouseKeys
             "aospStickyKeys" -> cfg.overrideAospStickyKeys
@@ -261,7 +242,6 @@ data class ShortcutMeta(
                 "winTab" -> cfg.overrideWinTab = value; "winUp" -> cfg.overrideWinUp = value
                 "winLeft" -> cfg.overrideWinLeft = value
                 "ctrlSlash" -> cfg.overrideCtrlSlash = value
-                "ctrlShift" -> cfg.overrideCtrlShift = value; "altShift" -> cfg.overrideAltShift = value
                 "ctrlShiftT" -> cfg.overrideCtrlShiftT = value
                 "ctrlEnter" -> cfg.overrideCtrlEnter = value; "altTab" -> cfg.overrideAltTab = value
                 "ctrlSpace" -> cfg.overrideCtrlSpace = value
@@ -275,13 +255,11 @@ data class ShortcutMeta(
                 "keyTpUp" -> cfg.overrideTpUp = value; "keyScreenLock" -> cfg.overrideScreenLock = value
                 "printScreenShort" -> cfg.overridePrintScreenShort = value
                 "printScreenLong" -> cfg.overridePrintScreenLong = value
-                "metaSingle" -> cfg.overrideMetaSingle = value
-                "metaShortRow" -> cfg.overrideMetaShortRow = value
-                "metaLongRow" -> cfg.overrideMetaLongRow = value
-                "metaHoldNonRow" -> cfg.overrideMetaHoldNonRow = value
+                "metaSingle" -> cfg.overrideMetaSingle =
+                    if (value == Config.OverrideMode.OFF) Config.OverrideMode.BLOCK else value
+                "winLongPress" -> cfg.overrideWinLongPress = value
                 "keyKeyboardRestore" -> cfg.overrideKeyboardRestore = value
                 "keyKeyboardReverse" -> cfg.overrideKeyboardReverse = value
-                "altRightKR" -> cfg.overrideAltRightKR = value
                 "aospBounceKeys" -> cfg.overrideAospBounceKeys = value
                 "aospMouseKeys" -> cfg.overrideAospMouseKeys = value
                 "aospStickyKeys" -> cfg.overrideAospStickyKeys = value
@@ -295,7 +273,9 @@ data class ShortcutMeta(
  * 从资源解析快捷方式显示名称（含 ZUI/AOSP 标签）。
  */
 fun ShortcutMeta.displayName(context: Context): String {
-    val name = context.getString(displayResId)
+    val cfg = Config.load()
+    val metaLabel = cfg.metaKeyLabel
+    val name = context.getString(displayResId, metaLabel)
     val badges = mutableListOf<String>()
     if (hasZui) badges.add(context.getString(R.string.badge_zui))
     if (hasAosp) badges.add(context.getString(R.string.badge_aosp))
@@ -303,10 +283,18 @@ fun ShortcutMeta.displayName(context: Context): String {
 }
 
 /**
- * 从资源解析快捷方式功能描述。
+ * 从资源解析快捷方式功能描述。⚠ 开头的行自动渲染为黄色。
  */
-fun ShortcutMeta.displayDesc(context: Context): String =
-    if (descResId != 0) context.getString(descResId) else ""
+fun ShortcutMeta.displayDesc(context: Context): CharSequence {
+    if (descResId == 0) return ""
+    val raw = context.getString(descResId)
+    val idx = raw.indexOf("\n⚠")
+    if (idx < 0) return raw
+    val sp = android.text.SpannableString(raw)
+    sp.setSpan(android.text.style.ForegroundColorSpan(0xFFCC8800.toInt()),
+        idx, raw.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+    return sp
+}
 
 /**
  * OverrideMode 显示名称映射（可从资源加载）。
@@ -335,6 +323,6 @@ fun Config.OverrideMode.isAvailable(meta: ShortcutMeta): Boolean = when (this) {
     Config.OverrideMode.FOLLOW_SYSTEM -> true
     Config.OverrideMode.ZUI           -> meta.hasZui
     Config.OverrideMode.AOSP          -> meta.hasAosp
-    Config.OverrideMode.OFF           -> true
+    Config.OverrideMode.OFF           -> meta.showOffOption
     Config.OverrideMode.BLOCK         -> true
 }

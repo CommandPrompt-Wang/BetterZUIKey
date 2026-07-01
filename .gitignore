@@ -38,5 +38,7 @@ TODO.md
 # Misc
 *.log
 *~
+/fd
 fd/
 fd
+disas

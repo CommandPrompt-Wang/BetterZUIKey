@@ -1,12 +1,16 @@
 package moe.lovefirefly.betterzuikey.Hook;
 
+/**
+ * L4 key-gesture intercept (handleKeyGesture).
+ *
+ * <p>505 SuperConnect (type=313) 等 50x 物理键相关 gesture 拦截已暂时移除，见 {@link ZUIKeyHook}。
+ */
 import android.os.IBinder;
 import android.view.KeyEvent;
 import moe.lovefirefly.betterzuikey.Hook.HookCompat;
 
 import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
-import moe.lovefirefly.betterzuikey.ime.AdapterManager;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
 public class L4Interceptor  {
@@ -110,44 +114,18 @@ public class L4Interceptor  {
                     if (ctx.applyL4BlockAction(ctx.ra("winNumber", ctx.cfg.overrideWinNumber), "L4: Win+Num (309)"))
                         blocked = true;
                     break;
-                case 310: // Alt+Shift — Switch language
-                    if (!ctx.r("altShift", ctx.cfg.switchAltShift).isEnabled())
-                        break;
-                    if (ctx.applyL4BlockAction(ctx.ra("altShift", ctx.cfg.overrideAltShift), "L4: Alt+Shift (310)"))
-                        blocked = true;
-                    break;
-                case 311: // Ctrl+Shift — Switch IME (or remap → Ctrl+Space)
-                    if (!ctx.r("ctrlShift", ctx.cfg.switchCtrlShift).isEnabled())
-                        break;
-                    // Guard: skip injected events
-                    if (ctx.isInjecting()) break;
-
-                    // Only remap/adapt when IME is accepting text input.
-                    // Outside text input, fall through to native ZUI behavior.
-                    if (ctx.isAcceptingText()) {
-                        // 1) Custom adapter binding
-                        if (AdapterManager.getAdapterForShortcut("ctrlShift") != null) {
-                            LogHelper.log(VerboseLevel.INFO, "L4: Ctrl+Shift (311) → IME adapter");
+                case 310: // Alt+Shift — IME enhancement
+                case 311: // Ctrl+Shift — IME enhancement
+                    {
+                        Config.IMEBinding binding = (type == 310)
+                                ? ctx.cfg.languageSwitchBinding
+                                : ctx.cfg.imeSwitchBinding;
+                        if (binding == Config.IMEBinding.OFF) {
+                            LogHelper.log(VerboseLevel.INFO,
+                                    "L4: type=", String.valueOf(type),
+                                    " → OFF (block ZUI action)");
                             blocked = true;
-                            ctx.triggerIMEAdapter("ctrlShift", false);
                         }
-                        // 2) Built-in remap: Ctrl+Shift → Ctrl+Space
-                        else if (ctx.cfg.ctrlShiftRemapEnabled) {
-                            LogHelper.log(VerboseLevel.INFO, "L4: Ctrl+Shift (311) → remap Ctrl+Space");
-                            blocked = true;
-                            ctx.injectCtrlSpace();
-                        }
-                        // 3) Native OverrideMode logic (FOLLOW_SYSTEM / BLOCK / ZUI / OFF / AOSP)
-                        else {
-                            if (ctx.applyL4BlockAction(ctx.ra("ctrlShift", ctx.cfg.overrideCtrlShift),
-                                    "L4: Ctrl+Shift (311)"))
-                                blocked = true;
-                        }
-                    } else {
-                        // Not in text input — native behavior
-                        if (ctx.applyL4BlockAction(ctx.ra("ctrlShift", ctx.cfg.overrideCtrlShift),
-                                "L4: Ctrl+Shift (311)"))
-                            blocked = true;
                     }
                     break;
                 case 312: // Win+Left/Right — Split screen
@@ -156,34 +134,29 @@ public class L4Interceptor  {
                     if (ctx.applyL4BlockAction(ctx.ra("winLeft", ctx.cfg.overrideWinLeft), "L4: Win+Arrow (312)"))
                         blocked = true;
                     break;
-                case 313: // 505 Super Connect key
-                    if (!ctx.r("keySuperConnect", ctx.cfg.switchKeySuperConnect).isEnabled())
-                        break;
-                    if (ctx.applyL4BlockAction(ctx.ra("keySuperConnect", ctx.cfg.overrideSuperConnect),
-                            "L4: SuperConnect (313)"))
-                        blocked = true;
-                    break;
                 case 21: // Meta single press → Start Menu
-                    if (!ctx.r("metaSingle", ctx.cfg.switchMetaSingle).isEnabled())
-                        break;
                     {
-                        Config.MetaAction action = ctx.cfg.metaShortPressAction;
                         Config.OverrideMode override = ctx.ra("metaSingle",
                                 ctx.cfg.overrideMetaSingle);
-                        if (override == Config.OverrideMode.OFF
-                                || action == Config.MetaAction.NONE) {
-                            LogHelper.log(VerboseLevel.INFO,
-                                    "L4: Meta (type=21) → OFF → inject Meta to App");
-                            ctx.injectMetaToApp(0, ctx.lastMetaScanCode);
-                            param.setResult(-1);
-                            return;
+                        MetaTrace.decision("L4", "type=21",
+                                "override=", override.name(),
+                                " lastSc=", String.valueOf(ctx.lastMetaScanCode),
+                                " traceOnly=", String.valueOf(MetaTrace.isTraceOnly()));
+                        if (MetaTrace.isTraceOnly()) {
+                            break;
                         }
                         if (override == Config.OverrideMode.BLOCK) {
-                            LogHelper.log(VerboseLevel.INFO,
-                                    "L4: Meta (type=21) → BLOCK → consume");
+                            MetaTrace.decision("L4", "BLOCK type=21", "BLOCK");
                             param.setResult(-1);
                             return;
                         }
+                        if (ctx.metaStartMenuDispatched) {
+                            MetaTrace.decision("L4", "BLOCK type=21 duplicate",
+                                    "already dispatched at L0");
+                            param.setResult(-1);
+                            return;
+                        }
+                        MetaTrace.decision("L4", "pass type=21", override.name());
                     }
                     break;
             }
