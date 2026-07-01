@@ -1,10 +1,5 @@
 package moe.lovefirefly.betterzuikey.Hook;
 
-/**
- * L4 key-gesture intercept (handleKeyGesture).
- *
- * <p>505 SuperConnect (type=313) 等 50x 物理键相关 gesture 拦截已暂时移除，见 {@link ZUIKeyHook}。
- */
 import android.os.IBinder;
 import android.view.KeyEvent;
 import moe.lovefirefly.betterzuikey.Hook.HookCompat;
@@ -132,6 +127,13 @@ public class L4Interceptor  {
                     if (!ctx.r("winLeft", ctx.cfg.switchWinLeft).isEnabled())
                         break;
                     if (ctx.applyL4BlockAction(ctx.ra("winLeft", ctx.cfg.overrideWinLeft), "L4: Win+Arrow (312)"))
+                        blocked = true;
+                    break;
+                case 313: // 505 Super Connect key
+                    if (!ctx.r("keySuperConnect", ctx.cfg.switchKeySuperConnect).isEnabled())
+                        break;
+                    if (ctx.applyL4BlockAction(ctx.ra("keySuperConnect", ctx.cfg.overrideSuperConnect),
+                            "L4: SuperConnect (313)"))
                         blocked = true;
                     break;
                 case 21: // Meta single press → Start Menu

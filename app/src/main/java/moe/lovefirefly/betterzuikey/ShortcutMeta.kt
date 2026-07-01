@@ -111,10 +111,25 @@ data class ShortcutMeta(
             // ═══ Alt ═══
             ShortcutMeta("altTab",      R.string.shortcut_altTab,      R.string.shortcut_altTab_desc,      hasZui = true,  hasAosp = true),
 
-            // ═══ 截图 ═══
-            // 50x ZUI 专用物理键 (501–521) 已从 UI 移除 — Hook 未接线，Config 字段保留兼容
+            // ═══ 功能键 ═══
+            ShortcutMeta("keyMute",         R.string.shortcut_keyMute,         R.string.shortcut_keyMute_desc,         hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyTouchpad",     R.string.shortcut_keyTouchpad,     R.string.shortcut_keyTouchpad_desc,     hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keySplitScreen",  R.string.shortcut_keySplitScreen,  R.string.shortcut_keySplitScreen_desc,  hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keySuperConnect", R.string.shortcut_keySuperConnect, R.string.shortcut_keySuperConnect_desc, hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keySearch",       R.string.shortcut_keySearch,       R.string.shortcut_keySearch_desc,       hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keySettings",     R.string.shortcut_keySettings,     R.string.shortcut_keySettings_desc,     hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyApp1",         R.string.shortcut_keyApp1,         R.string.shortcut_keyApp1_desc,         hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyApp2",         R.string.shortcut_keyApp2,         R.string.shortcut_keyApp2_desc,         hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyFnLock",       R.string.shortcut_keyFnLock,       R.string.shortcut_keyFnLock_desc,       hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyBacklight",    R.string.shortcut_keyBacklight,    R.string.shortcut_keyBacklight_desc,    hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyTpUp",         R.string.shortcut_keyTpUp,         R.string.shortcut_keyTpUp_desc,         hasZui = true,  hasAosp = true, hasSystemSwitch = false),
+            ShortcutMeta("keyScreenLock",   R.string.shortcut_keyScreenLock,   R.string.shortcut_keyScreenLock_desc,   hasZui = true,  hasSystemSwitch = false),
+
+            // ═══ 截图 & 键盘 ═══
             ShortcutMeta("printScreenShort", R.string.shortcut_printScreenShort, R.string.shortcut_printScreenShort_desc, hasZui = true,  hasSystemSwitch = false),
             ShortcutMeta("printScreenLong",  R.string.shortcut_printScreenLong,  R.string.shortcut_printScreenLong_desc,  hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyKeyboardRestore",  R.string.shortcut_keyKeyboardRestore,  R.string.shortcut_keyKeyboardRestore_desc,  hasZui = true,  hasSystemSwitch = false),
+            ShortcutMeta("keyKeyboardReverse",  R.string.shortcut_keyKeyboardReverse,  R.string.shortcut_keyKeyboardReverse_desc,  hasZui = true,  hasSystemSwitch = false),
 
             // ═══ AOSP 辅助键 ═══
             ShortcutMeta("aospBounceKeys",  R.string.shortcut_aospBounceKeys,  R.string.shortcut_aospBounceKeys_desc,  hasZui = false, hasAosp = true, hasSystemSwitch = false,
@@ -141,7 +156,6 @@ data class ShortcutMeta(
             "ctrlSpace" -> cfg.switchCtrlSpace
             "ctrlShiftT" -> cfg.switchCtrlShiftT; "ctrlEnter" -> cfg.switchCtrlEnter
             "altTab" -> cfg.switchAltTab
-            // 50x 物理键 — UI/Hook 已禁用，保留读写供旧配置与模板迁移
             "keyMute" -> cfg.switchKeyMute; "keyTouchpad" -> cfg.switchKeyTouchpad
             "keySplitScreen" -> cfg.switchKeySplitScreen; "keySuperConnect" -> cfg.switchKeySuperConnect
             "keyApp1" -> cfg.switchKeyApp1; "keyApp2" -> cfg.switchKeyApp2

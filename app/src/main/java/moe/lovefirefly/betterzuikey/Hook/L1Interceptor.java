@@ -1,10 +1,5 @@
 package moe.lovefirefly.betterzuikey.Hook;
 
-/**
- * L1 key intercept (interceptKeyBeforeQueueing).
- *
- * <p>510 等 ZUI 专用物理键 (501–521) 拦截已暂时移除，见 {@link ZUIKeyHook}。
- */
 import android.os.IBinder;
 import android.view.KeyEvent;
 import moe.lovefirefly.betterzuikey.Hook.HookCompat;
@@ -385,6 +380,14 @@ public class L1Interceptor  {
                 return;
             }
             if (ctx.applyInterceptAction(ov, param, "L1: Ctrl+/"))
+                return;
+        }
+
+        // 510 Settings key bug fix
+        if (keyCode == 510 && firstDown) {
+            if (!ctx.r("keySettings", ctx.cfg.switchKeySettings).isEnabled())
+                return;
+            if (ctx.applyInterceptAction(ctx.ra("keySettings", ctx.cfg.overrideSettings), param, "L1: key 510"))
                 return;
         }
 

@@ -1,11 +1,5 @@
 package moe.lovefirefly.betterzuikey.Hook;
 
-/**
- * L0 key intercept (beforeQueueing).
- *
- * <p>ZUI 专用物理键 (keyCode 501–521) 的拦截已暂时移除：A15/A16 上行为仍不稳定，
- * 相关 Config 字段保留供配置文件兼容，UI 与 Hook  wiring 已禁用。见 {@link ZUIKeyHook}。
- */
 import android.os.IBinder;
 import android.view.KeyEvent;
 import moe.lovefirefly.betterzuikey.Hook.HookCompat;
@@ -285,8 +279,24 @@ public class L0Interceptor  {
             PassthroughTrace.note("L0", "FnSection consumed", event);
             return;
         }
+        // 520 — Keyboard restore (disable physical keyboard)
+        if (keyCode == 520 && down && repeatCount == 0) {
+            if (!ctx.r("keyKeyboardRestore", ctx.cfg.switchKeyKeyboardRestore).isEnabled())
+                return;
+            if (ctx.applyInterceptAction(ctx.ra("keyKeyboardRestore", ctx.cfg.overrideKeyboardRestore), param,
+                    "L0: key 520"))
+                return;
+        }
+        // 521 — Keyboard flip (enable physical keyboard + show IME)
+        if (keyCode == 521 && down && repeatCount == 0) {
+            if (!ctx.r("keyKeyboardReverse", ctx.cfg.switchKeyKeyboardReverse).isEnabled())
+                return;
+            if (ctx.applyInterceptAction(ctx.ra("keyKeyboardReverse", ctx.cfg.overrideKeyboardReverse), param,
+                    "L0: key 521"))
+                return;
+        }
         // -- ZUI physical keys (501–515, those not handled in other layers) --
-        // Note: 505 (SuperConnect) → L4 type=313; 510 (Settings) → L1; 514 (TpUp) → L3 type=8
+        // Note: 505 (SuperConnect) → L4 type=313; 510 (Settings) → L1; 514 (TpUp) → L0
         if (down && repeatCount == 0) {
             switch (keyCode) {
                 case 501: // 静音键
@@ -320,6 +330,10 @@ public class L0Interceptor  {
                 case 512: // 键盘背光
                     if (!ctx.r("keyBacklight", ctx.cfg.switchKeyBacklight).isEnabled()) return;
                     ctx.applyInterceptAction(ctx.ra("keyBacklight", ctx.cfg.overrideBacklight), param, "L0: ZUIKey Backlight (512)");
+                    return;
+                case 514: // 触控板上移 — 打开通知面板
+                    if (!ctx.r("keyTpUp", ctx.cfg.switchKeyTpUp).isEnabled()) return;
+                    ctx.applyInterceptAction(ctx.ra("keyTpUp", ctx.cfg.overrideTpUp), param, "L0: ZUIKey TpUp (514)");
                     return;
                 case 515: // 锁屏键
                     if (!ctx.r("keyScreenLock", ctx.cfg.switchKeyScreenLock).isEnabled()) return;

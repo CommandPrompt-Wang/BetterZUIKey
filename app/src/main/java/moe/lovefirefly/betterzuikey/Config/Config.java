@@ -122,7 +122,7 @@ public class Config {
     public OverrideMode overrideAltTab = OverrideMode.FOLLOW_SYSTEM;
 
     // ================================================================
-    // 四、ZUI 专用物理键 (501–521) — Config 保留；Hook/UI 已禁用，见 ZUIKeyHook
+    // 四、ZUI 专用物理键 (501–521)
     // ================================================================
 
     /** 501 静音*/
