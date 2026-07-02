@@ -854,10 +854,6 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                         TermuxPermissionDialog.show(host.requireContext())
                     }
                 ),
-                SettingItem.Switch(ctx.getString(R.string.settings_onevision), ctx.getString(R.string.settings_onevision_desc),
-                    getChecked = { cfg.oneVisionFeatureEnabled },
-                    onChanged = { cfg.oneVisionFeatureEnabled = it; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
-                ),
                 SettingItem.Tap(ctx.getString(R.string.settings_appearance_entry), ctx.getString(R.string.settings_appearance_entry_desc),
                     onClick = {
                         host.startActivity(Intent(host.requireContext(), AppearanceSettingsActivity::class.java))

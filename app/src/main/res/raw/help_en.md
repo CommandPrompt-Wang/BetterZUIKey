@@ -197,10 +197,6 @@ Different keyboards have different scan codes. The module includes a default pro
 
 See [Appendix B](#-appendix-b--creating-keyboard-profiles) for detailed instructions.
 
-### 🌐 OneVision Feature
-
-Lenovo OneVision (SuperConnect) cross-screen collaboration. Controls whether OneVision-related shortcuts are intercepted and overridden by the module.
-
 ### 🎨 [Appearance](app://appearance)
 
 - **Night Mode**: Auto (follow system), always on, always off
@@ -265,7 +261,7 @@ Profiles are JSON files imported via "IME Enhancement → Manage Profiles". Each
 
 ## 📦 Version
 
-- **Version**: BetterZUIKey v1.3.0-beta1
+- **Version**: BetterZUIKey v1.3.0-beta2
 - **Project**: [GitHub](https://github.com/CommandPrompt-Wang/BetterZUIKey)
 
 ---

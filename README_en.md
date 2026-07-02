@@ -52,7 +52,6 @@ BetterZUIKey is an [LSPosed](https://github.com/LSPosed/LSPosed) module that int
 - **AOSP accessibility keys** — Win+Alt+3~6 for bounce keys / mouse keys / sticky keys / slow keys (via Settings.Secure read/write, bypassing System UI)
   - Requires additional root or write-secure-settings permission
 
-- [ ] **OneVision toggle** — Lenovo cross-device collaboration shortcut control
 - [ ] **IME adapters** — Runtime dynamic loading of third-party input method adapters
 - **Internationalization** — In-app language switcher, config changes take effect instantly
 
@@ -114,7 +113,7 @@ Requires Android Studio + JDK 17 + Android SDK 34+.
    - Right dropdown: override mode
    - Tap to expand the dropdown menu
 2. **Templates** — Create per-app shortcut templates
-3. **Settings** — Master switch, Virtual Fn, OneVision, appearance, log level, region override, language
+3. **Settings** — Master switch, Virtual Fn, IME Enhancement, Termux, appearance, log level, language
 
 For more details, read the built-in help guide under the "Help" card on the Home page.
 
@@ -141,29 +140,39 @@ The developer assumes no responsibility for system failures, data loss, or devic
 
 ```
 app/src/main/java/moe/lovefirefly/betterzuikey/
-├── Hook/                    # Xposed interception layer (system_server)
-│   ├── MainHook.java        # Entry point + initialization
-│   ├── L0Interceptor.java   # pre-queueing
-│   ├── L1Interceptor.java   # pre-dispatching
-│   ├── L3Interceptor.java   # AOSP gesture
-│   ├── L4Interceptor.java   # ZUI gesture
-│   ├── FnKeyManager.java    # Virtual Fn + FnLock
-│   ├── KeyInjector.java     # Key injection + modifier matching
-│   ├── HookContext.java     # Shared state + hot config reload
-│   ├── ConfigIPCManager.java # IPC communication
-│   └── ForegroundTracker.java
+├── Hook/                        # Xposed interception layer (system_server)
+│   ├── MainHook.java            # Entry + L0~L4 install + IME hook dispatch
+│   ├── L0Interceptor.java         # interceptKeyBeforeQueueing
+│   ├── L1Interceptor.java         # interceptKeyBeforeDispatching
+│   ├── L3Interceptor.java         # AOSP gesture (PhoneWindowManager)
+│   ├── L4Interceptor.java         # ZUI gesture (handleKeyGestureEvent)
+│   ├── MetaKeyRouter.java         # Win short/long routing + combo Start Menu fix
+│   ├── ZUIKeyHook.java            # Smart keys 507/508
+│   ├── FnKeyManager.java          # Virtual Fn + FnLock
+│   ├── HookContext.java           # Shared state + hot reload + app-key commands
+│   ├── KeyInjector.java           # Key injection + modifier matching
+│   ├── ConfigIPCManager.java      # Hook ↔ App IPC
+│   ├── ForegroundTracker.java     # Foreground app tracking (template match)
+│   └── HookCompat.java            # libxposed API compatibility wrapper
 ├── Config/
-│   ├── Config.java          # Main config data structure
-│   ├── ConfigResolver.java  # Template resolver
-│   ├── KeyTemplate.java     # App template data structure
+│   ├── Config.java                # Main config + Gson persistence
+│   ├── ConfigResolver.java        # Global/template override resolution
+│   ├── KeyTemplate.java           # App templates
 │   └── PerKeyOverride.java
 ├── Region/
-│   ├── RegionHook.java      # ro.config.lgsi.region override
-│   └── FeatureHook.java     # AI agent / regional behavior
-├── TabsFragments.kt         # Home / Shortcuts / Templates / Settings tabs
-├── ShortcutMeta.kt          # DSL metadata for 48 shortcuts
-├── ModuleStatus.kt          # Module self-check probe
-└── ...                      # Activities, Utils, etc.
+│   ├── FeatureHook.java           # AI agent / file manager redirect
+│   └── RegionProfile.java         # Region enum (legacy Config field)
+├── ime/
+│   ├── IMEDispatcher.kt           # IME switch strategy dispatch
+│   ├── IMEProfile.kt              # Profile data structures
+│   └── IMEProfileManager.kt       # JSON profile load/match
+├── TabsFragments.kt               # Home / Shortcuts / Templates / Settings
+├── ShortcutMeta.kt                # Shortcut card metadata DSL
+├── ConfigSyncProvider.kt          # ContentProvider IPC (app side)
+├── AppKeyCommand*.kt              # 507/508 / Win long-press command run & edit
+├── TermuxPermission*.kt           # Termux permission grant
+├── ModuleStatus.kt                # Module self-check probe
+└── ...                            # Activities, LocaleHelper, Utils, etc.
 ```
 
 ## 📄 License

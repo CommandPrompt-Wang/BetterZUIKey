@@ -246,8 +246,6 @@
     <string name="settings_master_switch_desc">关闭后所有 Hook 失效，快捷键恢复 ZUI 原始行为</string>
     <string name="settings_fn_entry">虚拟 Fn 键</string>
     <string name="settings_fn_entry_desc">管理 Fn 组合键配置文件与键值映射</string>
-    <string name="settings_onevision">OneVision 特性</string>
-    <string name="settings_onevision_desc">启用联想 OneVision 跨屏协同相关快捷键行为</string>
     <string name="settings_appearance_entry">外观设置</string>
     <string name="settings_appearance_entry_desc">夜间模式与 Material You 主题</string>
     <string name="settings_log_level">日志级别</string>

@@ -310,8 +310,6 @@
     <string name="settings_master_switch_desc">When off, all hooks are disabled and shortcuts revert to ZUI default behavior</string>
     <string name="settings_fn_entry">Virtual Fn Key</string>
     <string name="settings_fn_entry_desc">Manage Fn combo key profiles and key mappings</string>
-    <string name="settings_onevision">OneVision Feature</string>
-    <string name="settings_onevision_desc">Enable Lenovo OneVision cross-screen collaboration shortcut behavior</string>
     <string name="settings_appearance_entry">Appearance</string>
     <string name="settings_appearance_entry_desc">Night mode and Material You theming</string>
     <string name="settings_log_level">Log Level</string>

@@ -247,10 +247,6 @@ public class Config {
     /** 注入失败原因（为空表示无错误*/
     public String injectError = "";
 
-    /** OneVision 特性开*/
-    public boolean oneVisionFeatureEnabled = true;
-
-
     /** 日志 Verbose 级别 */
     public LogHelper.VerboseLevel verboseLevel = LogHelper.VerboseLevel.INFO;
 
@@ -814,7 +810,6 @@ public class Config {
         zuxKeyboardFuncEnabled = true;
         injected = false;
         injectError = "";
-        oneVisionFeatureEnabled = true;
         // 七、日志 + 外观
         verboseLevel = LogHelper.VerboseLevel.INFO;
         matchSystemTheme = true;
