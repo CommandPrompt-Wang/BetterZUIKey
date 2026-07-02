@@ -26,3 +26,30 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Mirror release to LSPosed module repo
+      if: ${{ secrets.LSPOSED_REPO_TOKEN != '' }}
+      env:
+        GH_TOKEN: ${{ secrets.LSPOSED_REPO_TOKEN }}
+        RELEASE_BODY: ${{ github.event.release.body }}
+        RELEASE_NAME: ${{ github.event.release.name }}
+      run: |
+        set -euo pipefail
+        VERCODE=$(sed -n 's/.*versionCode = \([0-9]*\).*/\1/p' app/build.gradle.kts)
+        VERNAME=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts)
+        TAG="${VERCODE}-${VERNAME// /_}"
+        REPO="Xposed-Modules-Repo/moe.lovefirefly.betterzuikey"
+        APK="app/build/outputs/apk/debug/app-debug.apk"
+        NOTES_FILE="$(mktemp)"
+        printf '%s\n' "$RELEASE_BODY" > "$NOTES_FILE"
+
+        echo "Mirroring to ${REPO} tag=${TAG}"
+        if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+          gh release upload "$TAG" "$APK" --repo "$REPO" --clobber
+          gh release edit "$TAG" --repo "$REPO" --title "$RELEASE_NAME" --notes-file "$NOTES_FILE"
+        else
+          gh release create "$TAG" "$APK" \
+            --repo "$REPO" \
+            --title "$RELEASE_NAME" \
+            --notes-file "$NOTES_FILE"
+        fi
