@@ -184,17 +184,6 @@ public class L0Interceptor  {
             if (ctx.applyInterceptAction(ov, param, "L0: Win+Back", KeyEvent.KEYCODE_BACK))
                 return;
         }
-        // Ctrl+Space — pure Ctrl+Space only (no Meta/Alt/Shift)
-        if (keyCode == KeyEvent.KEYCODE_SPACE && down
-                && KeyInjector.modifiersMatch(event, false, false, true, false) && repeatCount == 0) {
-            if (!ctx.r("ctrlSpace", ctx.cfg.switchCtrlSpace).isEnabled())
-                return;
-            // Guard: skip injected events
-            if (ctx.isInjecting()) return;
-
-            if (ctx.applyInterceptAction(ctx.ra("ctrlSpace", ctx.cfg.overrideCtrlSpace), param, "L0: Ctrl+Space"))
-                return;
-        }
         // Ctrl+Enter — pure Ctrl+Enter only (no Meta/Alt/Shift)
         if (keyCode == KeyEvent.KEYCODE_ENTER && down
                 && KeyInjector.modifiersMatch(event, false, false, true, false) && repeatCount == 0) {

@@ -261,7 +261,7 @@ Profiles are JSON files imported via "IME Enhancement → Manage Profiles". Each
 
 ## 📦 Version
 
-- **Version**: BetterZUIKey v1.3.0-beta2
+- **Version**: BetterZUIKey v1.3.0-beta3
 - **Project**: [GitHub](https://github.com/CommandPrompt-Wang/BetterZUIKey)
 
 ---

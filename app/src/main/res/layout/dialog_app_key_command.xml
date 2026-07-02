@@ -96,6 +96,16 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <TextView
+            android:id="@+id/tv_command_crlf_warning"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/dialog_app_key_command_crlf_warning"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="#FFC107"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/tv_command_stdout_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

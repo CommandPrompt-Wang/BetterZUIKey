@@ -364,6 +364,7 @@
     <string name="app_key_mode_custom">Run command…</string>
     <string name="dialog_app_key_command_window_title">Run command: %1$s</string>
     <string name="dialog_app_key_command_title">Script editor</string>
+    <string name="dialog_app_key_command_crlf_warning">CRLF line endings detected; will convert to LF when running.</string>
     <string name="dialog_app_key_command_desc"><![CDATA[Enter your script here. It runs in the standard Android shell environment.<br/><br/>For advanced tasks, install <a href="https://github.com/termux/termux-app/releases">Termux</a> and its add-ons, then apply a Termux template and fill in your script. BetterZUIKey will invoke Termux to run it.<br/><br/>If the script does not run, <a href="betterzuikey://termux-permission">grant Termux RUN_COMMAND permission</a> and try again.]]></string>
     <string name="dialog_app_key_command_apply_template">Load template</string>
     <string name="dialog_app_key_command_save">Save</string>

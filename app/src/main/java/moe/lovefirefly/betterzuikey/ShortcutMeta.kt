@@ -120,8 +120,6 @@ data class ShortcutMeta(
                          hasZui = false,  hasAosp = false, hasSystemSwitch = false, showSwitch = true,
                          onSpinSelectedNonDefault = OnSpinSelectedNonDefault.NOTHING),
             ShortcutMeta("ctrlShiftT",  R.string.shortcut_ctrlShiftT,  R.string.shortcut_ctrlShiftT_desc,  hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("ctrlSpace",   R.string.shortcut_ctrlSpace,   R.string.shortcut_ctrlSpace_desc,   hasZui = false, hasAosp = false,
-                hasSystemSwitch = false, showSwitch = true, showAospOption = false),
             ShortcutMeta("ctrlEnter",   R.string.shortcut_ctrlEnter,   R.string.shortcut_ctrlEnter_desc,   hasZui = true),
 
             // ═══ Alt ═══

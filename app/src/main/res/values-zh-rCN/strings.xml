@@ -298,6 +298,7 @@
     <string name="app_key_mode_custom">执行命令…</string>
     <string name="dialog_app_key_command_window_title">执行命令：%1$s</string>
     <string name="dialog_app_key_command_title">脚本编辑器</string>
+    <string name="dialog_app_key_command_crlf_warning">检测到 CRLF 换行，将转为 LF 运行</string>
     <string name="dialog_app_key_command_desc"><![CDATA[在此处键入您的脚本，脚本将使用 Android 标准 shell 环境。<br/><br/>如果您希望调用更复杂的功能，强烈推荐您安装 <a href="https://github.com/termux/termux-app/releases">Termux</a> 和其配套组件，然后点击「加载模板」应用 Termux 模板并填入您的 Termux 脚本信息，此时 BetterZUIKey 将尝试拉起 Termux 执行您的脚本。<br/><br/>如果脚本没有执行，请 <a href="betterzuikey://termux-permission">尝试获取 Termux 执行权限</a> 再试。]]></string>
     <string name="dialog_app_key_command_apply_template">加载模板</string>
     <string name="dialog_app_key_command_save">保存</string>

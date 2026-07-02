@@ -3,7 +3,10 @@ package moe.lovefirefly.betterzuikey
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Spinner
 import android.widget.TextView
@@ -48,6 +51,7 @@ object AppKeyCommandDialog {
         )
 
         val etScript = view.findViewById<TextInputEditText>(R.id.et_command_script)
+        val tvCrlfWarning = view.findViewById<TextView>(R.id.tv_command_crlf_warning)
         val etStdout = view.findViewById<TextInputEditText>(R.id.et_command_stdout)
         val btnTest = view.findViewById<MaterialButton>(R.id.btn_command_test)
         val cbRoot = view.findViewById<MaterialCheckBox>(R.id.cb_command_root)
@@ -67,6 +71,20 @@ object AppKeyCommandDialog {
         cbRoot.isChecked = ShortcutMeta.getAppKeyCommandRoot(cfg, appKey)
         cbSingleton.isChecked = ShortcutMeta.getAppKeyCommandSingleton(cfg, appKey)
 
+        fun updateCrLfWarning() {
+            val script = etScript.text?.toString() ?: ""
+            tvCrlfWarning.visibility =
+                if (AppKeyCommandExecutor.containsCrLineEndings(script)) View.VISIBLE else View.GONE
+        }
+        etScript.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                updateCrLfWarning()
+            }
+        })
+        updateCrLfWarning()
+
         fun readTimeoutMin(): Int =
             timeoutMinutes[spTimeout.selectedItemPosition.coerceIn(0, timeoutMinutes.lastIndex)]
 
@@ -81,6 +99,7 @@ object AppKeyCommandDialog {
         view.findViewById<MaterialButton>(R.id.btn_apply_template).setOnClickListener {
             val index = spTemplate.selectedItemPosition.coerceIn(0, templates.lastIndex)
             etScript.setText(readRawTemplate(context, templates[index].rawRes))
+            updateCrLfWarning()
         }
         view.findViewById<MaterialButton>(R.id.btn_paste_clipboard).setOnClickListener {
             val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -88,6 +107,7 @@ object AppKeyCommandDialog {
             val text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()
             if (!text.isNullOrEmpty()) {
                 etScript.setText(text)
+                updateCrLfWarning()
             }
         }
         btnTest.setOnClickListener {

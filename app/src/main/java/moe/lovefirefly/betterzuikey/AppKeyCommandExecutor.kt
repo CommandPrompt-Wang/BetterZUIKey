@@ -22,6 +22,14 @@ object AppKeyCommandExecutor {
     private var activeProcess: Process? = null
 
     @JvmStatic
+    fun containsCrLineEndings(script: String): Boolean = script.contains('\r')
+
+    /** Strip CR so `/system/bin/sh -c` and Termux scripts behave on device (dos2unix). */
+    @JvmStatic
+    fun normalizeLineEndings(script: String): String =
+        script.replace("\r\n", "\n").replace("\r", "\n")
+
+    @JvmStatic
     fun runAsync(
         context: Context,
         script: String,
@@ -29,7 +37,7 @@ object AppKeyCommandExecutor {
         singleton: Boolean = true,
         timeoutMinutes: Int = 1,
     ) {
-        val trimmed = script.trim()
+        val trimmed = normalizeLineEndings(script).trim()
         if (trimmed.isEmpty()) return
         Thread({
             val result = execute(context, trimmed, root, singleton, timeoutMinutes)
@@ -46,7 +54,7 @@ object AppKeyCommandExecutor {
         singleton: Boolean = false,
         timeoutMinutes: Int = 1,
     ): Result {
-        val trimmed = script.trim()
+        val trimmed = normalizeLineEndings(script).trim()
         if (trimmed.isEmpty()) {
             return Result(-1, "")
         }
