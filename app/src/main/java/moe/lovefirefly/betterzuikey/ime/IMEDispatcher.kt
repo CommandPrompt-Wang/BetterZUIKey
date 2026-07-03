@@ -246,4 +246,56 @@ object IMEDispatcher {
         // again — but the guard prevents re-hooking.
         return injectKeyEvent(event)
     }
+
+    /**
+     * 通过 Binder 直接向当前 App 的 InputConnection 提交文本。
+     * 链路：IMS → UserData.mCurClient → mFallbackInputConnection → commitText()
+     * 仅在 IME 已激活（isAcceptingText）时有效。
+     *
+     * @return true if the text was committed successfully
+     */
+    @JvmStatic
+    fun commitTextToInputConnection(text: CharSequence): Boolean {
+        try {
+            val ims = getInputMethodManagerService() ?: return false
+            val cl = systemClassLoader ?: return false
+
+            // Get current IME user ID
+            val userId = ims.javaClass.getDeclaredField("mCurrentImeUserId")
+                .apply { isAccessible = true }.getInt(ims)
+
+            // Get UserData
+            val method = ims.javaClass.getMethod("getUserData", Int::class.javaPrimitiveType)
+            val userData = method.invoke(ims, userId) ?: return false
+
+            // Get mCurInputConnection from UserData (the active IRemoteInputConnection)
+            // Note: NOT mCurClient.mFallbackInputConnection — that's stale;
+            // UserData.mCurInputConnection is set by startInputUncheckedLocked.
+            val inputConn = try {
+                userData.javaClass.getDeclaredField("mCurInputConnection")
+                    .apply { isAccessible = true }.get(userData)
+            } catch (e: NoSuchFieldException) { null }
+                ?: return false
+
+            // Create InputConnectionCommandHeader(sessionId=0)
+            val headerClass = Class.forName(
+                "com.android.internal.inputmethod.InputConnectionCommandHeader",
+                false, cl)
+            val header = headerClass.getConstructor(Int::class.javaPrimitiveType).newInstance(0)
+
+            // Call IRemoteInputConnection.commitText(header, text, 1)
+            inputConn.javaClass.getMethod(
+                "commitText", headerClass, CharSequence::class.java,
+                Int::class.javaPrimitiveType
+            ).invoke(inputConn, header, text, 1)
+
+            LogHelper.log(VerboseLevel.INFO,
+                "commitText: OK len=", text.length.toString())
+            return true
+        } catch (t: Throwable) {
+            LogHelper.log(VerboseLevel.ERROR,
+                "commitTextToInputConnection failed:", t.message)
+            return false
+        }
+    }
 }

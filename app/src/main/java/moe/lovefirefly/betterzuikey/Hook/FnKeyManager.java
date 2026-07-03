@@ -78,6 +78,11 @@ public class FnKeyManager {
     /** Win+P OFF mode: when true, next P UP must be blocked and clean UP injected */
     private boolean mWinPOffActive = false;
 
+    /** Ctrl+Enter ZUI mode (insert newline): when true, next Enter UP must be consumed */
+    private boolean mCtrlEnterZuiActive = false;
+    /** Ctrl+Enter ZUI fallback (clean Enter injection): when true, need to inject clean UP */
+    private boolean mCtrlEnterZuiNeedUpInjection = false;
+
     /** Generic Win+key BLOCK: if non-zero, consume next UP of this keyCode with Meta */
     private int mPendingBlockedWinComboUp = 0;
 
@@ -107,6 +112,10 @@ public class FnKeyManager {
     public void setWinTabOffActive(boolean v)   { mWinTabOffActive = v; }
     public void setWinTabBlockActive(boolean v) { mWinTabBlockActive = v; }
     public void setWinPOffActive(boolean v)     { mWinPOffActive = v; }
+    public void setCtrlEnterZuiActive(boolean v) { mCtrlEnterZuiActive = v; }
+    public boolean isCtrlEnterZuiActive()        { return mCtrlEnterZuiActive; }
+    public void setCtrlEnterZuiNeedUpInjection(boolean v) { mCtrlEnterZuiNeedUpInjection = v; }
+    public boolean isCtrlEnterZuiNeedUpInjection()        { return mCtrlEnterZuiNeedUpInjection; }
     public void setPendingBlockedWinComboUp(int keyCode) { mPendingBlockedWinComboUp = keyCode; }
     public void setConsumeMetaUpForNone()       { mConsumeMetaUpForNone = true; }
 

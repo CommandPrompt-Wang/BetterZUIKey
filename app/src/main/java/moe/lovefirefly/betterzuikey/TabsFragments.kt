@@ -391,6 +391,11 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                     WinLongPressUiMode.entries.maxOf {
                         paint.measureText(it.displayName(ctx)).toInt()
                     },
+                    // Custom Ctrl+Enter labels (may be wider than generic OverrideMode labels)
+                    paint.measureText(ctx.getString(R.string.mode_ctrl_enter_follow_system)).toInt(),
+                    paint.measureText(ctx.getString(R.string.mode_ctrl_enter_newline)).toInt(),
+                    paint.measureText(ctx.getString(R.string.mode_ctrl_enter_passthrough)).toInt(),
+                    paint.measureText(ctx.getString(R.string.mode_ctrl_enter_block)).toInt(),
                 )
                 // 额外留出 dropdown 图标 + 内边距空间
                 spinnerFixedMinWidth = maxTextW + b.spAction.paddingLeft +
@@ -591,7 +596,10 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 val availableModes = Config.OverrideMode.entries
                     .filter { it.isAvailable(meta) && (it != Config.OverrideMode.AOSP || meta.showAospOption) }
                 val enabledModes = availableModes.map { true }
-                val modeNames = availableModes.map { it.displayName(requireContext()) }
+                val modeNames = availableModes.map {
+                    meta.overrideModeLabels?.get(it)?.let { resId -> requireContext().getString(resId) }
+                        ?: it.displayName(requireContext())
+                }
                 b.spAction.setAdapter(null)
                 b.spAction.setAdapter(object : android.widget.ArrayAdapter<String>(
                     requireContext(), R.layout.dropdown_item_wrap, modeNames) {
@@ -607,7 +615,9 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                     }
                 })
                 b.spAction.threshold = Int.MAX_VALUE
-                b.spAction.setText(overrideMode.displayName(requireContext()), false)
+                val initialLabel = meta.overrideModeLabels?.get(overrideMode)?.let { requireContext().getString(it) }
+                    ?: overrideMode.displayName(requireContext())
+                b.spAction.setText(initialLabel, false)
                 b.spAction.isEnabled = true
                 b.tilAction.isEnabled = true
 
@@ -637,6 +647,10 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                     ShortcutMeta.setOverride(cfg, overrideKey, nm)
                     cfg.save()
                     Config.syncToSharedPrefs(requireContext(), cfg)
+                    // Update displayed text with custom label if available
+                    val selectedLabel = meta.overrideModeLabels?.get(nm)?.let { requireContext().getString(it) }
+                        ?: nm.displayName(requireContext())
+                    b.spAction.setText(selectedLabel, false)
                     LogHelper.log(LogHelper.VerboseLevel.INFO,
                         "Notify config change: override ", overrideKey, " → ", nm.name)
                     // OnSpinSelectedNonDefault: Spinner 选中非默认项时的附加行为
@@ -783,11 +797,16 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
         /** 当前展开的 Combo 位置，-1 表示全部收起。卡片点击时用于 toggle。 */
         private var openComboPos = -1
 
-        // ── 卡片类型：Tap=点击跳转, Switch=开关, Combo=下拉多选 ──
+        // ── 卡片类型：Tap=点击跳转, Switch=开关, Combo=下拉多选, SwitchCombo=开关+下拉 ──
         sealed class SettingItem(val label: String, val desc: String = "") {
             class Tap(label: String, desc: String = "", val onClick: (VH) -> Unit) : SettingItem(label, desc)
             class Switch(label: String, desc: String = "", val getChecked: () -> Boolean, val onChanged: (Boolean) -> Unit) : SettingItem(label, desc)
             class Combo(label: String, desc: String = "", val getOptions: () -> List<String>, val getCurrentText: () -> String, val onSelected: (Int) -> Unit) : SettingItem(label, desc)
+            class SwitchCombo(label: String, desc: String = "",
+                val getChecked: () -> Boolean, val onCheckedChanged: (Boolean) -> Unit,
+                val getOptions: () -> List<String>, val getCurrentText: () -> String, val onSelected: (Int) -> Unit,
+                val onLongClick: (() -> Unit)? = null
+            ) : SettingItem(label, desc)
         }
 
         /** 通用自定义值输入对话框。apply 对输入值进行转换并写回 Config。 */
@@ -838,6 +857,39 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                 SettingItem.Switch(ctx.getString(R.string.settings_master_switch), ctx.getString(R.string.settings_master_switch_desc),
                     getChecked = { cfg.zuxKeyboardFuncEnabled },
                     onChanged = { cfg.zuxKeyboardFuncEnabled = it; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) }
+                ),
+                // 更新检查
+                SettingItem.SwitchCombo(
+                    ctx.getString(R.string.settings_update_check),
+                    ctx.getString(R.string.settings_update_check_desc),
+                    getChecked = { cfg.updateCheckOnStartup },
+                    onCheckedChanged = { cfg.updateCheckOnStartup = it; cfg.save(); Config.syncToSharedPrefs(host.requireContext(), cfg) },
+                    getOptions = {
+                        listOf(
+                            ctx.getString(R.string.settings_update_channel_auto),
+                            ctx.getString(R.string.settings_update_channel_github1),
+                            ctx.getString(R.string.settings_update_channel_github2),
+                            ctx.getString(R.string.settings_update_channel_personal),
+                        )
+                    },
+                    getCurrentText = {
+                        when (cfg.updateChannel) {
+                            Config.UpdateChannel.AUTO -> ctx.getString(R.string.settings_update_channel_auto)
+                            Config.UpdateChannel.GITHUB1 -> ctx.getString(R.string.settings_update_channel_github1)
+                            Config.UpdateChannel.GITHUB2 -> ctx.getString(R.string.settings_update_channel_github2)
+                            Config.UpdateChannel.PERSONAL -> ctx.getString(R.string.settings_update_channel_personal)
+                        }
+                    },
+                    onSelected = { idx ->
+                        cfg.updateChannel = Config.UpdateChannel.values()[idx]
+                        cfg.save()
+                        Config.syncToSharedPrefs(host.requireContext(), cfg)
+                    },
+                    onLongClick = {
+                        val lcfg = Config.load()
+                        Thread { UpdateChecker.check(host.requireContext(), lcfg) }.start()
+                        true
+                    }
                 ),
                 SettingItem.Tap(ctx.getString(R.string.settings_fn_entry), ctx.getString(R.string.settings_fn_entry_desc),
                     onClick = {
@@ -971,6 +1023,49 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
                                 b.spAction.requestFocus()
                                 b.spAction.post { b.spAction.showDropDown() }
                             }
+                        }
+                    }
+                    is SettingItem.SwitchCombo -> {
+                        // ── SwitchCombo 型：左侧开关 + 右侧下拉 ──
+                        b.tilAction.visibility = View.VISIBLE
+                        b.swEnabled.visibility = View.VISIBLE
+                        b.ivChevron.visibility = View.GONE
+
+                        b.swEnabled.isChecked = item.getChecked()
+                        b.swEnabled.setOnCheckedChangeListener { _, checked ->
+                            item.onCheckedChanged(checked)
+                        }
+
+                        val options = item.getOptions()
+                        val curText = item.getCurrentText()
+                        val adapter = android.widget.ArrayAdapter(ctx, R.layout.dropdown_item_wrap, options)
+
+                        b.spAction.setAdapter(adapter)
+                        b.spAction.threshold = Int.MAX_VALUE
+                        b.spAction.setText(curText, false)
+                        b.spAction.setOnItemClickListener { _, _, pos, _ ->
+                            openComboPos = -1
+                            item.onSelected(pos)
+                            b.spAction.setText(options[pos], false)
+                        }
+                        b.root.setOnClickListener {
+                            if (openComboPos == position) {
+                                // 同一张 card：收回
+                                openComboPos = -1
+                                b.spAction.dismissDropDown()
+                            } else {
+                                openComboPos = position
+                                b.spAction.requestFocus()
+                                b.spAction.post { b.spAction.showDropDown() }
+                            }
+                        }
+                        if (item.onLongClick != null) {
+                            b.root.setOnLongClickListener {
+                                item.onLongClick.invoke()
+                                true
+                            }
+                        } else {
+                            b.root.setOnLongClickListener(null)
                         }
                     }
                 }

@@ -85,6 +85,8 @@ data class ShortcutMeta(
     val cardClick: CardClickBehavior = CardClickBehavior.AUTO,
     /** Spinner 选中非默认项时的附加行为。默认 SWITCH_ON */
     val onSpinSelectedNonDefault: OnSpinSelectedNonDefault = OnSpinSelectedNonDefault.SWITCH_ON,
+    /** Custom labels for OverrideMode spinner options. Map of OverrideMode → stringRes. */
+    val overrideModeLabels: Map<Config.OverrideMode, Int>? = null,
 ) {
     companion object {
         val ALL: List<ShortcutMeta> = listOf(
@@ -120,7 +122,13 @@ data class ShortcutMeta(
                          hasZui = false,  hasAosp = false, hasSystemSwitch = false, showSwitch = true,
                          onSpinSelectedNonDefault = OnSpinSelectedNonDefault.NOTHING),
             ShortcutMeta("ctrlShiftT",  R.string.shortcut_ctrlShiftT,  R.string.shortcut_ctrlShiftT_desc,  hasZui = true,  hasSystemSwitch = false),
-            ShortcutMeta("ctrlEnter",   R.string.shortcut_ctrlEnter,   R.string.shortcut_ctrlEnter_desc,   hasZui = true),
+            ShortcutMeta("ctrlEnter",   R.string.shortcut_ctrlEnter,   R.string.shortcut_ctrlEnter_desc,   hasZui = true,
+                overrideModeLabels = mapOf(
+                    Config.OverrideMode.FOLLOW_SYSTEM to R.string.mode_ctrl_enter_follow_system,
+                    Config.OverrideMode.ZUI to R.string.mode_ctrl_enter_newline,
+                    Config.OverrideMode.OFF to R.string.mode_ctrl_enter_passthrough,
+                    Config.OverrideMode.BLOCK to R.string.mode_ctrl_enter_block,
+                )),
 
             // ═══ Alt ═══
             ShortcutMeta("altTab",      R.string.shortcut_altTab,      R.string.shortcut_altTab_desc,      hasZui = true,  hasAosp = true),

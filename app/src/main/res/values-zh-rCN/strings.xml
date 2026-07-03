@@ -48,7 +48,7 @@
     <string name="home_root_status_checking">检查中…</string>
     <string name="home_root_status_granted">✓ 已获得 Root 权限</string>
     <string name="home_root_status_denied">✗ 未获得 Root 权限 — 部分功能需要 su</string>
-    <string name="home_version_template">BetterZUIKey v1.0</string>
+    <string name="home_version_template">BetterZUIKey v1.4.0-beta1</string>
 
     <!-- ================================================================ -->
     <!-- 使用协议对话框 (MainActivity) -->
@@ -237,7 +237,7 @@
     <!-- 帮助文档 (activity_help.xml + HelpActivity) -->
     <!-- ================================================================ -->
     <string name="help_title">帮助文档</string>
-    <string name="help_subtitle">v1.0</string>
+    <string name="help_subtitle">v1.4.0-beta1</string>
 
     <!-- ================================================================ -->
     <!-- 设置 Tab (SettingsFragment in TabsFragments.kt) -->
@@ -291,6 +291,12 @@
     <string name="mode_aosp">启用 AOSP 实现</string>
     <string name="mode_off">关闭</string>
     <string name="mode_block">忽略</string>
+
+    <!-- Ctrl+Enter 自定义模式标签 -->
+    <string name="mode_ctrl_enter_follow_system">跟随系统</string>
+    <string name="mode_ctrl_enter_newline">插入换行</string>
+    <string name="mode_ctrl_enter_passthrough">透传</string>
+    <string name="mode_ctrl_enter_block">忽略</string>
 
     <!-- 智能键 (507/508) 模式 -->
     <string name="app_key_mode_follow_system">跟随系统</string>
@@ -365,7 +371,7 @@
     <string name="shortcut_winLeft">%1$s + ← / Win + →</string>
     <string name="shortcut_winLeft_desc">分屏到左侧 / 分屏到右侧\n系统开关 ←→ 共用</string>
     <string name="shortcut_ctrlCard">长按 Ctrl 和 Ctrl + /</string>
-    <string name="shortcut_ctrlCard_desc">Ctrl 长按开关 | Ctrl+/ 行为模式\n注意：「长按 Ctrl」功能仅在开关开启且「Ctrl+/ 」为“保持默认”时有效。</string>
+    <string name="shortcut_ctrlCard_desc">Ctrl 长按开关 | Ctrl+/ 行为模式</string>
     <string name="shortcut_ctrlShift">Ctrl + Shift</string>
     <string name="shortcut_ctrlShift_desc">切换输入法（仅 ROW 生效）</string>
     <string name="shortcut_ctrlSpace">Ctrl + Space</string>
@@ -375,7 +381,7 @@
     <string name="shortcut_ctrlShiftT">Ctrl + Shift + T</string>
     <string name="shortcut_ctrlShiftT_desc">切换触控板开关</string>
     <string name="shortcut_ctrlEnter">Ctrl + Enter</string>
-    <string name="shortcut_ctrlEnter_desc">QQ 前台时放行给应用</string>
+    <string name="shortcut_ctrlEnter_desc">透传，允许 QQ 接受 Ctrl+Enter 发送消息。关闭以防止误触。\n若想为单独某个应用启用该功能，请使用「应用模板」和「透传」选项。\n注意：「插入换行」仍需在 QQ 中启用「回车键发送消息」。</string>
     <string name="shortcut_altTab">Alt + Tab</string>
     <string name="shortcut_altTab_desc">最近任务切换</string>
     <string name="shortcut_keyMute">501 静音键</string>
@@ -522,4 +528,17 @@
     <!-- Meta 键称呼 -->
     <string name="settings_meta_label">按键称呼</string>
     <string name="settings_meta_label_desc">界面中 Meta 键的显示名称</string>
+
+    <!-- 更新检查 -->
+    <string name="settings_update_check">启动时检查更新</string>
+    <string name="settings_update_check_desc">启动时自动检查更新。长按卡片可立即检查。</string>
+    <string name="settings_update_channel_auto">自动</string>
+    <string name="settings_update_channel_github1">GitHub</string>
+    <string name="settings_update_channel_github2">GitHub 镜像</string>
+    <string name="settings_update_channel_personal">个人镜像</string>
+    <string name="settings_update_check_now">立即检查</string>
+    <string name="settings_update_check_now_desc">立即检查是否有新版本可用</string>
+    <string name="update_latest">已是最新版本</string>
+    <string name="update_new_version">发现新版本：%1$s</string>
+    <string name="update_failed">更新检查失败</string>
 </resources>

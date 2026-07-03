@@ -96,6 +96,19 @@ Also has its own options (not the five modes above):
 
 If IME Enhancement binds Win long-press to switching while accepting text, IME switch (500ms) takes priority; the table above applies when not accepting text.
 
+**Special case: Ctrl + Enter**
+
+Also uses independent options (not the standard five-mode table):
+
+| Mode | Description |
+|------|-------------|
+| **Keep Default** | Pass-through; ZUI decides. When system switch is OFF, blocked in QQ to prevent accidental sends. |
+| **Insert Newline** | Intercept Ctrl+Enter, commit `\n` via InputConnection (falls back to injecting plain Enter if IME inactive) |
+| **Pass-through** | Always let Ctrl+Enter reach the foreground app without restrictions. |
+| **Block** | Consume the event. Neither system nor app receives it. |
+
+> ⚠ **Note**: "Insert Newline" requires enabling "Enter key sends message" in QQ's settings — QQ forcibly converts `\n` to send at the InputConnection level, which the module cannot bypass.
+
 ---
 
 ## 📱 App Templates
@@ -261,7 +274,7 @@ Profiles are JSON files imported via "IME Enhancement → Manage Profiles". Each
 
 ## 📦 Version
 
-- **Version**: BetterZUIKey v1.3.0-beta3
+- **Version**: BetterZUIKey v1.4.0-beta1
 - **Project**: [GitHub](https://github.com/CommandPrompt-Wang/BetterZUIKey)
 
 ---
@@ -305,7 +318,7 @@ Profiles are JSON files imported via "IME Enhancement → Manage Profiles". Each
 | `Ctrl + Space` | Binds to IME or language switching (see IME Enhancement) | ✅ | |
 | `Ctrl + Shift + T` | Toggle touchpad | ✅ | |
 | `Alt + Shift` | Binds to IME or language switching (see IME Enhancement) | ✅ | |
-| `Ctrl + Enter` | Passthrough when QQ is foreground | ✅ | |
+| `Ctrl + Enter` | 4 modes: Keep Default · Insert Newline · Pass-through · Block. Note: "Insert Newline" needs QQ Enter-to-send enabled. | ✅ | |
 | `Alt + Tab` | Recent tasks switcher | ✅ | ✅ |
 
 ### ZUI Physical Keys (ZUI keyboard only)

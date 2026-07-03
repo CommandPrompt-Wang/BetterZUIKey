@@ -14,6 +14,9 @@
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
 
+    <!-- 更新检查需要网络访问 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Termux RUN_COMMAND 外部调用（需在系统设置或 pm grant 中授予） -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 

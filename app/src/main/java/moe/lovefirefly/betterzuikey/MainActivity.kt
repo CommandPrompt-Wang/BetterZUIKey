@@ -108,6 +108,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         val cfg = Config.load()
         Config.lastLoadError?.let { showWarningBanner(it); Config.lastLoadError = null }
+        if (cfg.updateCheckOnStartup) {
+            Thread { UpdateChecker.check(this, cfg) }.start()
+        }
         appliedDynamicColor = cfg.dynamicColorEnabled
         appliedNightMode = cfg.nightMode
         appliedLocaleTag = cfg.localeOverride

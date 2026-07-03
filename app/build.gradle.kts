@@ -10,8 +10,8 @@ android {
         applicationId = "moe.lovefirefly.betterzuikey"
         minSdk = 27
         targetSdk = 36
-        versionCode = 9
-        versionName = "1.3.0-beta3"
+        versionCode = 11
+        versionName = "1.4.0-beta1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

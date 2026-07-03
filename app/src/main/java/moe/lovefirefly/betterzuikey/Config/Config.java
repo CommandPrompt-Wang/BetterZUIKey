@@ -268,6 +268,18 @@ public class Config {
     /** Meta 键的称呼：\"Win\" 或 \"Meta\" */
     public String metaKeyLabel = "Win";
 
+    // ---- 更新检查 ----
+
+    /** 更新检查通道 */
+    public enum UpdateChannel {
+        AUTO, GITHUB1, GITHUB2, PERSONAL
+    }
+
+    /** 启动时是否检查更新 */
+    public boolean updateCheckOnStartup = true;
+    /** 更新通道 */
+    public UpdateChannel updateChannel = UpdateChannel.AUTO;
+
     /** AI 代理选择（App1/App2 AI_AGENT 行为及系统级 AI 入口*/
     public AiAgent aiAgent = AiAgent.DEFAULT;
     /** 文件管理器选择（Win+E 启动的目标） */
@@ -817,6 +829,8 @@ public class Config {
         dynamicColorEnabled = false;
         localeOverride = "";
         metaKeyLabel = "Win";
+        updateCheckOnStartup = true;
+        updateChannel = UpdateChannel.AUTO;
         // 八、杂项
         aiAgent = AiAgent.DEFAULT;
         fileManager = FileManager.DEFAULT;

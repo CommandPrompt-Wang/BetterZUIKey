@@ -5,6 +5,7 @@ import android.view.KeyEvent;
 import moe.lovefirefly.betterzuikey.Hook.HookCompat;
 
 import moe.lovefirefly.betterzuikey.Config.Config;
+import moe.lovefirefly.betterzuikey.ime.IMEDispatcher;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
@@ -189,8 +190,49 @@ public class L0Interceptor  {
                 && KeyInjector.modifiersMatch(event, false, false, true, false) && repeatCount == 0) {
             if (!ctx.r("ctrlEnter", ctx.cfg.switchCtrlEnter).isEnabled())
                 return;
-            if (ctx.applyInterceptAction(ctx.ra("ctrlEnter", ctx.cfg.overrideCtrlEnter), param, "L0: Ctrl+Enter"))
-                return;
+            Config.OverrideMode ovCe = ctx.ra("ctrlEnter", ctx.cfg.overrideCtrlEnter);
+            switch (ovCe) {
+                case ZUI:
+                    // Insert newline: block physical Ctrl+Enter, commit "\n" via InputConnection
+                    LogHelper.log(VerboseLevel.INFO, "L0: Ctrl+Enter → ZUI (commit newline)");
+                    param.setResult(true);
+                    ctx.fnKeyManager.setCtrlEnterZuiActive(true);
+                    if (IMEDispatcher.commitTextToInputConnection("\n")) {
+                        LogHelper.log(VerboseLevel.INFO, "L0: Ctrl+Enter → commitText OK");
+                        ctx.fnKeyManager.setCtrlEnterZuiNeedUpInjection(false);
+                    } else {
+                        // Fallback: inject clean Enter when InputConnection unavailable
+                        LogHelper.log(VerboseLevel.INFO, "L0: Ctrl+Enter → commitText failed, inject clean Enter fallback");
+                        KeyInjector.injectKeyDown(KeyEvent.KEYCODE_ENTER, 0, event.getDeviceId());
+                        ctx.fnKeyManager.setCtrlEnterZuiNeedUpInjection(true);
+                    }
+                    return;
+                case BLOCK:
+                    // Consume entirely
+                    LogHelper.log(VerboseLevel.INFO, "L0: Ctrl+Enter → BLOCK");
+                    param.setResult(true);
+                    return;
+                case OFF:
+                case FOLLOW_SYSTEM:
+                default:
+                    // Pass-through to app (ZUI won't block since switch is ON)
+                    LogHelper.log(VerboseLevel.INFO, "L0: Ctrl+Enter → ", ovCe.name(), " (pass through)");
+                    return;
+            }
+        }
+        // Ctrl+Enter UP cleanup (ZUI mode — block physical UP)
+        if (keyCode == KeyEvent.KEYCODE_ENTER && !down
+                && repeatCount == 0
+                && ctx.fnKeyManager.isCtrlEnterZuiActive()) {
+            ctx.fnKeyManager.setCtrlEnterZuiActive(false);
+            param.setResult(true);  // block physical UP
+            if (ctx.fnKeyManager.isCtrlEnterZuiNeedUpInjection()) {
+                // Fallback path: clean Enter was injected, need matching UP
+                KeyInjector.injectKeyUp(KeyEvent.KEYCODE_ENTER, 0, event.getDeviceId());
+                ctx.fnKeyManager.setCtrlEnterZuiNeedUpInjection(false);
+            }
+            LogHelper.log(VerboseLevel.INFO, "L0: Ctrl+Enter UP → ZUI (consumed)");
+            return;
         }
         // Ctrl+/ — OFF: strip Ctrl so ZUI doesn't recognize combo.
         // Ctrl+/ has NO system switch gate in ZUI (hardcoded),

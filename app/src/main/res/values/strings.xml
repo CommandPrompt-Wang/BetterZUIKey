@@ -48,7 +48,7 @@
     <string name="home_root_status_checking">Checking…</string>
     <string name="home_root_status_granted">✓ Root granted</string>
     <string name="home_root_status_denied">✗ Root denied — some features require su</string>
-    <string name="home_version_template">BetterZUIKey v1.0</string>
+    <string name="home_version_template">BetterZUIKey v1.4.0-beta1</string>
 
     <!-- ================================================================ -->
     <!-- Agreement Dialog (MainActivity) -->
@@ -186,6 +186,19 @@
     <string name="settings_meta_label">Key name</string>
     <string name="settings_meta_label_desc">How the Meta key is referred to in UI</string>
 
+    <!-- Update check -->
+    <string name="settings_update_check">Check for update on startup</string>
+    <string name="settings_update_check_desc">Check for updates on startup. Long-press the card to check now.</string>
+    <string name="settings_update_channel_auto">Auto</string>
+    <string name="settings_update_channel_github1">GitHub</string>
+    <string name="settings_update_channel_github2">GitHub Mirror</string>
+    <string name="settings_update_channel_personal">Personal Mirror</string>
+    <string name="settings_update_check_now">Check for updates</string>
+    <string name="settings_update_check_now_desc">Check immediately for a newer version</string>
+    <string name="update_latest">Already up to date</string>
+    <string name="update_new_version">New version available: %1$s</string>
+    <string name="update_failed">Update check failed</string>
+
     <!-- IME Profile import -->
     <string name="ime_import_profile">Import IME Profile</string>
     <string name="ime_import_invalid">Invalid IME profile: missing or blank ime field</string>
@@ -301,7 +314,7 @@
     <!-- Help (activity_help.xml + HelpActivity) -->
     <!-- ================================================================ -->
     <string name="help_title">Help</string>
-    <string name="help_subtitle">v1.0</string>
+    <string name="help_subtitle">v1.4.0-beta1</string>
 
     <!-- ================================================================ -->
     <!-- Settings Tab (SettingsFragment in TabsFragments.kt) -->
@@ -357,6 +370,12 @@
     <string name="mode_aosp">Use AOSP</string>
     <string name="mode_off">Off</string>
     <string name="mode_block">Block</string>
+
+    <!-- Ctrl+Enter custom mode labels -->
+    <string name="mode_ctrl_enter_follow_system">Keep Default</string>
+    <string name="mode_ctrl_enter_newline">Insert Newline</string>
+    <string name="mode_ctrl_enter_passthrough">Pass-through</string>
+    <string name="mode_ctrl_enter_block">Block</string>
 
     <!-- Smart key (507/508) modes -->
     <string name="app_key_mode_follow_system">Follow system</string>
@@ -432,7 +451,7 @@
     <string name="shortcut_winLeft">%1$s + ← / %1$s + →</string>
     <string name="shortcut_winLeft_desc">Split-screen left / Split-screen right\nSystem switches ←→ are shared</string>
     <string name="shortcut_ctrlCard">Long-press Ctrl + Ctrl + /</string>
-    <string name="shortcut_ctrlCard_desc">Ctrl long-press toggle | Ctrl+/ behavior mode\nNote: \"Long-press Ctrl\" only works when the switch is ON and \"Ctrl+/\" is set to \"Keep Default\".</string>
+    <string name="shortcut_ctrlCard_desc">Ctrl long-press toggle | Ctrl+/ behavior mode</string>
     <string name="shortcut_ctrlShift">Ctrl + Shift</string>
     <string name="shortcut_ctrlShift_desc">Switch input method (ROW only)</string>
     <string name="shortcut_ctrlSpace">Ctrl + Space</string>
@@ -442,7 +461,7 @@
     <string name="shortcut_ctrlShiftT">Ctrl + Shift + T</string>
     <string name="shortcut_ctrlShiftT_desc">Toggle touchpad</string>
     <string name="shortcut_ctrlEnter">Ctrl + Enter</string>
-    <string name="shortcut_ctrlEnter_desc">Pass-through to app when QQ is in foreground</string>
+    <string name="shortcut_ctrlEnter_desc">Pass-through to allow QQ to send messages with Ctrl+Enter. Turn off to prevent accidental sends.\nTo enable this for a specific app only, use an \"App Template\" with the \"Pass-through\" option.\nNote: \"Insert Newline\" requires enabling \"Enter key sends message\" in QQ.</string>
     <string name="shortcut_altTab">Alt + Tab</string>
     <string name="shortcut_altTab_desc">Recent task switcher</string>
     <string name="shortcut_keyMute">501 Mute</string>
