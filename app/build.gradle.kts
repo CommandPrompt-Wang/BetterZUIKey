@@ -1,5 +1,15 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
+}
+
+// Load signing config from keystore.properties (local + CI)
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val signingConfig = if (keystorePropertiesFile.exists()) {
+    Properties().apply { load(keystorePropertiesFile.inputStream()) }
+} else {
+    null
 }
 
 android {
@@ -16,6 +26,17 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (signingConfig != null) {
+            create("appSign") {
+                keyAlias = signingConfig["keyAlias"] as String
+                keyPassword = signingConfig["keyPassword"] as String
+                storeFile = rootProject.file(signingConfig["storeFile"] as String)
+                storePassword = signingConfig["storePassword"] as String
+            }
+        }
+    }
+
     buildFeatures {
         buildConfig = true
         viewBinding = true
@@ -24,6 +45,9 @@ android {
     // DEBUG_TMP_LOG: 编译期常量，debug 构建下 LogHelper 无视优先级输出 [TMP] logcat 行
     buildTypes {
         debug {
+            if (signingConfig != null) {
+                signingConfig = signingConfigs.getByName("appSign")
+            }
             buildConfigField("boolean", "DEBUG_TMP_LOG", "true")
         }
         release {

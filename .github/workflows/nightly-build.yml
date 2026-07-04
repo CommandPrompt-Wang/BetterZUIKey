@@ -21,6 +21,20 @@ jobs:
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
+
+    - name: Setup signing
+      env:
+        SIGNING_KEYSTORE: ${{ secrets.SIGNING_KEYSTORE }}
+        SIGNING_PASS: ${{ secrets.SIGNING_PASS }}
+      run: |
+        echo "$SIGNING_KEYSTORE" | base64 -d > app-sign.keystore
+        cat > keystore.properties << EOF
+        storePassword=$SIGNING_PASS
+        keyPassword=$SIGNING_PASS
+        keyAlias=betterzuikey.sign
+        storeFile=app-sign.keystore
+        EOF
+
     - name: Build with Gradle
       run: ./gradlew assembleDebug
 

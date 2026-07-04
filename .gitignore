@@ -29,6 +29,11 @@ bin/
 # Project TODO (local only)
 TODO.md
 
+# Signing (private key — DO NOT COMMIT)
+app-sign.keystore
+app-sign.keystore.b64
+keystore.properties
+
 # Misc
 *.log
 *~
