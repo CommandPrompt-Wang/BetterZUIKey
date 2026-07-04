@@ -42,17 +42,15 @@ BetterZUIKey is an [LSPosed](https://github.com/LSPosed/LSPosed) module that int
 ## ✨ Features
 
 - **50+ shortcuts, independent control** — Win+letters, Win+function keys, Ctrl/Alt/Shift combos, ZUXOS physical keys, AOSP accessibility keys
-  - Some still under adaptation
-
-- **5 override modes** — Keep Default / Use ZUX / Use AOSP / Off (clean pass-through to app) / Block (swallow entirely)
+- **5 override modes** — Keep Default / Use ZUX / Use AOSP / Off (pass-through to app) / Block (swallow entirely)
+  - Select shortcuts use independent option labels (e.g. Ctrl+Enter: Keep Default / Insert Newline / Pass-through / Block)
+- **Built-in update checker** — Startup auto-check / long-press card to check now; four channels (Auto / GitHub / GitHub Mirror / Personal Mirror)
 - **App templates** — Auto-switch shortcut config when different apps are in the foreground
 - **Virtual Fn key** — Simulate F1–F12 using media keys, with keyboard profile auto-editing, import & export
 - **Keyboard detective** — Built-in scanCode probe to help you map your physical keyboard's Fn-row
 - **Regional adaptation** — Independent override for ROW/CN/KR regional behavior differences
 - **AOSP accessibility keys** — Win+Alt+3~6 for bounce keys / mouse keys / sticky keys / slow keys (via Settings.Secure read/write, bypassing System UI)
-  - Requires additional root or write-secure-settings permission
-
-- [ ] **IME adapters** — Runtime dynamic loading of third-party input method adapters
+- **IME enhancement** — Customizable key bindings for IME switching / language switching; JSON IME adapter for per-IME language state
 - **Internationalization** — In-app language switcher, config changes take effect instantly
 
 ## 📐 Architecture
@@ -73,18 +71,21 @@ In the UI, left-side toggles mirror system switches (where available), and right
 - Turning off a ZUXOS system switch is equivalent to the app's "Block" — the key event gets swallowed
 
 ```
-Config (SharedPreferences)
-    ↕ ContentProvider IPC
+App (Config.json)
+    ↕ ContentProvider IPC (ConfigSyncProvider)
 system_server (MainHook)
-    ├── L0 → L1 → ZUI dispatch → L4
-    │                ↕ (PhoneWindowManager)
-    │              L3 (AOSP native)
-    └── FnKeyManager (virtual Fn + FnLock)
+    ├── L0 ⟶ L1 ⟶ L4  (KeyboardShortcutController)
+    │         ⬂
+    │       L3 (PhoneWindowManager, AOSP native)
+    ├── MetaKeyRouter (Win short/long-press routing)
+    ├── FnKeyManager (virtual Fn + FnLock)
+    └── IMEDispatcher (InputConnection commitText / key injection)
 ```
 
 ## 📦 Installation
 
-0. **Prerequisites**: rooted device + [LSPosed](https://github.com/LSPosed/LSPosed) installed, ZUXOS
+0. **Prerequisites**: ~~rooted device +~~ [LSPosed](https://github.com/LSPosed/LSPosed) installed, ZUXOS
+   - BetterZUIKey can now modify system settings without granting Root access
    - Currently tested only on 1.5.04 (Android 16); unsure if lower versions based on Android 15 work
    - Issues and Pull Requests welcome: [Issues](https://github.com/CommandPrompt-Wang/BetterZUIKey/issues) | [PRs](https://github.com/CommandPrompt-Wang/BetterZUIKey/pulls)
 1. Download the latest APK from [Releases](https://github.com/CommandPrompt-Wang/BetterZUIKey/releases)
@@ -102,7 +103,8 @@ cd BetterZUIKey
 ```
 
 Requires Android Studio + JDK 17 + Android SDK 34+.
-- The module invokes the Xposed framework via reflection and has no compile-time dependency on any specific Xposed API version.
+- ~~The module invokes the Xposed framework via reflection and has no compile-time dependency on any specific Xposed API version.~~
+- Requires [libxposed](https://github.com/libxposed/api) API 101+
 
 > **For developers**: Commits on the `dev` branch prefixed with `[Nightly]` will automatically trigger a CI build and upload the debug artifact.
 
@@ -126,6 +128,25 @@ For more details, read the built-in help guide under the "Help" card on the Home
 | **Use AOSP** | Intercept ZUXOS, delegate to AOSP native implementation |
 | **Off** | Don't intercept — key events reach the foreground app directly |
 | **Block** | Swallow the key event — neither system nor app receives it |
+
+For the two **Smart Keys** (507/508):
+
+| Mode | Short Press | Long Press |
+|------|-------------|------------|
+| **Follow System** | Pass through to ZUI | Pass through to ZUI (system shortcut settings) |
+| **Block** | No action | No action |
+| **Run Command…** | Run script | Open command editor |
+
+Long-press the **card** to jump to the system shortcut settings.
+
+For **Ctrl + Enter**:
+
+| Mode | Effect |
+|------|------|
+| **Keep Default** | Pass through, ZUI decides |
+| **Insert Newline** | Intercept Ctrl+Enter, commit `\n` to app |
+| **Pass-through** | Always let through to foreground app |
+| **Block** | Consume the event entirely |
 
 ## ⚠️ Disclaimer
 
@@ -168,6 +189,7 @@ app/src/main/java/moe/lovefirefly/betterzuikey/
 │   └── IMEProfileManager.kt       # JSON profile load/match
 ├── TabsFragments.kt               # Home / Shortcuts / Templates / Settings
 ├── ShortcutMeta.kt                # Shortcut card metadata DSL
+├── UpdateChecker.kt               # Update checker (GitHub / personal mirror)
 ├── ConfigSyncProvider.kt          # ContentProvider IPC (app side)
 ├── AppKeyCommand*.kt              # 507/508 / Win long-press command run & edit
 ├── TermuxPermission*.kt           # Termux permission grant
