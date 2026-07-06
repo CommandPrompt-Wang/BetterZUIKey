@@ -196,6 +196,32 @@
                 android:focusable="true"
                 android:background="?attr/selectableItemBackground" />
 
+            <!-- 制作配置文件 -->
+            <TextView
+                android:id="@+id/tv_make_profile"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="12dp"
+                android:text="@string/profile_maker_ime_label_short"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="?attr/colorPrimary"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground" />
+
+            <!-- 强制更新配置 -->
+            <TextView
+                android:id="@+id/tv_force_update"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="12dp"
+                android:text="@string/ime_force_update"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="?attr/colorPrimary"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground" />
+
         </LinearLayout>
 
     </androidx.core.widget.NestedScrollView>

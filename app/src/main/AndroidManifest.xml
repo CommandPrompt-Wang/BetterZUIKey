@@ -89,6 +89,10 @@
             android:label="管理输入法配置" />
 
         <activity
+            android:name=".ProfileMakerActivity"
+            android:label="制作配置文件" />
+
+        <activity
             android:name=".ProfileManageActivity"
             android:label="配置文件管理" />
 

@@ -342,6 +342,8 @@ public class Config {
     public IMEBinding imeSwitchBinding = IMEBinding.FOLLOW_SYSTEM;
     /** 切换语言绑定的物理按键 */
     public IMEBinding languageSwitchBinding = IMEBinding.FOLLOW_SYSTEM;
+    /** IME 适配器配置 JSON（嵌入 Config，通过 IPC 同步，免文件权限问题） */
+    public String imeProfilesJson = "[]";
 
     // ================================================================
     // 内部枚举定义
@@ -853,6 +855,7 @@ public class Config {
         imeToastEnabled = true;
         imeSwitchBinding = IMEBinding.FOLLOW_SYSTEM;
         languageSwitchBinding = IMEBinding.FOLLOW_SYSTEM;
+        imeProfilesJson = "[]";
     }
 
     /**

@@ -22,32 +22,27 @@ data class IMEProfile(
     /** 唯一标识（缺省自动生成 UUID） */
     val uuid: String? = null,
 
-    /** hook 策略配置（仅 strategy=hook 时有效） */
-    val hook: HookConfig? = null,
-
     /** keyremap 目标组合键，如 "Ctrl+Shift", "Ctrl+Space", "Shift"（仅 strategy=keyremap 时有效） */
     @SerializedName("remap-to")
     val remapTo: String? = null
 ) {
     companion object {
         /** 内置默认配置（不可删除，按 UUID 识别） */
+        @JvmField
         val BUILTIN_DEFAULTS = listOf(
             IMEProfile(
                 ime = "com.google.android.inputmethod.latin",
-                strategy = Strategy.framework,
+                strategy = Strategy.keyremap,
                 name = "GBoard",
-                uuid = "bzuikey-builtin-gboard-0001"
+                uuid = "bzuikey-builtin-gboard-0001",
+                remapTo = "Ctrl+Space"
             ),
             IMEProfile(
                 ime = "com.sohu.inputmethod.sogou.oem",
-                strategy = Strategy.hook,
+                strategy = Strategy.keyremap,
                 name = "Sogou OEM",
                 uuid = "bzuikey-builtin-sogou-oem-0002",
-                hook = HookConfig(
-                    clazz = "defpackage.C2224gua",
-                    method = "a",
-                    instanceof = "defpackage.InterfaceC1447_ra"
-                )
+                remapTo = "Ctrl+Shift"
             ),
             IMEProfile(
                 ime = "com.sohu.inputmethod.sogou",
@@ -70,16 +65,13 @@ data class IMEProfile(
 /** IME 切换策略枚举 */
 enum class Strategy {
     @SerializedName("framework") framework,
-    @SerializedName("hook") hook,
     @SerializedName("keyremap") keyremap
 }
 
-data class HookConfig(
-    @SerializedName("class") val clazz: String,
-    val method: String,
-    val params: List<String> = emptyList(),
-    val instanceof: String? = null,
-    @SerializedName("static") val isStatic: Boolean = false
+/** 增量变更操作（前端计算，后端 apply） */
+data class ProfileChange(
+    val op: String,          // "new" | "del" | "reload"
+    val content: IMEProfile? = null
 )
 
 /** 校验结果 */

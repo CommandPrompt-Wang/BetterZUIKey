@@ -221,6 +221,32 @@ class ConfigSyncProvider : ContentProvider() {
                 prefs?.edit()?.remove("sys_write_queue")?.commit()
                 Bundle().apply { putString("queue", json) }
             }
+            "getProfiles" -> {
+                val prefs = context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                val json = prefs?.getString("ime_profiles", "[]") ?: "[]"
+                Bundle().apply { putString("profiles_json", json) }
+            }
+            // Consume and return the delta queue, then clear it
+            "getProfileChanges" -> {
+                val prefs = context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                val json = prefs?.getString("ime_changes", "[]") ?: "[]"
+                if (json != "[]") {
+                    prefs?.edit()?.putString("ime_changes", "[]")?.commit()
+                }
+                Bundle().apply { putString("changes", json) }
+            }
+            // Append a change operation to the queue
+            "appendProfileChange" -> {
+                val changeJson = extras?.getString("change") ?: return@call null
+                val prefs = context?.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                val old = prefs?.getString("ime_changes", "[]") ?: "[]"
+                val entry = if (old == "[]") "[$changeJson]" else old.dropLast(1) + ",$changeJson]"
+                prefs?.edit()?.putString("ime_changes", entry)?.commit()
+                null
+            }
             else -> null
         }
     }

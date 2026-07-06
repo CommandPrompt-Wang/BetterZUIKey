@@ -15,7 +15,6 @@ import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import moe.lovefirefly.betterzuikey.Utils.ZuiDetector;
 import moe.lovefirefly.betterzuikey.ime.IMEProfileManager;
 import moe.lovefirefly.betterzuikey.ime.IMEProfile;
-import moe.lovefirefly.betterzuikey.ime.HookConfig;
 import moe.lovefirefly.betterzuikey.ime.IMEDispatcher;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
@@ -94,11 +93,13 @@ public class MainHook extends XposedModule {
                     String.valueOf(cfg.templates != null ? cfg.templates.size() : 0));
             }
 
-            // Init IME profile manager (JSON-based, replaces DexClassLoader approach)
+            // Init IME profiles via dedicated ContentProvider IPC (once at boot, no hot-reload)
             try {
-                java.io.File adaptersDir = new java.io.File(
-                        "/data/data/moe.lovefirefly.betterzuikey/files/adapters");
-                IMEProfileManager.init(adaptersDir);
+                IMEProfileManager.clear();
+                String profilesJson = mConfigIPC.pullProfiles();
+                LogHelper.log(VerboseLevel.INFO, "IMEProfileManager: IPC pull len=",
+                        String.valueOf(profilesJson.length()));
+                IMEProfileManager.loadFromJsonArray(profilesJson);
                 LogHelper.log(VerboseLevel.INFO, "IMEProfileManager initialized with ",
                         String.valueOf(IMEProfileManager.getProfileCount()), " profile(s)");
             } catch (Throwable t) {
@@ -171,12 +172,8 @@ public class MainHook extends XposedModule {
     public void onPackageReady(XposedModuleInterface.PackageReadyParam param) {
         String packageName = param.getPackageName();
         ClassLoader appCl = param.getClassLoader();
-
-        // Check if this package is an IME with a hook profile.
-        IMEProfile profile = IMEProfileManager.getProfileForIME(packageName);
-        if (profile != null && profile.getStrategy() == moe.lovefirefly.betterzuikey.ime.Strategy.hook) {
-            installIMEHook(profile, appCl, packageName);
-        }
+        LogHelper.log(VerboseLevel.INFO, "onPackageReady: package=", packageName,
+                " firstPackage=", String.valueOf(param.isFirstPackage()));
 
         if (sSelfHookDone) return;
         if (!param.isFirstPackage()) return;
@@ -194,169 +191,6 @@ public class MainHook extends XposedModule {
         }
         LogHelper.log(VerboseLevel.INFO, "onPackageReady: first package = ",
                 param.getPackageName());
-    }
-
-    // ----------------------------------------------------------------
-    //  Helpers
-    // ----------------------------------------------------------------
-
-    /**
-     * Install an Xposed hook into an IME process based on a hook profile.
-     *
-     * The hook finds the target instance (via {@code instanceof} or static methods)
-     * and calls the internal switch method. This is used for IMEs that don't
-     * support standard InputMethodSubtype switching — e.g. Sogou OEM.
-     *
-     * @param profile     the hook profile from JSON config
-     * @param appCl       the IME process ClassLoader
-     * @param packageName the IME package name (for logging)
-     */
-    private void installIMEHook(IMEProfile profile, ClassLoader appCl, String packageName) {
-        HookConfig hook = profile.getHook();
-        if (hook == null) {
-            LogHelper.log(VerboseLevel.WARNING,
-                "IME hook: profile for '", packageName, "' has null hook config");
-            return;
-        }
-
-        try {
-            LogHelper.log(VerboseLevel.INFO, "IME hook: installing for '",
-                packageName, "' → ", hook.getClazz(), ".", hook.getMethod(), "()");
-
-            Class<?> targetClass = appCl.loadClass(hook.getClazz());
-
-            if (hook.isStatic()) {
-                // Static method: hook directly on the class
-                Class<?>[] paramTypes = resolveParamTypes(hook.getParams(), appCl);
-                java.lang.reflect.Method method = targetClass.getDeclaredMethod(
-                    hook.getMethod(), paramTypes);
-                method.setAccessible(true);
-
-                HookCompat.hookMethod(this, hook.getClazz(), appCl, hook.getMethod(),
-                    new HookCompat.HookCallback() {
-                        @Override
-                        protected void beforeHookedMethod(HookCompat.HookParam param) {
-                            try {
-                                method.invoke(null, param.args);
-                                LogHelper.log(VerboseLevel.INFO,
-                                    "IME hook: static call → ", hook.getMethod(), "() OK");
-                            } catch (Throwable t) {
-                                LogHelper.log(VerboseLevel.ERROR,
-                                    "IME hook: static call failed:", t.getMessage());
-                            }
-                        }
-                    }, paramTypes);
-            } else if (hook.getInstanceof() != null) {
-                // Instance method via interface lookup:
-                // Find an instance implementing the target interface from common registries.
-                Object instance = findInstanceByInterface(appCl, hook.getInstanceof());
-                if (instance == null) {
-                    LogHelper.log(VerboseLevel.WARNING,
-                        "IME hook: no instance found for instanceof '",
-                        hook.getInstanceof(), "' in '", packageName, "'");
-                    return;
-                }
-
-                Class<?>[] paramTypes = resolveParamTypes(hook.getParams(), appCl);
-                java.lang.reflect.Method method = targetClass.getDeclaredMethod(
-                    hook.getMethod(), paramTypes);
-                method.setAccessible(true);
-                method.invoke(instance);
-
-                LogHelper.log(VerboseLevel.INFO,
-                    "IME hook: invoked ", hook.getMethod(), "() on instance of ",
-                    hook.getInstanceof(), " in '", packageName, "' OK");
-            } else {
-                // Instance method via no-arg constructor
-                Class<?>[] paramTypes = resolveParamTypes(hook.getParams(), appCl);
-                java.lang.reflect.Method method = targetClass.getDeclaredMethod(
-                    hook.getMethod(), paramTypes);
-                method.setAccessible(true);
-
-                Object instance = targetClass.getDeclaredConstructor().newInstance();
-                method.invoke(instance);
-
-                LogHelper.log(VerboseLevel.INFO,
-                    "IME hook: invoked ", hook.getMethod(), "() on new instance in '",
-                    packageName, "' OK");
-            }
-        } catch (Throwable t) {
-            LogHelper.log(VerboseLevel.ERROR,
-                "IME hook: install failed for '", packageName, "':", t.getMessage());
-        }
-    }
-
-    /**
-     * Find an instance of a given interface/class from common registries in
-     * the target process. Searches static fields, service containers, etc.
-     */
-    private Object findInstanceByInterface(ClassLoader appCl, String interfaceName) {
-        try {
-            Class<?> iface = appCl.loadClass(interfaceName);
-
-            // Strategy 1: Check if the interface itself has a static "getInstance" or
-            // "get" method (common singleton pattern).
-            try {
-                java.lang.reflect.Method getInstance = iface.getMethod("getInstance");
-                Object inst = getInstance.invoke(null);
-                if (inst != null && iface.isAssignableFrom(inst.getClass())) {
-                    LogHelper.log(VerboseLevel.INFO,
-                        "IME hook: found instance via getInstance()");
-                    return inst;
-                }
-            } catch (NoSuchMethodException ignored) { }
-
-            // Strategy 2: Scan static fields of the interface for instances.
-            for (java.lang.reflect.Field field : iface.getDeclaredFields()) {
-                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
-                    field.setAccessible(true);
-                    Object val = field.get(null);
-                    if (val != null && iface.isAssignableFrom(val.getClass())) {
-                        LogHelper.log(VerboseLevel.INFO,
-                            "IME hook: found instance via static field '",
-                            field.getName(), "'");
-                        return val;
-                    }
-                }
-            }
-
-            // Strategy 3: Search for classes with static "sInstance" or "INSTANCE"
-            // fields that implement the target interface.
-            // (Limited scanning — we can't enumerate all classes in the dex.)
-        } catch (Throwable t) {
-            LogHelper.log(VerboseLevel.DEBUG,
-                "IME hook: findInstanceByInterface error:", t.getMessage());
-        }
-        return null;
-    }
-
-    /**
-     * Resolve parameter type names (like "android.view.KeyEvent") to Class objects.
-     */
-    private Class<?>[] resolveParamTypes(java.util.List<String> paramNames, ClassLoader cl) {
-        if (paramNames == null || paramNames.isEmpty()) return new Class<?>[0];
-        Class<?>[] types = new Class<?>[paramNames.size()];
-        for (int i = 0; i < paramNames.size(); i++) {
-            try {
-                types[i] = cl.loadClass(paramNames.get(i));
-            } catch (ClassNotFoundException e) {
-                // Try primitive types
-                String name = paramNames.get(i);
-                switch (name) {
-                    case "int":     types[i] = int.class;     break;
-                    case "long":    types[i] = long.class;    break;
-                    case "boolean": types[i] = boolean.class; break;
-                    case "float":   types[i] = float.class;   break;
-                    case "double":  types[i] = double.class;  break;
-                    case "void":    types[i] = void.class;    break;
-                    default:
-                        LogHelper.log(VerboseLevel.WARNING,
-                            "IME hook: unknown param type: ", name);
-                        types[i] = Object.class;
-                }
-            }
-        }
-        return types;
     }
 
     private void setError(String msg) {

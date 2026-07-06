@@ -125,7 +125,7 @@ object IMEDispatcher {
                 .getMethod("currentActivityThread").invoke(null)
             val sysCtx = at.javaClass.getMethod("getSystemContext").invoke(at) as Context
             val imm = sysCtx.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            return imm.currentInputMethodInfo?.packageName
+            return imm.currentInputMethodInfo?.packageName?.trim()
         } catch (t: Throwable) { return null }
     }
 
@@ -163,11 +163,8 @@ object IMEDispatcher {
         beginInject()
         return try {
             val im = getInputManager() ?: return false
-            val method = im.javaClass.getMethod(
-                "injectInputEvent",
-                KeyEvent::class.java,
-                Int::class.javaPrimitiveType
-            )
+            val method = im.javaClass.getMethod("injectInputEvent",
+                android.view.InputEvent::class.java, Int::class.javaPrimitiveType)
             method.invoke(im, event, cachedInjectMode) != null || true
         } catch (t: Throwable) {
             LogHelper.log(VerboseLevel.ERROR, "IMEDispatcher: injectKeyEvent failed:", t.message)
@@ -187,11 +184,8 @@ object IMEDispatcher {
         beginInject()
         return try {
             val im = getInputManager() ?: return false
-            val method = im.javaClass.getMethod(
-                "injectInputEvent",
-                KeyEvent::class.java,
-                Int::class.javaPrimitiveType
-            )
+            val method = im.javaClass.getMethod("injectInputEvent",
+                android.view.InputEvent::class.java, Int::class.javaPrimitiveType)
             for (e in events) {
                 method.invoke(im, e, cachedInjectMode)
             }

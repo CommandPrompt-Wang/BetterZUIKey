@@ -10,6 +10,7 @@ import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Config.ConfigResolver;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import moe.lovefirefly.betterzuikey.ime.IMEDispatcher;
+import moe.lovefirefly.betterzuikey.ime.IMEProfile;
 import moe.lovefirefly.betterzuikey.ime.IMEProfileManager;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
@@ -211,8 +212,30 @@ public class HookContext {
     //  Config hot-reload
     // ----------------------------------------------------------------
 
+    /** Check for profile delta changes — runs every keypress, lightweight when empty. */
+    public void hotReloadProfiles() {
+        try {
+            String changes = configIPC.pullProfileChanges();
+            if (!"[]".equals(changes)) {
+                if (changes.contains("\"reload\"")) {
+                    String full = configIPC.pullProfiles();
+                    if (!"[]".equals(full)) {
+                        IMEProfileManager.clear();
+                        IMEProfileManager.loadFromJsonArray(full);
+                    }
+                }
+                IMEProfileManager.applyChanges(changes);
+                LogHelper.log(VerboseLevel.INFO, "Profiles hot-reloaded, count=",
+                        String.valueOf(IMEProfileManager.getProfileCount()));
+            }
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.DEBUG, "Profiles hot-reload skipped:", t.getMessage());
+        }
+    }
+
     /** Check for config changes via ContentProvider IPC. Called from every hook entry. */
     public void checkConfigChanged() {
+        hotReloadProfiles();
         Config newCfg = configIPC.checkChanged();
         if (newCfg == null) return;
         newCfg.injected = cfg.injected;
@@ -233,8 +256,6 @@ public class HookContext {
         }
         // Notify static Config holders so they don't operate on stale references
         moe.lovefirefly.betterzuikey.Region.FeatureHook.updateConfig(cfg);
-        // Reload IME profiles on config change
-        IMEProfileManager.reload();
         LogHelper.log(VerboseLevel.INFO, "Config hot-reloaded, templates=",
             String.valueOf(cfg.templates != null ? cfg.templates.size() : 0));
     }
@@ -555,11 +576,25 @@ public class HookContext {
 
     public boolean triggerIMEProfile() {
         String imePkg = IMEDispatcher.getCurrentIMEPackage();
+        if (imePkg != null) imePkg = imePkg.trim();
+        LogHelper.log(VerboseLevel.INFO, "IME: triggerIMEProfile — current IME package=",
+                imePkg != null ? imePkg : "<null>",
+                " profiles loaded=", String.valueOf(IMEProfileManager.getProfileCount()));
+        IMEProfile profile = IMEProfileManager.getProfileForIME(imePkg);
+        if (profile != null) {
+            LogHelper.log(VerboseLevel.INFO, "IME: profile found — name=",
+                    profile.getName() != null ? profile.getName() : "?",
+                    " strategy=", profile.getStrategy() != null ? profile.getStrategy().name() : "null");
+        } else {
+            LogHelper.log(VerboseLevel.WARNING, "IME: NO profile matched for '",
+                    imePkg != null ? imePkg : "<null>", "'");
+        }
         if (IMEProfileManager.executeForIME(imePkg)) {
             LogHelper.log(VerboseLevel.INFO, "IME: profile strategy executed for '",
                     imePkg != null ? imePkg : "<null>", "'");
             return true;
         }
+        LogHelper.log(VerboseLevel.WARNING, "IME: executeForIME returned false");
         return false;
     }
 
@@ -651,8 +686,8 @@ public class HookContext {
         } else if (cfg.languageSwitchBinding == Config.IMEBinding.WIN) {
             LogHelper.log(VerboseLevel.INFO, "Win long → switch language (profile)");
             boolean ok = triggerIMEProfile();
-            if (cfg.imeToastEnabled) {
-                KeyInjector.showToast(ok ? "Language switched" : "No IME profile matched");
+            if (cfg.imeToastEnabled && !ok) {
+                KeyInjector.showToast("system_server: No IME profile matched");
             }
         }
     }

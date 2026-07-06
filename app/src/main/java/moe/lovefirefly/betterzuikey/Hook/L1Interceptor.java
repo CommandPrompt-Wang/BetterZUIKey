@@ -336,9 +336,16 @@ public class L1Interceptor  {
         // imeMasterEnabled && isInputShown → intercept; else pass through
         // ================================================================
         if (ctx.cfg.imeMasterEnabled && ctx.isAcceptingText()) {
+            LogHelper.log(VerboseLevel.DEBUG, "L1: IME Enhancement active",
+                    " imeSwitch=", ctx.cfg.imeSwitchBinding.name(),
+                    " langSwitch=", ctx.cfg.languageSwitchBinding.name());
             // Ctrl+Shift
             if (firstDown && KeyInjector.modifiersMatch(event, false, true, true, false)
                     && keyCode != KeyEvent.KEYCODE_T) {
+                LogHelper.log(VerboseLevel.INFO, "L1: Ctrl+Shift detected",
+                        " kc=", KeyInjector.keyCodeToString(keyCode),
+                        " imeBind=", ctx.cfg.imeSwitchBinding.name(),
+                        " langBind=", ctx.cfg.languageSwitchBinding.name());
                 if (dispatchIMEBinding(ctx.cfg.imeSwitchBinding, ctx.cfg.languageSwitchBinding,
                         IMEBinding.CTRL_SHIFT, param, "Ctrl+Shift")) return;
             }
@@ -420,21 +427,23 @@ public class L1Interceptor  {
         boolean matchLang = (lang == combo);
         if (!matchIme && !matchLang) return false;
 
-        param.setResult(true);
         if (matchIme) {
             // Switch IME — system-level, no profile needed
+            param.setResult(true);
             LogHelper.log(VerboseLevel.INFO, "L1: ", label, " → switch IME");
             String imeName = ctx.switchInputMethod();
             if (ctx.cfg.imeToastEnabled && imeName != null) {
                 KeyInjector.showToast(imeName);
             }
-        } else {
-            // Switch language — IME profile
-            LogHelper.log(VerboseLevel.INFO, "L1: ", label, " → switch language (profile)");
-            boolean ok = ctx.triggerIMEProfile();
-            if (ctx.cfg.imeToastEnabled) {
-                KeyInjector.showToast(ok ? "Language switched" : "No IME profile matched");
-            }
+            return true;
+        }
+
+        // Switch language — IME profile
+        param.setResult(true);
+        LogHelper.log(VerboseLevel.INFO, "L1: ", label, " → switch language (profile)");
+        boolean ok = ctx.triggerIMEProfile();
+        if (ctx.cfg.imeToastEnabled) {
+            KeyInjector.showToast(ok ? "Language switched" : "No IME profile matched");
         }
         return true;
     }

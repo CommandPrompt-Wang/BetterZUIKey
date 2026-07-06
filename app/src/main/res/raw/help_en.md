@@ -236,9 +236,9 @@ Go to Settings tab → "IME Enhancement". Bind a physical key combo for "Switch 
 | Option | Description |
 |--------|-------------|
 | Follow System | No intervention, let ZUI handle |
-| Ctrl+Shift | ROW products only |
-| Ctrl+Space | Universal combo |
-| Alt+Shift | ROW products only |
+| Ctrl+Shift | Injects Ctrl+Shift combo to IME |
+| Ctrl+Space | Injects Ctrl+Space combo to IME |
+| Alt+Shift | Injects Alt+Shift combo to IME |
 | Right Alt | Standalone Alt_RIGHT key |
 | Win Long-Press | IME switch when accepting text, voice assistant otherwise |
 | Off | Block ZUI action, keys pass through |
@@ -248,15 +248,14 @@ When accepting text, Win long-press prioritizes IME switching (500ms timer); oth
 
 #### IME Profiles
 
-The module auto-matches the current IME and executes a switching strategy via JSON profiles. Three strategies:
+The module auto-matches the current IME and executes a switching strategy via JSON profiles. Two strategies:
 
 | Strategy | How it works | Use case |
 |----------|-------------|----------|
-| `framework` | Reflectively calls `switchToNextInputMethodSubtype()` | IMEs with declared subtypes (e.g. GBoard) |
-| `hook` | Hooks internal switch method in the IME process | Decompile to obtain class/method signature (not provided by author) |
-| `keyremap` | Injects a key combo to the IME | Universal fallback |
+| `framework` | Reflectively calls `switchToNextInputMethod()` | IMEs with declared subtypes (very rare) |
+| `keyremap` | Injects a key combo to the IME | Universal, all IMEs supported |
 
-Profiles are JSON files imported via "IME Enhancement → Manage Profiles". Each profile binds to one IME package; no match means no action. See built-in examples.
+Use "IME Enhancement → Make Profile" to quickly create a profile via a three-step form (pick IME → choose strategy → record shortcut). The generated JSON can be copied with one tap. Or use "Manage Profiles" to import existing JSON files or manage profiles (rename, delete, restore builtins). Each profile binds to one IME package; no match means no action.
 
 ---
 
@@ -274,7 +273,7 @@ Profiles are JSON files imported via "IME Enhancement → Manage Profiles". Each
 
 ## 📦 Version
 
-- **Version**: BetterZUIKey v1.4.0-beta1
+- **Version**: BetterZUIKey v1.4.1-beta1
 - **Project**: [GitHub](https://github.com/CommandPrompt-Wang/BetterZUIKey)
 
 ---

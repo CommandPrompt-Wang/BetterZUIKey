@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import moe.lovefirefly.betterzuikey.Config.Config
 import moe.lovefirefly.betterzuikey.databinding.ActivityImeImportBinding
+import moe.lovefirefly.betterzuikey.ime.IMEProfile
 import moe.lovefirefly.betterzuikey.ime.IMEProfileManager
 
 class IMEImportActivity : AppCompatActivity() {
@@ -56,17 +57,36 @@ class IMEImportActivity : AppCompatActivity() {
     }
 
     private fun doImport(json: String) {
-        val dir = java.io.File(filesDir, "adapters")
-        if (!dir.exists()) dir.mkdirs()
-        val (profile, error) = IMEProfileManager.importProfile(json, dir)
-        if (error != null) {
-            showImportErrorDialog(json, error)
+        val (profile, error) = IMEProfileManager.validateAndFix(json)
+        if (error.isNotEmpty()) {
+            showImportErrorDialog(json, error.joinToString("|"))
             return
         }
-        val name = profile?.name ?: "?"
+        val p = profile ?: run {
+            showImportErrorDialog(json, "err_json_null|")
+            return
+        }
+        IMEProfileManager.loadFromSP(this)
+        val existing = IMEProfileManager.getProfileForIME(p.ime)
+        if (existing != null) {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(getString(R.string.import_overwrite_title))
+                .setMessage(getString(R.string.import_overwrite_msg, existing.name ?: existing.ime))
+                .setPositiveButton(getString(R.string.import_overwrite_btn)) { _, _ -> doImportConfirmed(p) }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+            return
+        }
+        doImportConfirmed(p)
+    }
+
+    private fun doImportConfirmed(p: IMEProfile) {
+        IMEProfileManager.putProfile(p)
+        IMEProfileManager.appendChange(this, "new", p)
+        IMEProfileManager.saveToConfig(this)
+        val name = p.name ?: "?"
         Toast.makeText(this,
             getString(R.string.ime_import_success, name), Toast.LENGTH_SHORT).show()
-        Config.syncToSharedPrefs(this, Config.load())
         finish()
     }
 

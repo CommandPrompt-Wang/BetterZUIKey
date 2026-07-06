@@ -279,6 +279,35 @@ public class ConfigIPCManager {
         }
     }
 
+    /** Pull full IME profiles JSON via ContentProvider — called once at boot. */
+    public String pullProfiles() {
+        try {
+            if (mConfigResolver == null) return "[]";
+            Bundle result = mConfigResolver.call(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                    "getProfiles", null, null);
+            if (result == null) return "[]";
+            return result.getString("profiles_json", "[]");
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.WARNING, "pullProfiles failed:", e.getMessage());
+            return "[]";
+        }
+    }
+
+    /** Pull and consume the profile change delta queue (frontend-computed). */
+    public String pullProfileChanges() {
+        try {
+            if (mConfigResolver == null) return "[]";
+            Bundle result = mConfigResolver.call(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                    "getProfileChanges", null, null);
+            if (result == null) return "[]";
+            return result.getString("changes", "[]");
+        } catch (Exception e) {
+            return "[]";
+        }
+    }
+
     /**
      * Check for config changes via ContentProvider.call().
      * Called from every hook entry point (L0/L1/L3/L4).

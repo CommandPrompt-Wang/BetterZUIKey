@@ -10,6 +10,7 @@ import moe.lovefirefly.betterzuikey.Config.Config
 import moe.lovefirefly.betterzuikey.Config.Config.IMEBinding
 import moe.lovefirefly.betterzuikey.databinding.ActivityImeSettingsBinding
 import moe.lovefirefly.betterzuikey.ime.IMEProfile
+import moe.lovefirefly.betterzuikey.ime.IMEProfileManager
 import java.io.File
 
 class IMESettingsActivity : AppCompatActivity() {
@@ -78,22 +79,25 @@ class IMESettingsActivity : AppCompatActivity() {
             startActivity(Intent(this, IMEProfileManageActivity::class.java))
         }
 
+        // Make Profile
+        binding.tvMakeProfile.setOnClickListener {
+            startActivity(Intent(this, ProfileMakerActivity::class.java))
+        }
+
+        // Force update IME Profiles
+        binding.tvForceUpdate.setOnClickListener {
+            syncIMEProfiles()
+            Toast.makeText(this, getString(R.string.ime_force_update_done_toast), Toast.LENGTH_SHORT).show()
+        }
+
         // Seed built-in defaults (app-side: system_server can't write app's filesDir)
-        seedBuiltinProfiles()
+        syncIMEProfiles()
 
         refreshDropdowns(cfg)
     }
 
-    private fun seedBuiltinProfiles() {
-        val dir = java.io.File(filesDir, "adapters")
-        if (!dir.exists()) dir.mkdirs()
-        val gson = com.google.gson.Gson()
-        for (builtin in IMEProfile.BUILTIN_DEFAULTS) {
-            val file = java.io.File(dir, "${builtin.ime?.replace('.', '_') ?: "unknown"}.json")
-            if (!file.exists()) {
-                try { file.writeText(gson.toJson(builtin)) } catch (_: Exception) { }
-            }
-        }
+    private fun syncIMEProfiles() {
+        IMEProfileManager.seedBuiltinsIfEmpty(this)
     }
 
     private fun toggleSpinner(spinner: com.google.android.material.textfield.MaterialAutoCompleteTextView) {

@@ -491,7 +491,7 @@
     <string name="ime_binding_block">忽略</string>
     <string name="ime_held_released">"%1$s" 被另一卡片占用，已释放为关闭</string>
     <string name="ime_win_voice_warn">您在输入法增强中启用了 %1$s 键，输入状态下该功能优先于语音助手</string>
-        <string name="ime_import_profile">导入输入法适配配置</string>
+    <string name="ime_import_profile">导入输入法适配配置</string>
     <string name="ime_import_invalid">无效的输入法配置：缺少 ime 字段</string>
     <string name="ime_import_success">输入法配置 "%1$s" 已导入</string>
     <string name="ime_manage_profiles">管理输入法适配配置</string>
@@ -520,6 +520,47 @@
     <string name="ime_import_from_text">从文本导入</string>
     <string name="ime_problem_title">发现问题：%1$s</string>
     <string name="ime_problem_msg">您的配置文件 "%1$s" (uuid: %2$s) 有问题：\n%3$s\n\n配置文件内容（长按选中）：\n%4$s\n\n即将删除此配置文件。</string>
+    <string name="ime_force_update">强制更新配置文件</string>
+    <string name="ime_force_update_done_toast">IME 配置已更新</string>
+    <string name="profile_maker_title">制作 IME 配置文件</string>
+    <string name="profile_maker_ime_label">1. 选择输入法</string>
+    <string name="profile_maker_select_ime">选择输入法</string>
+    <!-- ═══ IME Enhancement: common ═══ -->
+    <string name="profile_maker_unfilled">【未填充】</string>
+    <string name="profile_maker_copied">已复制！</string>
+    <string name="restore_done">内置配置已还原</string>
+    <string name="rename_title">重命名</string>
+    <string name="import_overwrite_title">覆盖确认</string>
+    <string name="import_overwrite_msg">已存在 "%1$s" 的配置，是否覆盖？</string>
+    <string name="import_overwrite_btn">覆盖</string>
+
+    <!-- ═══ IME Enhancement: strategy labels ═══ -->
+    <string name="strategy_framework_label">发送系统信号</string>
+    <string name="strategy_keyremap_label">重映射快捷键 → %1$s</string>
+    <string name="profile_maker_framework_label">发送系统信号</string>
+    <string name="profile_maker_keyremap_label_short">重映射快捷键</string>
+
+    <!-- ═══ IME Enhancement: profile maker ═══ -->
+    <string name="profile_maker_ime_label_short">制作配置文件</string>
+    <string name="profile_maker_strategy_label">2. 选择策略</string>
+    <string name="profile_maker_strategy_hint">请选择方式</string>
+    <string name="profile_maker_strategy_framework">Framework（调用系统 API 切换）</string>
+    <string name="profile_maker_strategy_keyremap">映射按键（注入按键事件）</string>
+    <string name="profile_maker_strategy_placeholder">请选择</string>
+    <string name="profile_maker_keyremap_label">3. 映射到…</string>
+    <string name="profile_maker_keyremap_hint">例如 Ctrl+Space 或 Ctrl+Shift</string>
+    <string name="profile_maker_keyremap_placeholder">请输入</string>
+    <string name="profile_maker_invalid_key">未知按键: %1$s</string>
+    <string name="profile_maker_no_ime">未找到已启用的输入法</string>
+    <string name="profile_maker_ime_placeholder">请选择…</string>
+    <string name="profile_maker_set_shortcut_btn">设置快捷键</string>
+    <string name="profile_maker_shortcut_hint">在此按下组合键…</string>
+    <string name="profile_maker_dialog_title">设置快捷键</string>
+    <string name="profile_maker_dialog_msg">按下物理键盘组合键（如 Ctrl+Space）</string>
+    <string name="profile_maker_preview_label">预览</string>
+    <string name="profile_maker_preview_incomplete">预览</string>
+    <string name="profile_maker_preview_complete">预览（点击复制）</string>
+    <string name="profile_maker_tap_to_copy">（点击复制）</string>
 
     <!-- Win 长按 → 语音助手 -->
     <string name="shortcut_winLongPress">%1$s（长按）</string>
