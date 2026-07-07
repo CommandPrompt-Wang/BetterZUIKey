@@ -48,7 +48,6 @@
     <string name="home_root_status_checking">检查中…</string>
     <string name="home_root_status_granted">✓ 已获得 Root 权限</string>
     <string name="home_root_status_denied">✗ 未获得 Root 权限 — 部分功能需要 su</string>
-    <string name="home_version_template">BetterZUIKey v1.4.0-beta1</string>
 
     <!-- ================================================================ -->
     <!-- 使用协议对话框 (MainActivity) -->
@@ -237,7 +236,6 @@
     <!-- 帮助文档 (activity_help.xml + HelpActivity) -->
     <!-- ================================================================ -->
     <string name="help_title">帮助文档</string>
-    <string name="help_subtitle">v1.4.0-beta1</string>
 
     <!-- ================================================================ -->
     <!-- 设置 Tab (SettingsFragment in TabsFragments.kt) -->

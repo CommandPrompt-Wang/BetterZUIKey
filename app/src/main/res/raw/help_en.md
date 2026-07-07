@@ -273,7 +273,7 @@ Use "IME Enhancement → Make Profile" to quickly create a profile via a three-s
 
 ## 📦 Version
 
-- **Version**: BetterZUIKey v1.4.1-beta1
+- **Version**: {{APP_NAME}} v{{VERSION}}
 - **Project**: [GitHub](https://github.com/CommandPrompt-Wang/BetterZUIKey)
 
 ---

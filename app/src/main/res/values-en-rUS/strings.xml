@@ -27,7 +27,6 @@
     <string name="home_help_click_hint">Tap to view</string>
     <string name="home_help_warning">Please read before making changes</string>
     <string name="home_chevron">›</string>
-    <string name="home_version_template">BetterZUIKey v1.4.0-beta1</string>
     <string name="home_warning_open_lsposed_failed">Unable to open LSPosed Manager automatically. Please open it manually.</string>
     <string name="home_warning_copy_error">Copy error info</string>
     <string name="home_status_click_hint">Tap to try opening the manager</string>
@@ -199,7 +198,6 @@
     <!-- Help (activity_help.xml + HelpActivity) -->
     <!-- ================================================================ -->
     <string name="help_title">Help</string>
-    <string name="help_subtitle">v1.4.0-beta1</string>
 
     <!-- ================================================================ -->
     <!-- Settings Tab (SettingsFragment in TabsFragments.kt) -->

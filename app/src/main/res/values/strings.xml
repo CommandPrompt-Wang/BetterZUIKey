@@ -48,7 +48,6 @@
     <string name="home_root_status_checking">Checking…</string>
     <string name="home_root_status_granted">✓ Root granted</string>
     <string name="home_root_status_denied">✗ Root denied — some features require su</string>
-    <string name="home_version_template">BetterZUIKey v1.4.0-beta1</string>
 
     <!-- ================================================================ -->
     <!-- Agreement Dialog (MainActivity) -->
@@ -355,7 +354,6 @@
     <!-- Help (activity_help.xml + HelpActivity) -->
     <!-- ================================================================ -->
     <string name="help_title">Help</string>
-    <string name="help_subtitle">v1.4.0-beta1</string>
 
     <!-- ================================================================ -->
     <!-- Settings Tab (SettingsFragment in TabsFragments.kt) -->
