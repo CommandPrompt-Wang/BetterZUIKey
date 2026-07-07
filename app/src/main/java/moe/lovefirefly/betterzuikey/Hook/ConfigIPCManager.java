@@ -154,6 +154,23 @@ public class ConfigIPCManager {
         }
     }
 
+    /** Write module_active flag via RemotePreferences. */
+    public void setModuleActive() {
+        try {
+            if (mSystemContext == null) {
+                LogHelper.log(VerboseLevel.WARNING, "setModuleActive: mSystemContext is null");
+                return;
+            }
+            new com.crossbowffs.remotepreferences.RemotePreferences(mSystemContext,
+                moe.lovefirefly.betterzuikey.BuildConfig.APPLICATION_ID + ".prefs",
+                moe.lovefirefly.betterzuikey.RemotePrefProvider.PREF_FILE)
+                .edit().putBoolean("module_active", true).apply();
+            LogHelper.log(VerboseLevel.INFO, "setModuleActive: written via RemotePreferences");
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.WARNING, "setModuleActive failed:", e.getMessage());
+        }
+    }
+
     /** Read keyboard-detect Activity flag via ContentProvider (app → system_server). */
     public boolean isKeyboardDetectActive() {
         try {
@@ -282,12 +299,21 @@ public class ConfigIPCManager {
     /** Pull full IME profiles JSON via ContentProvider — called once at boot. */
     public String pullProfiles() {
         try {
-            if (mConfigResolver == null) return "[]";
+            if (mConfigResolver == null) {
+                LogHelper.log(VerboseLevel.WARNING, "pullProfiles: mConfigResolver is null");
+                return "[]";
+            }
             Bundle result = mConfigResolver.call(
                     moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
                     "getProfiles", null, null);
-            if (result == null) return "[]";
-            return result.getString("profiles_json", "[]");
+            if (result == null) {
+                LogHelper.log(VerboseLevel.WARNING, "pullProfiles: result is null");
+                return "[]";
+            }
+            String json = result.getString("profiles_json", "[]");
+            LogHelper.log(VerboseLevel.INFO, "pullProfiles: result_len=",
+                    String.valueOf(json.length()));
+            return json;
         } catch (Exception e) {
             LogHelper.log(VerboseLevel.WARNING, "pullProfiles failed:", e.getMessage());
             return "[]";
@@ -297,13 +323,25 @@ public class ConfigIPCManager {
     /** Pull and consume the profile change delta queue (frontend-computed). */
     public String pullProfileChanges() {
         try {
-            if (mConfigResolver == null) return "[]";
+            if (mConfigResolver == null) {
+                LogHelper.log(VerboseLevel.WARNING, "pullProfileChanges: mConfigResolver is null");
+                return "[]";
+            }
             Bundle result = mConfigResolver.call(
                     moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
                     "getProfileChanges", null, null);
-            if (result == null) return "[]";
-            return result.getString("changes", "[]");
+            if (result == null) {
+                LogHelper.log(VerboseLevel.WARNING, "pullProfileChanges: result is null");
+                return "[]";
+            }
+            String json = result.getString("changes", "[]");
+            if (!"[]".equals(json)) {
+                LogHelper.log(VerboseLevel.INFO, "pullProfileChanges: result_len=",
+                        String.valueOf(json.length()));
+            }
+            return json;
         } catch (Exception e) {
+            LogHelper.log(VerboseLevel.WARNING, "pullProfileChanges failed:", e.getMessage());
             return "[]";
         }
     }

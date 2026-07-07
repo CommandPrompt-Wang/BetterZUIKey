@@ -36,12 +36,18 @@ public final class ModuleServiceBridge implements XposedServiceHelper.OnServiceL
      * Safe to call multiple times — subsequent calls are no-ops.
      */
     public static void init() {
-        if (sListenerRegistered) return;
+        if (sListenerRegistered) {
+            Log.i(TAG, "[BRIDGE] init skipped — already registered, isActive=" + (sService != null));
+            return;
+        }
         synchronized (ModuleServiceBridge.class) {
-            if (sListenerRegistered) return;
+            if (sListenerRegistered) {
+                Log.i(TAG, "[BRIDGE] init skipped (sync) — already registered, isActive=" + (sService != null));
+                return;
+            }
             sListenerRegistered = true;
             XposedServiceHelper.registerListener(INSTANCE);
-            Log.d(TAG, "[BRIDGE] Listener registered with XposedServiceHelper");
+            Log.i(TAG, "[BRIDGE] Listener registered with XposedServiceHelper, isActive=" + (sService != null));
         }
     }
 
@@ -50,7 +56,9 @@ public final class ModuleServiceBridge implements XposedServiceHelper.OnServiceL
      * meaning the module is activated and hooks are loaded.
      */
     public static boolean isActive() {
-        return sService != null;
+        boolean active = sService != null;
+        if (!active) Log.w(TAG, "[BRIDGE] isActive() = false");
+        return active;
     }
 
     /**

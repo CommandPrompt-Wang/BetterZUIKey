@@ -47,7 +47,27 @@ class ConfigSyncProvider : ContentProvider() {
         private const val PREF_KEYBOARD_DETECT = "keyboard_detect_active"
     }
 
-    override fun onCreate(): Boolean = true
+    override fun onCreate(): Boolean {
+        // On boot, check if profiles exist in SP and seed the delta queue
+        // so system_server can discover them on its first keypress.
+        // System_server only does a full pullProfiles() when it sees "reload"
+        // in the delta queue, but the App hasn't run yet to push it.
+        try {
+            val prefs = context?.getSharedPreferences(
+                RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+            val profiles = prefs?.getString("ime_profiles", "[]") ?: "[]"
+            if (profiles != "[]") {
+                val old = prefs?.getString("ime_changes", "[]") ?: "[]"
+                // Only seed if the queue is empty (avoid overwriting pending changes)
+                if (old == "[]") {
+                    val reloadJson = """{"op":"reload","content":{}}"""
+                    prefs?.edit()?.putString("ime_changes", "[$reloadJson]")?.commit()
+                    android.util.Log.i("BetterZUIKey", "[INFO] CP: onCreate seeded reload signal")
+                }
+            }
+        } catch (_: Throwable) {}
+        return true
+    }
 
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
         return when (method) {
@@ -225,6 +245,7 @@ class ConfigSyncProvider : ContentProvider() {
                 val prefs = context?.getSharedPreferences(
                     RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
                 val json = prefs?.getString("ime_profiles", "[]") ?: "[]"
+                android.util.Log.i("BetterZUIKey", "[INFO] CP: getProfiles len=${json.length} pid=${android.os.Process.myPid()}")
                 Bundle().apply { putString("profiles_json", json) }
             }
             // Consume and return the delta queue, then clear it
@@ -232,6 +253,7 @@ class ConfigSyncProvider : ContentProvider() {
                 val prefs = context?.getSharedPreferences(
                     RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
                 val json = prefs?.getString("ime_changes", "[]") ?: "[]"
+                android.util.Log.i("BetterZUIKey", "[INFO] CP: getProfileChanges len=${json.length} pid=${android.os.Process.myPid()}")
                 if (json != "[]") {
                     prefs?.edit()?.putString("ime_changes", "[]")?.commit()
                 }
@@ -244,7 +266,8 @@ class ConfigSyncProvider : ContentProvider() {
                     RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
                 val old = prefs?.getString("ime_changes", "[]") ?: "[]"
                 val entry = if (old == "[]") "[$changeJson]" else old.dropLast(1) + ",$changeJson]"
-                prefs?.edit()?.putString("ime_changes", entry)?.commit()
+                val ok = prefs?.edit()?.putString("ime_changes", entry)?.commit() ?: false
+                android.util.Log.i("BetterZUIKey", "[INFO] CP: appendProfileChange ok=$ok old_len=${old.length} entry_len=${entry.length} change=$changeJson")
                 null
             }
             else -> null

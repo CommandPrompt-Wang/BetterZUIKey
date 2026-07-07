@@ -145,6 +145,8 @@ public class MainHook extends XposedModule {
             cfg.injectError = "";
 
             LogHelper.log(VerboseLevel.INFO, "All hooks installed successfully!");
+            // Mark module active for scope detection in the App
+            mConfigIPC.setModuleActive();
             // Retry boot mark until the app process is up and ContentProvider responds
             if (!sBootMarked) {
                 sBootMarked = true;
@@ -180,8 +182,9 @@ public class MainHook extends XposedModule {
 
         sSelfHookDone = true;
 
-        // Boot mark: onPackageReady fires for non-system_server scopes (QQ, etc.)
-        if (!sBootMarked) {
+        // Boot mark: only the module's own app process is a scope error.
+        // Module loading in other apps alongside system_server is legitimate.
+        if (!sBootMarked && "moe.lovefirefly.betterzuikey".equals(packageName)) {
             sBootMarked = true;
             if (mConfigIPC == null) {
                 mConfigIPC = new ConfigIPCManager();
@@ -223,6 +226,7 @@ public class MainHook extends XposedModule {
                 tries++;
                 if (isSystem) {
                     configIPC.sendBootMark();
+                    configIPC.setModuleActive();  // scope detection for App
                 } else {
                     configIPC.sendBootMarkApp();
                 }

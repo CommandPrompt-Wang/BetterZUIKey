@@ -7,6 +7,7 @@ import moe.lovefirefly.betterzuikey.Hook.HookCompat;
 import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Config.Config.IMEBinding;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
+import moe.lovefirefly.betterzuikey.ime.IMEDispatcher;
 import moe.lovefirefly.betterzuikey.ime.IMEProfileManager;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
@@ -339,6 +340,16 @@ public class L1Interceptor  {
             LogHelper.log(VerboseLevel.DEBUG, "L1: IME Enhancement active",
                     " imeSwitch=", ctx.cfg.imeSwitchBinding.name(),
                     " langSwitch=", ctx.cfg.languageSwitchBinding.name());
+
+            // Skip injected events — identified by how we construct them:
+            // scanCode=0, flags=0, source=0 (vs physical keys which always
+            // have non-zero scanCode).
+            if (IMEDispatcher.isInjectedEvent(event)) {
+                LogHelper.log(VerboseLevel.DEBUG, "L1: skip injected event",
+                        " kc=", KeyInjector.keyCodeToString(keyCode),
+                        " sc=", String.valueOf(event.getScanCode()));
+                return;
+            }
             // Ctrl+Shift
             if (firstDown && KeyInjector.modifiersMatch(event, false, true, true, false)
                     && keyCode != KeyEvent.KEYCODE_T) {
@@ -440,7 +451,14 @@ public class L1Interceptor  {
 
         // Switch language — IME profile
         param.setResult(true);
-        LogHelper.log(VerboseLevel.INFO, "L1: ", label, " → switch language (profile)");
+        KeyEvent ev = (KeyEvent) param.args[0];
+        LogHelper.log(VerboseLevel.INFO, "L1: ", label, " → switch language (profile)",
+                " kc=", String.valueOf(ev.getKeyCode()),
+                " sc=", String.valueOf(ev.getScanCode()),
+                " dev=", String.valueOf(ev.getDeviceId()),
+                " src=0x", Integer.toHexString(ev.getSource()),
+                " flags=0x", Integer.toHexString(ev.getFlags()),
+                " thread=", Thread.currentThread().getName());
         boolean ok = ctx.triggerIMEProfile();
         if (ctx.cfg.imeToastEnabled) {
             KeyInjector.showToast(ok ? "Language switched" : "No IME profile matched");

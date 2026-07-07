@@ -34,6 +34,11 @@ public final class PassthroughTrace {
             case KeyEvent.KEYCODE_CTRL_RIGHT:
             case KeyEvent.KEYCODE_META_LEFT:
             case KeyEvent.KEYCODE_META_RIGHT:
+            case KeyEvent.KEYCODE_SPACE:
+            case KeyEvent.KEYCODE_SHIFT_LEFT:
+            case KeyEvent.KEYCODE_SHIFT_RIGHT:
+            case KeyEvent.KEYCODE_ALT_LEFT:
+            case KeyEvent.KEYCODE_ALT_RIGHT:
                 return true;
             default:
                 return false;
@@ -88,6 +93,8 @@ public final class PassthroughTrace {
         sb.append(" ctrl=").append(event.isCtrlPressed() ? "1" : "0");
         sb.append(" shift=").append(event.isShiftPressed() ? "1" : "0");
         sb.append(" alt=").append(event.isAltPressed() ? "1" : "0");
+        sb.append(" flags=0x").append(Integer.toHexString(event.getFlags()));
+        sb.append(" src=0x").append(Integer.toHexString(event.getSource()));
         if (ctx != null) {
             sb.append(" inj=").append(ctx.isInjecting() ? "1" : "0");
         }

@@ -40,6 +40,47 @@ object IMEDispatcher {
     fun isInjecting(): Boolean = INJECTING.get() == true
 
     // -----------------------------------------------------------------
+    // 注入事件检测 (跨线程安全，替代不可靠的 ThreadLocal)
+    // -----------------------------------------------------------------
+
+    /**
+     * 通过事件特征判断是否为 BetterZUIKey 注入的合成事件。
+     *
+     * 注入事件由我们通过 KeyEvent 构造函数创建，特征固定：
+     * scanCode=0, flags=0, source=0
+     * 物理键盘的 scanCode 一定非零，可可靠区分。
+     */
+    @JvmStatic
+    fun isInjectedEvent(event: android.view.KeyEvent): Boolean {
+        return event.scanCode == 0
+            && event.flags == 0
+            && event.source == 0
+    }
+
+    // -----------------------------------------------------------------
+    // 冷却期 (防止同一触发源导致的快速重复执行)
+    // -----------------------------------------------------------------
+
+    @Volatile
+    @JvmField
+    var lastProfileTriggerMs: Long = 0L
+
+    /** IME profile 触发最小间隔 */
+    const val PROFILE_COOLDOWN_MS: Long = 50L
+
+    @JvmStatic
+    fun isInProfileCooldown(): Boolean {
+        val last = lastProfileTriggerMs
+        if (last == 0L) return false
+        return (android.os.SystemClock.uptimeMillis() - last) < PROFILE_COOLDOWN_MS
+    }
+
+    @JvmStatic
+    fun markProfileTriggered() {
+        lastProfileTriggerMs = android.os.SystemClock.uptimeMillis()
+    }
+
+    // -----------------------------------------------------------------
     // IME 状态 (system_server ClassLoader required for com.android.server.*)
     // -----------------------------------------------------------------
 
@@ -187,6 +228,16 @@ object IMEDispatcher {
             val method = im.javaClass.getMethod("injectInputEvent",
                 android.view.InputEvent::class.java, Int::class.javaPrimitiveType)
             for (e in events) {
+                LogHelper.log(VerboseLevel.INFO,
+                    "IMEDispatcher: INJECT_BEFORE",
+                    " kc=", e.keyCode.toString(),
+                    " sc=", e.scanCode.toString(),
+                    " dev=", e.deviceId.toString(),
+                    " src=0x", Integer.toHexString(e.source),
+                    " flags=0x", Integer.toHexString(e.flags),
+                    " meta=0x", Integer.toHexString(e.metaState),
+                    " action=", if (e.action == KeyEvent.ACTION_DOWN) "DOWN" else "UP",
+                    " thread=", Thread.currentThread().name)
                 method.invoke(im, e, cachedInjectMode)
             }
             true

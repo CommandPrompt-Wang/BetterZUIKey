@@ -60,6 +60,11 @@ object IMEProfileManager {
             }
         }
         LogHelper.log(VerboseLevel.INFO, "$TAG: loadFromSP — ${profiles.size} profile(s)")
+        // Push full reload signal to system_server so it picks up existing profiles
+        // (covers boot sync race: SP has data but no delta changes were made)
+        if (profiles.isNotEmpty()) {
+            appendChange(context, "reload", null)
+        }
     }
 
     /** 首次启动时 seed 内置配置（仅当 SP 为空时）。 */

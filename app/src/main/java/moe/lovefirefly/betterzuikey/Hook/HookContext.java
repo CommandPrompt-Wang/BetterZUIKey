@@ -575,6 +575,13 @@ public class HookContext {
     }
 
     public boolean triggerIMEProfile() {
+        // Cooldown guard: prevent rapid re-triggering (e.g. injected event loops)
+        if (IMEDispatcher.isInProfileCooldown()) {
+            LogHelper.log(VerboseLevel.DEBUG, "IME: triggerIMEProfile skipped — cooldown");
+            return false;
+        }
+        IMEDispatcher.markProfileTriggered();
+
         String imePkg = IMEDispatcher.getCurrentIMEPackage();
         if (imePkg != null) imePkg = imePkg.trim();
         LogHelper.log(VerboseLevel.INFO, "IME: triggerIMEProfile — current IME package=",

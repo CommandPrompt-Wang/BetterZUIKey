@@ -337,36 +337,21 @@ class MainActivity : AppCompatActivity() {
         // ---- Status card state -------------------------------------------------
         // 0=green (correct scope + root), 1=amber (correct scope, no root),
         // 2=orange (wrong scope), 3=red (not active)
+
+        /** Confirmed by system_server this session — stays true until App killed. */
+        private var sAliveConfirmed: Boolean? = null  // null = not yet checked
+
         private fun statusOrdinal(): Int {
             val ctx = context ?: return 3
-            if (!ModuleServiceBridge.isActive()) return 3
-
-            val prefs = ctx.getSharedPreferences(
-                RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
-            val myBoot = System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()
-            val sysAlive = isBootMatch(prefs, "boot_time", myBoot)
-
-            if (!sysAlive) {
-                // boot_time 可能因 ContentProvider 未就绪而写入失败
-                // 如果模块确认活跃，App 进程自行补写（App 进程拥有 SP 直接写权限）
-                if (prefs.getLong("boot_time", 0L) == 0L) {
-                    prefs.edit().putLong("boot_time", myBoot).apply()
-                    // 重试匹配
-                    if (isBootMatch(prefs, "boot_time", myBoot)) {
-                        return if (sRootGranted) 0 else 1
-                    }
-                }
-                // Module active but no boot_time match → wrong scope
-                return 2
+            if (sAliveConfirmed == null) {
+                val prefs = ctx.getSharedPreferences(
+                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                sAliveConfirmed = prefs.getBoolean("module_active", false)
             }
-            // Hooks confirmed in system_server this boot
-            return if (sRootGranted) 0 else 1
-        }
-
-        private fun isBootMatch(prefs: android.content.SharedPreferences,
-                                key: String, myBoot: Long): Boolean {
-            val stored = prefs.getLong(key, 0L)
-            return stored > 0L && Math.abs(myBoot - stored) < 5000L
+            if (sAliveConfirmed == true)
+                return if (sRootGranted) 0 else 1
+            // module_active not set: either wrong scope or not loaded at all
+            return if (ModuleServiceBridge.isActive()) 2 else 3
         }
 
         private fun applyStatusColors(
