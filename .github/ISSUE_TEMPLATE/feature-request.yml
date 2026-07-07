@@ -1,0 +1,38 @@
+name: "⭐ 功能请求 / Feature Request"
+description: "提交新功能请求或改进建议 / Submit a new feature request or enhancement."
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+
+  - type: checkboxes
+    attributes:
+      label: "确认 / Confirmation"
+      options:
+        - label: "我已确认本请求没有与已有议题重复 / I confirm this request does not duplicate existing issues"
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "功能描述 / Description"
+      description: "请描述你希望添加的新功能或改进。每个 Issue 只包含一个请求，且不应与之前的议题重复。 / Describe the new feature or enhancement. One request per issue, no duplicates."
+    validations:
+      required: true
+
+  - type: textarea
+    id: scenario
+    attributes:
+      label: "预期行为与使用场景 / Expected behavior & scenario"
+      description: |
+        你期望这个功能如何工作？在什么场景下会用到它？
+        How should this feature work? When would you use it?
+    validations:
+      required: true
+
+  - type: textarea
+    id: supporting
+    attributes:
+      label: "补充信息 / Supporting information"
+      description: "截图、参考链接、相关讨论…… / Screenshots, references, related discussions..."
+    validations:
+      required: false

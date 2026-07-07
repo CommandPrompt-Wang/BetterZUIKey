@@ -72,6 +72,7 @@ class HelpActivity : AppCompatActivity() {
 
     private fun setupToolbar() {
         binding.toolbar.apply {
+            subtitle = "${getString(R.string.app_name)} v${BuildConfig.VERSION_NAME}"
             setNavigationOnClickListener { finish() }
         }
     }
@@ -83,6 +84,8 @@ class HelpActivity : AppCompatActivity() {
             .build()
 
         val helpText = loadHelpForLocale()
+            .replace("{{APP_NAME}}", getString(R.string.app_name))
+            .replace("{{VERSION}}", BuildConfig.VERSION_NAME)
 
         markwon.setMarkdown(binding.tvHelp, helpText)
 

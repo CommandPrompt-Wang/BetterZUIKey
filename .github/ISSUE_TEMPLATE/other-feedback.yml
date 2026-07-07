@@ -1,0 +1,28 @@
+name: "📝 其它反馈 / Other Feedback"
+description: "文档，本地化和安全 / Docs, Localization & Security"
+title: "[Other]: "
+labels: ["triage"]
+body:
+
+  - type: checkboxes
+    attributes:
+      label: "确认 / Confirmation"
+      options:
+        - label: "我已确认本反馈没有与已有议题重复 / I confirm this feedback does not duplicate existing issues"
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "反馈内容 / Feedback"
+      description: "请描述你的反馈。每个 Issue 只包含一个反馈，且不应与之前的议题重复。 / Describe your feedback. One feedback per issue, no duplicates."
+    validations:
+      required: true
+
+  - type: textarea
+    id: supporting
+    attributes:
+      label: "补充信息 / Supporting information"
+      description: "截图、链接、相关引用…… / Screenshots, references, related citations..."
+    validations:
+      required: false

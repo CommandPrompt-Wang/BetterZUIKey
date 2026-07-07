@@ -1,0 +1,125 @@
+name: "🐞 错误报告 / Bug Report"
+description: "请创建错误报告帮助我们改进 ^_^ / Create a report to help us improve. ^_^"
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+
+  - type: checkboxes
+    attributes:
+      label: "确认 / Confirmation"
+      options:
+        - label: "我已确认本报告没有与已有议题重复 / I confirm this report does not duplicate existing issues"
+          required: true
+
+  - type: textarea
+    id: bug-summary
+    attributes:
+      label: "Bug 概述 / Bug Summary"
+      description: "请描述 Bug 的具体现象。每个 Issue 只包含一个请求，且不应与之前的议题重复。 / A clear and concise description of what the bug is. One issue per report, no duplicates."
+      placeholder: "描述 Bug 现象..."
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: reproducibility
+    attributes:
+      label: "复现情况 / Reproducibility"
+      options:
+        - label: "可复现 / Reproducible"
+          required: true
+        - label: "可稳定复现 / Consistently reproducible"
+          required: false
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: "复现步骤 / Steps to reproduce"
+      description: "请描述复现步骤 / Steps to reproduce the behavior."
+      placeholder: |
+        1. 打开... / Go to '...'
+        2. 点击... / Click on '....'
+        3. ......
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: "预期行为 / Expected behavior"
+      description: "请描述预期的行为 / A clear and concise description of what you expected to happen."
+      placeholder: "描述预期行为... / Expected behavior..."
+    validations:
+      required: true
+
+  - type: upload
+    id: screenshots
+    attributes:
+      label: "截图 / Screenshots"
+      description: |
+        如果可能，请添加截图以帮助解释您的问题。
+        除非某个问题导致无法截图/导出图片，请避免拍屏而使用截图。
+        If applicable, add screenshots to help explain your problem. Please use screenshots instead of taking a photo of the screen.
+    validations:
+      required: false
+
+  - type: upload
+    id: logs
+    attributes:
+      label: "日志 / Logs"
+      description: |
+        请在复现时使用下面的命令获取问题发生时的日志：
+        `adb logcat -v threadtime -s BetterZUIKey:*`
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: device-model
+    attributes:
+      label: "设备型号 / Device"
+      placeholder: "e.g. Xiaoxin Pad Pro GT"
+    validations:
+      required: true
+
+  - type: input
+    id: android-version
+    attributes:
+      label: "Android 版本 / Android Version"
+      placeholder: "e.g. 16"
+    validations:
+      required: true
+
+  - type: input
+    id: zuxos-version
+    attributes:
+      label: "ZUXOS 版本 / ZUXOS Version"
+      placeholder: "e.g. ZUXOS 1.5.04.424"
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: "应用版本 / App Version"
+      placeholder: "e.g. 1.4.0-beta1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: rootfs-mounted
+    attributes:
+      label: "是否授予 Root 权限 / Is Root granted?"
+      description: "检查方式：检查 APP 主页是绿色（有 Root）还是黄色（没有 Root）/ Check if the APP main page is green (root granted) or yellow (root not granted)."
+      options:
+        - "是 / Yes"
+        - "否 / No"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: "其他补充 / Additional context"
+      description: "在此补充额外的内容 / Add any other context about the problem here."
+    validations:
+      required: false
