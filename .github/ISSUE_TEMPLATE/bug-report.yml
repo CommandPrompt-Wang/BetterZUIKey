@@ -69,7 +69,6 @@ body:
       description: |
         请在复现时使用下面的命令获取问题发生时的日志：
         `adb logcat -v threadtime -s BetterZUIKey:*`
-      render: shell
     validations:
       required: false
 
