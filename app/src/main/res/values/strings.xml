@@ -201,6 +201,25 @@
     <string name="update_new_version">New version available: %1$s</string>
     <string name="update_failed">Update check failed</string>
 
+    <!-- Update dialog -->
+    <string name="update_dialog_title">New Version</string>
+    <string name="update_dialog_message">New version available: %1$s. Download now?</string>
+    <string name="update_dialog_ignore">Ignore</string>
+    <string name="update_dialog_confirm">OK</string>
+    <string name="update_downloading">Downloading…</string>
+    <string name="update_download_failed_title">Download Failed</string>
+    <string name="update_download_failed_message">Unable to download update: %1$s</string>
+    <string name="update_download_failed_links">Here are all download links:</string>
+    <string name="update_download_retry">Retry</string>
+    <string name="update_download_close">Close</string>
+    <string name="update_dialog_cancel">Cancel</string>
+    <string name="update_dialog_source_label">Update source:</string>
+    <string name="update_check_failed_title">Update check failed</string>
+    <string name="update_check_failed_reason">Reason: %1$s</string>
+    <string name="update_check_failed_unknown">Unknown</string>
+    <string name="update_check_failed_stack">Stack trace: %1$s</string>
+    <string name="update_ratelimit_hint">API rate limit exceeded.\nIf you are using a proxy, try disabling it or switch to the "Personal Mirror" channel.</string>
+
     <!-- IME Profile import -->
     <string name="ime_import_profile">Import IME Profile</string>
     <string name="ime_import_invalid">Invalid IME profile: missing or blank ime field</string>

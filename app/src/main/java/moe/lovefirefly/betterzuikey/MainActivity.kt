@@ -141,7 +141,8 @@ class MainActivity : AppCompatActivity() {
                     val r = Runnable {
                         val items = arrayOf(
                             getString(R.string.agreement_title),
-                            "Reset Secure Permission Warning"
+                            "Reset Secure Permission Warning",
+                            "Check Update (Force Dialog)"
                         )
                         androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
                             .setTitle("Debug")
@@ -153,6 +154,10 @@ class MainActivity : AppCompatActivity() {
                                             .edit().remove("secure_perm_dismissed").apply()
                                         android.widget.Toast.makeText(this@MainActivity,
                                             "Secure permission warning reset", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                    2 -> {
+                                        val cfg = Config.load()
+                                        Thread { UpdateChecker.debugForceDialog(this@MainActivity, cfg) }.start()
                                     }
                                 }
                             }.show()

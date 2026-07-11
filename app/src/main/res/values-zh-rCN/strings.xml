@@ -580,4 +580,23 @@
     <string name="update_latest">已是最新版本</string>
     <string name="update_new_version">发现新版本：%1$s</string>
     <string name="update_failed">更新检查失败</string>
+
+    <!-- 更新对话框 -->
+    <string name="update_dialog_title">发现新版本</string>
+    <string name="update_dialog_message">发现新版本 %1$s，是否下载更新？</string>
+    <string name="update_dialog_ignore">忽略</string>
+    <string name="update_dialog_confirm">确定</string>
+    <string name="update_downloading">正在下载…</string>
+    <string name="update_download_failed_title">下载失败</string>
+    <string name="update_download_failed_message">无法下载更新：%1$s</string>
+    <string name="update_download_failed_links">以下是所有下载链接：</string>
+    <string name="update_download_retry">重试</string>
+    <string name="update_download_close">关闭</string>
+    <string name="update_dialog_cancel">取消</string>
+    <string name="update_dialog_source_label">选择更新源：</string>
+    <string name="update_check_failed_title">无法检查更新</string>
+    <string name="update_check_failed_reason">原因：%1$s</string>
+    <string name="update_check_failed_unknown">未知</string>
+    <string name="update_check_failed_stack">调用堆栈：%1$s</string>
+    <string name="update_ratelimit_hint">触发 API 请求速率限制。\n如果您正在使用代理，请尝试切换节点关闭代理，或者使用"个人镜像"通道</string>
 </resources>
