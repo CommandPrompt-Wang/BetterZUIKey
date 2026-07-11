@@ -469,7 +469,7 @@ public class FnKeyManager {
             map.put(KeyEvent.KEYCODE_SYSRQ,        138);  // Screenshot → F8
             map.put(500,                           139);  // Maximize → F9
             map.put(504,                           140);  // Split → F10
-            // 507/508 smart keys — handled by handleZuiAppKey(), not Fn remap
+            map.put(507,                           141);  // App1/Star → F11 (Fn section; smart-key handler skips when Fn active)
             map.put(KeyEvent.KEYCODE_FORWARD_DEL,  142);  // Delete → F12
             return map;
         }

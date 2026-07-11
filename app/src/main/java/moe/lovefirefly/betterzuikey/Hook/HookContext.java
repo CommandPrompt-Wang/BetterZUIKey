@@ -339,6 +339,20 @@ public class HookContext {
                                    HookCompat.HookParam param) {
         if (keyCode != 507 && keyCode != 508) return false;
 
+        // When Fn is active (FnLock ON or Win held), let Fn section map
+        // 507→F11 instead of treating it as a smart key.
+        if (cfg.fnMasterEnabled && fnKeyManager.isFnKeyboardDevice(
+                ((KeyEvent) param.args[0]).getDeviceId())) {
+            boolean winHeld = ((KeyEvent) param.args[0]).isMetaPressed();
+            if (cfg.fnKeyEnabled || winHeld) {
+                LogHelper.log(VerboseLevel.DEBUG, "AppKey:",
+                        keyCode == 507 ? "507" : "508",
+                        " → skipped (Fn active: fnOn=", String.valueOf(cfg.fnKeyEnabled),
+                        " win=", winHeld ? "1" : "0", ")");
+                return false;
+            }
+        }
+
         String key = keyCode == 507 ? "keyApp1" : "keyApp2";
         Config.SwitchState sw = keyCode == 507 ? cfg.switchKeyApp1 : cfg.switchKeyApp2;
         Config.AppKeyMode mode = keyCode == 507 ? cfg.app1Mode : cfg.app2Mode;
