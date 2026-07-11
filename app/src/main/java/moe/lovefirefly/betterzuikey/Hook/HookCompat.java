@@ -297,17 +297,42 @@ public final class HookCompat {
      */
     private static Method findMethod(Class<?> clazz, String name, Class<?>[] paramTypes)
             throws NoSuchMethodException {
-        // Strict exact match only — no count-only fallback (consistent with ZUI SDK ReflectClass)
-        Method m = clazz.getDeclaredMethod(name, paramTypes);
-        m.setAccessible(true);
-        return m;
+        try {
+            Method m = clazz.getDeclaredMethod(name, paramTypes);
+            m.setAccessible(true);
+            return m;
+        } catch (NoSuchMethodException e) {
+            // DO NOT REMOVE: count-only fallback is essential.
+            // callMethod() derives param types from args[i].getClass() at runtime
+            // (e.g. KeyEvent.class), which won't exactly match declared parameter
+            // types (e.g. InputEvent.class) or primitive wrappers (Integer vs int).
+            // Removing this fallback silently breaks injectInputEvent and all
+            // other reflection-based calls — no compile error, no runtime crash,
+            // just null returns and silently dropped events.
+            for (Method m : clazz.getDeclaredMethods()) {
+                if (m.getName().equals(name) && m.getParameterCount() == paramTypes.length) {
+                    m.setAccessible(true);
+                    return m;
+                }
+            }
+            throw e;
+        }
     }
 
     private static Constructor<?> findConstructor(Class<?> clazz, Class<?>[] paramTypes)
             throws NoSuchMethodException {
-        // Strict exact match only — no count-only fallback
-        Constructor<?> c = clazz.getDeclaredConstructor(paramTypes);
-        c.setAccessible(true);
-        return c;
+        try {
+            Constructor<?> c = clazz.getDeclaredConstructor(paramTypes);
+            c.setAccessible(true);
+            return c;
+        } catch (NoSuchMethodException e) {
+            for (Constructor<?> c : clazz.getDeclaredConstructors()) {
+                if (c.getParameterCount() == paramTypes.length) {
+                    c.setAccessible(true);
+                    return c;
+                }
+            }
+            throw e;
+        }
     }
 }
