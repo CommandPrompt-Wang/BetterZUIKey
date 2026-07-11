@@ -6,7 +6,7 @@ import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
 /**
- * Unified Meta/Win key trace â€” filter logcat with {@code MetaTrace}.
+ * Unified Meta/Win key trace â€?filter logcat with {@code MetaTrace}.
  * <p>
  * While {@link #TRACE_ONLY} is true, Meta routing is observe-only (no consume /
  * inject / Start Menu / long-press timers). Set to false after collecting logs.
@@ -24,7 +24,7 @@ public final class MetaTrace {
 
     public static void event(String layer, KeyEvent event, HookContext ctx) {
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "MetaTrace ", layer,
                 down ? " D" : " U",
                 " kc=", String.valueOf(event.getKeyCode()),
@@ -37,13 +37,13 @@ public final class MetaTrace {
     }
 
     public static void session(String layer, String action, HookContext ctx) {
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "MetaTrace ", layer, " session ", action, sessionSuffix(ctx));
     }
 
     public static void decision(String layer, String action, String detail) {
-        LogHelper.log(VerboseLevel.INFO,
-                "MetaTrace ", layer, " â†’ ", action,
+        LogHelper.log(VerboseLevel.DEBUG,
+                "MetaTrace ", layer, " â†?", action,
                 detail != null && !detail.isEmpty() ? (" (" + detail + ")") : "");
     }
 
@@ -60,7 +60,7 @@ public final class MetaTrace {
     }
 
     public static void hookResult(String layer, boolean consumed) {
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "MetaTrace ", layer, " hookResult consumed=", consumed ? "1" : "0");
     }
 

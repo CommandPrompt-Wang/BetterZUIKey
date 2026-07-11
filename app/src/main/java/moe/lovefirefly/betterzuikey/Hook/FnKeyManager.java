@@ -267,7 +267,7 @@ public class FnKeyManager {
 
         // DEBUG: Log all key events (disabled during Meta trace-only pass)
         if (!MetaTrace.isTraceOnly()) {
-            LogHelper.log(VerboseLevel.INFO, "L0: ALL KEYS keyCode=", String.valueOf(keyCode),
+            LogHelper.log(VerboseLevel.DEBUG, "L0: ALL KEYS keyCode=", String.valueOf(keyCode),
                     " scanCode=", String.valueOf(event.getScanCode()),
                     " fnEnabled=", String.valueOf(cfg.fnKeyEnabled));
         }
@@ -284,7 +284,7 @@ public class FnKeyManager {
         int passMeta = winPressed ? (origMeta & ~KeyEvent.META_META_MASK) : origMeta;
 
         // === DEBUG ===
-        LogHelper.log(VerboseLevel.INFO, "FnDBG",
+        LogHelper.log(VerboseLevel.DEBUG, "FnDBG",
             " kc=", String.valueOf(keyCode),
             " sc=", String.valueOf(event.getScanCode()),
             " win=", winPressed ? "1" : "0",

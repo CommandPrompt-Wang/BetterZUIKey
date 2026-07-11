@@ -6,7 +6,7 @@ import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
 /**
- * Passthrough debug â€” filter logcat with {@code PassthroughTrace}.
+ * Passthrough debug â€?filter logcat with {@code PassthroughTrace}.
  * <p>
  * Traces selected keys through L0/L1/L2 to find where events are consumed.
  * Set {@link #ENABLED} false when done debugging.
@@ -46,19 +46,19 @@ public final class PassthroughTrace {
     }
 
     public static void in(String layer, KeyEvent event, HookContext ctx) {
-        LogHelper.log(VerboseLevel.INFO, line(layer, "IN", event, ctx, null, false));
+        LogHelper.log(VerboseLevel.DEBUG, line(layer, "IN", event, ctx, null, false));
     }
 
     public static void out(String layer, KeyEvent event, HookCompat.HookParam param) {
         boolean consumed = param != null && param.isReturnEarly();
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 line(layer, "OUT", event, null, param, consumed));
     }
 
     public static void note(String layer, String action, KeyEvent event) {
         if (!ENABLED || event == null || !shouldTrace(event)) return;
         boolean down = event.getAction() == KeyEvent.ACTION_DOWN;
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "PassthroughTrace ", layer, " * ", action,
                 " kc=", String.valueOf(event.getKeyCode()),
                 down ? " D" : " U",
@@ -67,14 +67,14 @@ public final class PassthroughTrace {
 
     public static void noteKey(String layer, String action, int keyCode) {
         if (!ENABLED || !isTrackedKeyCode(keyCode)) return;
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "PassthroughTrace ", layer, " * ", action, " kc=", String.valueOf(keyCode));
     }
 
     /** Layer note without a KeyEvent (voice timer, policy calls). */
     public static void noteMsg(String layer, String action) {
         if (!ENABLED) return;
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "PassthroughTrace ", layer, " * ", action);
     }
 

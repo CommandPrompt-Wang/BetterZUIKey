@@ -82,18 +82,18 @@ public class HookContext {
         appKeyLongHandler = handler;
         appKeyLongRunnable = () -> {
             if (!appKeySession.active || appKeySession.keyCode != keyCode) {
-                LogHelper.log(VerboseLevel.INFO, label,
+                LogHelper.log(VerboseLevel.DEBUG, label,
                         " long timer stale (session inactive or kc mismatch)");
                 return;
             }
             appKeySession.longFired = true;
             long held = SystemClock.uptimeMillis() - appKeySession.downTimeMs;
-            LogHelper.log(VerboseLevel.INFO, label,
+            LogHelper.log(VerboseLevel.DEBUG, label,
                     " long timer fired held=", String.valueOf(held), "ms → open editor appKey=", appKey);
             configIPC.openAppKeyCommandEditor(appKey);
         };
         handler.postDelayed(appKeyLongRunnable, ZUI_META_LONG_PRESS_MS);
-        LogHelper.log(VerboseLevel.INFO, label,
+        LogHelper.log(VerboseLevel.DEBUG, label,
                 " arm long timer ", String.valueOf(ZUI_META_LONG_PRESS_MS),
                 "ms appKey=", appKey, " handler=", handler.getLooper().getThread().getName());
     }
