@@ -6,7 +6,7 @@ import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
 /**
- * Unified Meta/Win key trace â€?filter logcat with {@code MetaTrace}.
+ * Unified Meta/Win key trace â€” filter logcat with {@code MetaTrace}.
  * <p>
  * While {@link #TRACE_ONLY} is true, Meta routing is observe-only (no consume /
  * inject / Start Menu / long-press timers). Set to false after collecting logs.
@@ -43,7 +43,7 @@ public final class MetaTrace {
 
     public static void decision(String layer, String action, String detail) {
         LogHelper.log(VerboseLevel.DEBUG,
-                "MetaTrace ", layer, " â†?", action,
+                "MetaTrace ", layer, " â†’ ", action,
                 detail != null && !detail.isEmpty() ? (" (" + detail + ")") : "");
     }
 

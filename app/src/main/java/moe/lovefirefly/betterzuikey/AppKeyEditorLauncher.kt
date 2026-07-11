@@ -36,6 +36,7 @@ object AppKeyEditorLauncher {
                         intent,
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                     )
+                    @Suppress("DEPRECATION")
                     val opts = ActivityOptions.makeBasic()
                         .setPendingIntentBackgroundActivityStartMode(
                             ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED,

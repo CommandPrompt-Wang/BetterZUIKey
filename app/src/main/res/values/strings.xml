@@ -593,4 +593,17 @@
     <string name="label_output">Output: %1$s</string>
     <string name="help_no_document">No help document available for current language.</string>
     <string name="clipboard_config_label">Keyboard Config</string>
+
+    <!-- ================================================================ -->
+    <!-- Shortcut Meta ROW / IME error hints -->
+    <!-- ================================================================ -->
+    <string name="shortcut_metaShortRow">Meta ROW (short press)</string>
+    <string name="shortcut_metaShortRow_desc">Switch language (requires ROW + special keyboard)</string>
+    <string name="shortcut_metaLongRow">Meta ROW (long press)</string>
+    <string name="shortcut_metaLongRow_desc">Voice assistant (requires ROW + special keyboard)</string>
+    <string name="shortcut_metaHoldNonRow">Meta non-ROW (hold)</string>
+    <string name="shortcut_metaHoldNonRow_desc">Continuous language switch (requires non-ROW + special keyboard)</string>
+    <string name="ime_err_hook_missing_object">Hook policy missing \"hook\" object</string>
+    <string name="ime_err_hook_missing_class">Hook policy missing \"hook.class\"</string>
+    <string name="ime_err_hook_missing_method">Hook policy missing \"hook.method\"</string>
 </resources>

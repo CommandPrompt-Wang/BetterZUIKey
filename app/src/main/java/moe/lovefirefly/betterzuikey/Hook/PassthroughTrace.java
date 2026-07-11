@@ -6,7 +6,7 @@ import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
 /**
- * Passthrough debug â€?filter logcat with {@code PassthroughTrace}.
+ * Passthrough debug â€” filter logcat with {@code PassthroughTrace}.
  * <p>
  * Traces selected keys through L0/L1/L2 to find where events are consumed.
  * Set {@link #ENABLED} false when done debugging.

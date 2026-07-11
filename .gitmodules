@@ -1,0 +1,6 @@
+[submodule "app/src/main/java/moe/lovefirefly/betterzuikey/termuxam"]
+	path = app/termuxam
+	url = git@github.com:CommandPrompt-Wang/TermuxAm.git
+[submodule "app/termuxam"]
+	path = app/termuxam
+	url = git@github.com:CommandPrompt-Wang/TermuxAm.git

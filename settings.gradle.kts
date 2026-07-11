@@ -27,3 +27,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "BetterZUIKey"
 include(":app")
+include(":termuxam", ":termuxam:app")
+project(":termuxam").projectDir = file("app/termuxam")
+project(":termuxam:app").projectDir = file("app/termuxam/app")

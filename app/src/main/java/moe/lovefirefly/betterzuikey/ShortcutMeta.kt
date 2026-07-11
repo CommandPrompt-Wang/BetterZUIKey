@@ -394,13 +394,13 @@ data class ShortcutMeta(
                 "keyMute" -> cfg.overrideMute = value; "keyTouchpad" -> cfg.overrideTouchpad = value
                 "keySplitScreen" -> cfg.overrideSplitScreen = value
                 "keySuperConnect" -> cfg.overrideSuperConnect = value
-                "keyApp1" -> cfg.app1Mode = when (value) {
+                "keyApp1" -> cfg.app1Mode = @Suppress("REDUNDANT_ELSE") when (value) {
                     Config.OverrideMode.BLOCK, Config.OverrideMode.OFF -> Config.AppKeyMode.BLOCK
                     Config.OverrideMode.FOLLOW_SYSTEM, Config.OverrideMode.ZUI,
                     Config.OverrideMode.AOSP -> Config.AppKeyMode.FOLLOW_SYSTEM
                     else -> Config.AppKeyMode.CUSTOM
                 }
-                "keyApp2" -> cfg.app2Mode = when (value) {
+                "keyApp2" -> cfg.app2Mode = @Suppress("REDUNDANT_ELSE") when (value) {
                     Config.OverrideMode.BLOCK, Config.OverrideMode.OFF -> Config.AppKeyMode.BLOCK
                     Config.OverrideMode.FOLLOW_SYSTEM, Config.OverrideMode.ZUI,
                     Config.OverrideMode.AOSP -> Config.AppKeyMode.FOLLOW_SYSTEM
@@ -413,7 +413,7 @@ data class ShortcutMeta(
                 "printScreenLong" -> cfg.overridePrintScreenLong = value
                 "metaSingle" -> cfg.overrideMetaSingle =
                     if (value == Config.OverrideMode.OFF) Config.OverrideMode.BLOCK else value
-                "winLongPress" -> when (value) {
+                "winLongPress" -> @Suppress("REDUNDANT_ELSE") when (value) {
                     Config.OverrideMode.BLOCK, Config.OverrideMode.OFF -> {
                         cfg.winLongUseCommand = false
                         cfg.overrideWinLongPress = Config.OverrideMode.BLOCK

@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Runs smart-key shell scripts in the module app process.
- * Default: `/system/bin/sh -c` (app UID). Root checkbox: `su -c`.
+ * Root: {@code su -c}. Non-root: {@code sh -c} with termux-am injected as PATH am.
  */
 object AppKeyCommandExecutor {
 
@@ -21,13 +21,37 @@ object AppKeyCommandExecutor {
     @Volatile
     private var activeProcess: Process? = null
 
+    @Volatile
+    private var amWrapperReady = false
+
+    private var amPreamble: String = ""
+
     @JvmStatic
     fun containsCrLineEndings(script: String): Boolean = script.contains('\r')
 
-    /** Strip CR so `/system/bin/sh -c` and Termux scripts behave on device (dos2unix). */
     @JvmStatic
     fun normalizeLineEndings(script: String): String =
         script.replace("\r\n", "\n").replace("\r", "\n")
+
+    /**
+     * Return a shell preamble that defines {@code am} as a shell function
+     * using the main app APK as CLASSPATH (termuxam classes are in our DEX).
+     */
+    private fun ensureAmWrapper(context: Context): String {
+        if (amWrapperReady) return amPreamble
+        synchronized(this) {
+            if (amWrapperReady) return amPreamble
+
+            val apkPath = context.packageCodePath
+            amPreamble = "am() { CLASSPATH=$apkPath " +
+                "/system/bin/app_process -Xnoimage-dex2oat / " +
+                "com.termux.termuxam.Am \"\$@\"; }"
+
+            amWrapperReady = true
+            LogHelper.log(VerboseLevel.INFO, "AppKeyExecutor: termux-am function ready, CLASSPATH=", apkPath)
+            return amPreamble
+        }
+    }
 
     @JvmStatic
     fun runAsync(
@@ -65,7 +89,13 @@ object AppKeyCommandExecutor {
             val pb = if (root) {
                 ProcessBuilder("su", "-c", trimmed)
             } else {
-                ProcessBuilder("/system/bin/sh", "-c", trimmed)
+                // Non-root: inject termux-am as shell function so scripts
+                // can use 'am' without shell UID (SELinux blocks exec from data dir)
+                val amFn = ensureAmWrapper(context)
+                ProcessBuilder(
+                    "/system/bin/sh", "-c",
+                    "$amFn; $trimmed"
+                )
             }
             pb.redirectErrorStream(true)
             pb.directory(context.filesDir)

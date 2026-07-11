@@ -20,6 +20,7 @@ public class ZUIKeyHook {
         this.mConfig = config;
     }
 
+    @SuppressWarnings("deprecation")
     public void intercept(HookCompat.HookParam param) {
         if (mConfig == null || !mConfig.zuxKeyboardFuncEnabled) return;
 

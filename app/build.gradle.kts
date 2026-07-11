@@ -20,8 +20,8 @@ android {
         applicationId = "moe.lovefirefly.betterzuikey"
         minSdk = 27
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.4.1-beta3"
+        versionCode = 15
+        versionName = "1.5.0-beta1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -95,4 +95,7 @@ dependencies {
 
     compileOnly("io.github.libxposed:api:101.0.0")
     implementation("io.github.libxposed:service:101.0.0")
+
+    // TermuxAm — inject am via app_process bypassing shell UID requirement
+    implementation(project(":termuxam:app"))
 }
