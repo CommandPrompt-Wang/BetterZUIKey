@@ -7,6 +7,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+.vscode/
 
 # OS
 .DS_Store
