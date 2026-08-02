@@ -10,7 +10,6 @@ import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.google.android.material.color.DynamicColors
 import moe.lovefirefly.betterzuikey.Config.Config
 import moe.lovefirefly.betterzuikey.databinding.ActivityMainBinding
-import moe.lovefirefly.betterzuikey.Utils.ZuiDetector
 
 class MainActivity : AppCompatActivity() {
 
@@ -68,7 +67,7 @@ class MainActivity : AppCompatActivity() {
             btn.text = getString(R.string.home_warning_copy_error)
             btn.setOnClickListener {
                 val text = lastWarningMessage ?: message
-                val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                val clipboard = getSystemService(CLIPBOARD_SERVICE)
                     as android.content.ClipboardManager
                 clipboard.setPrimaryClip(
                     android.content.ClipData.newPlainText("BetterZUIKey error", text))
@@ -248,7 +247,7 @@ class MainActivity : AppCompatActivity() {
         val msg = getString(R.string.agreement_body)
 
         val tv = android.widget.TextView(this).apply {
-            setText(msg)
+            text = msg
             setTextIsSelectable(false)
             setPadding(48, 32, 48, 0)
             setLineSpacing(4f, 1.1f)
@@ -277,7 +276,7 @@ class MainActivity : AppCompatActivity() {
             }
             .setPositiveButton(getString(R.string.agreement_btn_read_doc)) { _, _ ->
                 onAccept()
-                startActivity(android.content.Intent(this, HelpActivity::class.java))
+                startActivity(Intent(this, HelpActivity::class.java))
             }
             .setCancelable(false)
             .create()
@@ -347,11 +346,9 @@ class MainActivity : AppCompatActivity() {
         private var sAliveConfirmed: Boolean? = null  // null = not yet checked
 
         private fun statusOrdinal(): Int {
-            val ctx = context ?: return 3
             if (sAliveConfirmed == null) {
-                val prefs = ctx.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
-                sAliveConfirmed = prefs.getBoolean("module_active", false)
+                val scopeList: List<String> = ModuleServiceBridge.getScope()
+                sAliveConfirmed = scopeList.all { it == "system" }
             }
             if (sAliveConfirmed == true)
                 return if (sRootGranted) 0 else 1
@@ -482,7 +479,8 @@ class MainActivity : AppCompatActivity() {
             view.findViewById<android.widget.TextView>(R.id.tv_description)?.text =
                 getString(R.string.home_app_description)
             view.findViewById<android.widget.TextView>(R.id.tv_project_url)?.setOnClickListener {
-                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW,
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
                     android.net.Uri.parse("https://github.com/CommandPrompt-Wang/BetterZUIKey"))
                 startActivity(intent)
             }
@@ -502,7 +500,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             view.findViewById<android.view.View>(R.id.card_help)?.setOnClickListener {
-                startActivity(android.content.Intent(requireContext(), HelpActivity::class.java))
+                startActivity(Intent(requireContext(), HelpActivity::class.java))
             }
         }
 
@@ -518,7 +516,7 @@ class MainActivity : AppCompatActivity() {
                     proc.errorStream.bufferedReader().use { it.readText() }
                     val exit = proc.waitFor()
                     sRootGranted = (exit == 0)
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     sRootGranted = false
                 }
                 sRootChecked = true
@@ -563,7 +561,7 @@ class MainActivity : AppCompatActivity() {
                     requireContext().contentResolver.call(
                         ConfigSyncProvider.RELOAD_URI,
                         "setLsposedOpenRequest", null,
-                        android.os.Bundle().apply { putBoolean("requested", true) })
+                        Bundle().apply { putBoolean("requested", true) })
                     sLastCommandOutput = "OK"
                     view.post {
                         if (!isAdded) return@post
