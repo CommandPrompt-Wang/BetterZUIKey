@@ -20,14 +20,6 @@ public class ConfigIPCManager {
     private android.content.Context mSystemContext = null;
     private String mLastConfigSync = "";
 
-    /**
-     * Initialize ContentResolver via ActivityThread.getSystemContext() pattern
-     * and pull the initial config via Binder IPC.
-     * Must be called once after handleLoadPackage.
-     *
-     * @return the initial Config from ContentProvider, or null if unavailable.
-     *         Caller MUST replace the file-loaded (likely default) Config with this one.
-     */
     /** Expose resolver for direct calls (used by ESC check watcher in MainHook). */
     public ContentResolver getResolver() { return mConfigResolver; }
 
@@ -151,23 +143,6 @@ public class ConfigIPCManager {
                     result != null ? "ok" : "null");
         } catch (Exception e) {
             LogHelper.log(VerboseLevel.WARNING, "sendBootMark(", method, ") failed:", e.getMessage());
-        }
-    }
-
-    /** Write module_active flag via RemotePreferences. */
-    public void setModuleActive() {
-        try {
-            if (mSystemContext == null) {
-                LogHelper.log(VerboseLevel.WARNING, "setModuleActive: mSystemContext is null");
-                return;
-            }
-            new com.crossbowffs.remotepreferences.RemotePreferences(mSystemContext,
-                moe.lovefirefly.betterzuikey.BuildConfig.APPLICATION_ID + ".prefs",
-                moe.lovefirefly.betterzuikey.RemotePrefProvider.PREF_FILE)
-                .edit().putBoolean("module_active", true).apply();
-            LogHelper.log(VerboseLevel.INFO, "setModuleActive: written via RemotePreferences");
-        } catch (Exception e) {
-            LogHelper.log(VerboseLevel.WARNING, "setModuleActive failed:", e.getMessage());
         }
     }
 
