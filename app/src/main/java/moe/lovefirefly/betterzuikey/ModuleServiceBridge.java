@@ -2,6 +2,8 @@ package moe.lovefirefly.betterzuikey;
 
 import android.util.Log;
 
+import java.util.List;
+
 import io.github.libxposed.service.XposedService;
 import io.github.libxposed.service.XposedServiceHelper;
 
@@ -69,6 +71,11 @@ public final class ModuleServiceBridge implements XposedServiceHelper.OnServiceL
     }
 
     // -- OnServiceListener callbacks --
+
+    public static List<String> getScope() {
+        if (sService == null) return List.of();
+        return sService.getScope();
+    }
 
     @Override
     public void onServiceBind(XposedService service) {
