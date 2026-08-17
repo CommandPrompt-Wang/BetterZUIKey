@@ -71,12 +71,12 @@ public class MainHook extends XposedModule {
             if (!cfg.isSystemDetected()) {
                 LogHelper.log(VerboseLevel.INFO, "First run: detecting system capabilities...");
                 cfg.detectFromSystem(mClassLoader);
-                cfg.save();
             } else {
                 LogHelper.log(VerboseLevel.INFO, "Refreshing system switch states...");
                 cfg.readSystemSwitchesPublic();
-                cfg.save();
             }
+            // system_server (uid 1000) 无法写 app 私有目录，此处不持久化；
+            // 配置由 app 侧 Config.syncToSharedPrefs 经 ContentProvider 镜像。
 
             // Init IPC early
             mConfigIPC = new ConfigIPCManager();
@@ -199,7 +199,9 @@ public class MainHook extends XposedModule {
             if (cfg == null) cfg = Config.load();
             cfg.injected = false;
             cfg.injectError = msg;
-        } catch (Exception ignored) { }
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.DEBUG, "setError failed:", e.getMessage());
+        }
     }
 
     /**
@@ -304,16 +306,14 @@ public class MainHook extends XposedModule {
             if ("[]".equals(json)) return;
 
             LogHelper.log(VerboseLevel.INFO, "SysWrite: processing queue: ", json);
-            int i = 0;
-            while ((i = json.indexOf("{\"k\":\"", i)) >= 0) {
-                int kStart = i + 6;
-                int kEnd = json.indexOf("\"", kStart);
-                if (kEnd < 0) break;
-                String key = json.substring(kStart, kEnd);
-                int vStart = json.indexOf("\"v\":", kEnd) + 4;
-                int vEnd = json.indexOf("}", vStart);
-                if (vEnd < 0) break;
-                int val = Integer.parseInt(json.substring(vStart, vEnd).trim());
+            java.lang.reflect.Type listType = new com.google.gson.reflect.TypeToken<
+                    java.util.List<moe.lovefirefly.betterzuikey.SysWriteQueueEntry>>() {}.getType();
+            java.util.List<moe.lovefirefly.betterzuikey.SysWriteQueueEntry> entries =
+                    new com.google.gson.Gson().fromJson(json, listType);
+            if (entries == null) return;
+            for (moe.lovefirefly.betterzuikey.SysWriteQueueEntry entry : entries) {
+                String key = entry.k;
+                int val = entry.v;
                 String sysKey = Config.SWITCH_KEY_MAP.get(key);
                 if (sysKey != null) {
                     android.provider.Settings.System.putInt(mConfigIPC.getResolver(), sysKey, val);
@@ -328,9 +328,10 @@ public class MainHook extends XposedModule {
                         moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
                         "setSysWriteAlert", null, alert);
                 }
-                i = vEnd + 1;
             }
-        } catch (Exception e) { }
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.DEBUG, "processSysWriteRequest failed:", e.getMessage());
+        }
     }
 
     /** Process pending WRITE_SECURE_SETTINGS grant request via system_server's own pm. */

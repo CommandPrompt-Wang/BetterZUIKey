@@ -19,7 +19,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * ZUXOS 键盘快捷键配
+ * ZUXOS 键盘快捷键配置
  * 每个快捷键有独立的启用开关和自定义行
  */
 public class Config {
@@ -238,10 +238,10 @@ public class Config {
     // 六、全局开关（我们的设置，非系统状态）
     // ================================================================
 
-    /** ZUX 键盘功能总开*/
+    /** ZUX 键盘功能总开关 */
     public boolean zuxKeyboardFuncEnabled = true;
 
-    /** 是否已注入（Xposed 模块激活状态，Hook 自动设置*/
+    /** 是否已注入（Xposed 模块激活状态，Hook 自动设置） */
     public boolean injected = false;
 
     /** 注入失败原因（为空表示无错误*/
@@ -265,7 +265,7 @@ public class Config {
     /** 应用内语言覆盖：""=跟随系统, "en-US"=英语, "zh-CN"=简体中文 */
     public String localeOverride = "";
 
-    /** Meta 键的称呼：\"Win\" 或 \"Meta\" */
+    /** Meta 键的称呼："Win" 或 "Meta" */
     public String metaKeyLabel = "Win";
 
     // ---- 更新检查 ----
@@ -288,25 +288,25 @@ public class Config {
     public boolean aiSummaryEnabled = true;
 
     // ================================================================
-    // 七、AOSP 原生辅助键（Win+Alt+3~6
+    // 七、AOSP 原生辅助键（Win+Alt+3~6）
     // ZUI 未显式处理，直接AOSP 底层消费；入口在系统 UI 中被隐藏
     // ================================================================
 
-    /** Win+Alt+3 防抖键（AOSP 原生辅助功能*/
+    /** Win+Alt+3 防抖键（AOSP 原生辅助功能） */
     public SwitchState switchAospBounceKeys = SwitchState.ON;
     public OverrideMode overrideAospBounceKeys = OverrideMode.AOSP;
-    /** Win+Alt+4 鼠标键（AOSP 原生辅助功能*/
+    /** Win+Alt+4 鼠标键（AOSP 原生辅助功能） */
     public SwitchState switchAospMouseKeys = SwitchState.ON;
     public OverrideMode overrideAospMouseKeys = OverrideMode.AOSP;
-    /** Win+Alt+5 粘滞键（AOSP 原生辅助功能*/
+    /** Win+Alt+5 粘滞键（AOSP 原生辅助功能） */
     public SwitchState switchAospStickyKeys = SwitchState.ON;
     public OverrideMode overrideAospStickyKeys = OverrideMode.AOSP;
-    /** Win+Alt+6 慢速键（AOSP 原生辅助功能*/
+    /** Win+Alt+6 慢速键（AOSP 原生辅助功能） */
     public SwitchState switchAospSlowKeys = SwitchState.ON;
     public OverrideMode overrideAospSlowKeys = OverrideMode.AOSP;
 
     // ================================================================
-    // 九、应用模针对特定前台 app 覆写快捷键行
+    // 九、应用模针对特定前台 app 覆写快捷键
     // 模板中未列出的键继承全局默认
     // ================================================================
 
@@ -314,7 +314,7 @@ public class Config {
     public List<KeyTemplate> templates = new ArrayList<>();
 
     // ================================================================
-    // 十、虚Fn 
+    // 十、虚拟 Fn 键
     // Fn = Win+第一 FnLock = Win+`
     // 键盘映射res/raw/keyboard_profiles.json 加载
     // ================================================================
@@ -323,11 +323,11 @@ public class Config {
     public boolean fnMasterEnabled = true;
     /** FnLock 状态（Win+` 切换；false=需Win激活，true=F键优先） */
     public boolean fnKeyEnabled = false;
-    /** 当前使用的键profile key（如 "17ef:6271"），自动检*/
+    /** 当前使用的键profile key（如 "17ef:6271"），自动检测*/
     public String fnProfileKey = "";
     /** 用户导入的自定义键盘配置 */
     public java.util.Map<String, moe.lovefirefly.betterzuikey.KeyboardProfiles.Profile> fnCustomProfiles = new java.util.LinkedHashMap<>();
-    /** 触发 Fn 映射时弹Toast（调试用，显F1-F12*/
+    /** 触发 Fn 映射时弹Toast（调试用，显示F1-F12）*/
     public boolean fnToastEnabled = true;
 
     // ================================================================
@@ -368,14 +368,14 @@ public class Config {
     public enum SwitchState {
         /** 系统强制开UI 表现为灰色勾选，用户不可关闭 */
         FORCED_ON,
-        /** 系统支持，用户可切换，默认开 */
+        /** 系统支持，用户可切换，默认开启 */
         ON,
-        /** 系统强制关闭 UI 表现为灰色未勾*/
+        /** 系统强制关闭 UI 表现为灰色未勾选 */
         FORCED_OFF,
-        /** 系统不支持，用户可切换，默认*/
+        /** 系统不支持，用户可切换，默认关闭 */
         OFF;
 
-        /** 该快捷键是否实际生效（FORCED_ON ON*/
+        /** 该快捷键是否实际生效（FORCED_ON ON） */
         public boolean isEnabled() {
             return this == FORCED_ON || this == ON;
         }
@@ -388,9 +388,9 @@ public class Config {
 
     /**
      * 覆盖模式 替代旧的 Action 枚举
-     * FOLLOW_SYSTEM: 跟随系统开关（ZUX 开则用 ZUX，关则透传
-     * ZUI:          强制启用 ZUX 实现（拦截并执行 ZUX 行为
-     * AOSP:         强制启用 AOSP 原生实现（拦 ZUX，放行给 AOSP
+     * FOLLOW_SYSTEM: 跟随系统开关（ZUX 开则用 ZUX，关则透传）
+     * ZUI:          强制启用 ZUX 实现（拦截并执行 ZUX 行为）
+     * AOSP:         强制启用 AOSP 原生实现（拦 ZUX，放行给 AOSP）
      * OFF:          关闭（不拦截，事件透传给前台应用）
      * BLOCK:        忽略（消费事件，系统和应用都收不到）
      */
@@ -457,15 +457,15 @@ public class Config {
      * 对应文档第五Meta 三级分发逻辑
      */
     public enum MetaAction {
-        /** 跟系统区域设定走（ZUI 原始行为*/
+        /** 跟系统区域设定走（ZUI 原始行为） */
         DEFAULT,
-        /** AOSP 开始菜单（type=21 triggerShowAllApps*/
+        /** AOSP 开始菜单（type=21 triggerShowAllApps） */
         START_MENU,
-        /** 切换输入法语言（injectKeyEvent 204*/
+        /** 切换输入法语言（injectKeyEvent 204） */
         SWITCH_LANGUAGE,
-        /** 启动语音助手（launchAssistActionExternal*/
+        /** 启动语音助手（launchAssistActionExternal） */
         VOICE_ASSIST,
-        /** 按住连续切语言（DOWN 注入 204 + 400ms 后每 50ms 重复*/
+        /** 按住连续切语言（DOWN 注入 204 + 400ms 后每 50ms 重复） */
         HOLD_SWITCH_LANGUAGE,
         /** 什么都不做 */
         NONE,
@@ -476,11 +476,11 @@ public class Config {
      * 控制 App1/App2 AI_AGENT 行为以及系统AI 入口
      */
     public enum AiAgent {
-        /** 跟系统区域设定走 */
+        /** 跟系统区域设定走（ZUI 原始行为） */
         DEFAULT,
         /** ROW: com.zui.ai.now */
         ZUI_AI_NOW,
-        /** 中国: 联想乐语*/
+        /** 中国: 联想乐语（Lenovo Leo Voice） */
         LENOVO_LE_YU_YIN,
         /** 禁用 AI 代理 */
         NONE,
@@ -491,13 +491,13 @@ public class Config {
      * Win+E 启动的文件管理器
      */
     public enum FileManager {
-        /** 跟系统区域设定走 */
+        /** 跟系统区域设定走（ZUI 原始行为） */
         DEFAULT,
         /** ROW: Google Files */
         GOOGLE_FILES,
-        /** 中国: ZUI 文件管理*/
+        /** 中国: ZUI 文件管理（ZUI File Manager） */
         ZUI_FILES,
-        /** 不启动文件管理器（等同于拦截*/
+        /** 不启动文件管理器（等同于拦截） */
         NONE,
     }
 
@@ -506,7 +506,7 @@ public class Config {
     // ================================================================
 
     // ----------------------------------------------------------------
-    //  Gson 实例（带 InstanceCreator：先填默认值，再用 JSON 覆盖
+    //  Gson 实例（带 InstanceCreator：先填默认值，再用 JSON 覆盖）
     // ----------------------------------------------------------------
     private static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
@@ -519,7 +519,7 @@ public class Config {
 
     /**
      * JSON 文件加载配置
-     * 先填充出厂默认值，再用文件中存在的字段覆盖 —新增字段不会丢默认值
+     * 先填充出厂默认值，再用文件中存在的字段覆盖 —新增字段不会丢默认值）
      * 加载后自动从 Settings.System 刷新 SwitchState（实时反映系统开关状态）
      */
     public static Config load() {
@@ -528,7 +528,7 @@ public class Config {
         try (FileReader reader = new FileReader(CONFIG_PATH)) {
             cfg = GSON.fromJson(reader, Config.class);
         } catch (FileNotFoundException e) {
-            // 首次启动，保存默认配
+            // 首次启动，保存默认配置
             cfg = new Config();
             cfg.resetToDefault();
             cfg.save();
@@ -570,7 +570,10 @@ public class Config {
                 SwitchState v = (SwitchState) f.get(cfg);
                 if (v == SwitchState.FORCED_ON) { f.set(cfg, SwitchState.ON); changed = true; }
                 else if (v == SwitchState.FORCED_OFF) { f.set(cfg, SwitchState.OFF); changed = true; }
-            } catch (Throwable ignored) { }
+            } catch (Throwable t) {
+                LogHelper.log(LogHelper.VerboseLevel.DEBUG,
+                        "Config: migrateSwitchStates field failed:", t.getMessage());
+            }
         }
         if (changed) cfg.save();
     }
@@ -710,8 +713,13 @@ public class Config {
         try {
             String json = GSON.toJson(cfg);
             android.content.SharedPreferences prefs = ctx.getSharedPreferences(
-                    moe.lovefirefly.betterzuikey.RemotePrefProvider.PREF_FILE,
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.PREF_FILE,
                     android.content.Context.MODE_PRIVATE);
+            // 每次变更都写入完整 JSON，不维护 revision 计数。
+            // system_server 侧的 checkChanged() 以内容字符串比较判断变化，
+            // 无需 revision：冷启动早期 Provider 未就绪时 revision 恒为 -1，
+            // 会导致配置永不热重载（虚拟 Fn 映射等失效）。全量拉取代价小，
+            // 且字符串比较天然对"内容未变"短路，足够可靠。
             prefs.edit().putString("config_sync", json).apply();
 
             // GravityBox WorldReadablePrefs pattern: fix entire directory chain
@@ -727,7 +735,7 @@ public class Config {
                 prefsDir.setReadable(true, false);
             }
             java.io.File prefsFile = new java.io.File(prefsDir,
-                moe.lovefirefly.betterzuikey.RemotePrefProvider.PREF_FILE + ".xml");
+                moe.lovefirefly.betterzuikey.ConfigSyncProvider.PREF_FILE + ".xml");
             if (prefsFile.exists()) {
                 prefsFile.setReadable(true, false);   // o+r: allow reading
             }
@@ -737,8 +745,10 @@ public class Config {
                     moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
                     moe.lovefirefly.betterzuikey.ConfigSyncProvider.METHOD_NOTIFY_SYNC,
                     null, null);
-            } catch (Exception ignored) {
+            } catch (Exception e) {
                 // notification is best-effort; polling fallback via checkConfigChanged()
+                LogHelper.log(LogHelper.VerboseLevel.DEBUG,
+                        "Config sync notifySync failed:", e.getMessage());
             }
 
             LogHelper.log(LogHelper.VerboseLevel.INFO,
@@ -948,8 +958,9 @@ public class Config {
      * 公开方法，MainHook 每次加载时调用
      */
     public void readSystemSwitchesPublic() {
+        // 仅在 system_server 调用，save() 写 app 私有目录必然失败（dead write），
+        // 故此处不再调用 save()。
         readSystemSwitches();
-        save();
     }
 
     private void readSystemSwitches() {

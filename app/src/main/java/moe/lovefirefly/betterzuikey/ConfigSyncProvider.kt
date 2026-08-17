@@ -22,6 +22,10 @@ class ConfigSyncProvider : ContentProvider() {
 
     companion object {
         const val AUTHORITY = "moe.lovefirefly.betterzuikey.config"
+
+        /** 配置与 IPC 状态共享的 SharedPreferences 文件名。 */
+        const val PREF_FILE = "betterzuikey_config"
+
         @JvmField
         val RELOAD_URI: Uri = Uri.parse("content://$AUTHORITY/reload")
         const val METHOD_GET_SYNC = "getSync"
@@ -54,7 +58,7 @@ class ConfigSyncProvider : ContentProvider() {
         // in the delta queue, but the App hasn't run yet to push it.
         try {
             val prefs = context?.getSharedPreferences(
-                RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                PREF_FILE, android.content.Context.MODE_PRIVATE)
             val profiles = prefs?.getString("ime_profiles", "[]") ?: "[]"
             if (profiles != "[]") {
                 val old = prefs?.getString("ime_changes", "[]") ?: "[]"
@@ -65,15 +69,23 @@ class ConfigSyncProvider : ContentProvider() {
                     android.util.Log.i("BetterZUIKey", "[INFO] CP: onCreate seeded reload signal")
                 }
             }
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            android.util.Log.d("BetterZUIKey", "[DEBUG] CP: onCreate seed failed: ${t.message}")
+        }
         return true
     }
 
     override fun call(method: String, arg: String?, extras: Bundle?): Bundle? {
+        // UID 白名单：只放行 system_server 与自身，阻止第三方 app 借 runAppKeyCommand / setConfig
+        // 在模块进程执行任意命令或覆写配置。
+        val uid = android.os.Binder.getCallingUid()
+        if (uid != android.os.Process.SYSTEM_UID && uid != android.os.Process.myUid()) {
+            return null
+        }
         return when (method) {
             METHOD_GET_SYNC -> {
                 val prefs = context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                 val json = prefs?.getString("config_sync", "") ?: ""
                 Bundle().apply { putString(KEY_CONFIG_JSON, json) }
             }
@@ -84,14 +96,14 @@ class ConfigSyncProvider : ContentProvider() {
             METHOD_SET_CONFIG -> {
                 val json = extras?.getString(KEY_CONFIG_JSON) ?: return@call null
                 context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.putString("config_sync", json)?.commit()
                 null
             }
             METHOD_BOOT_MARK -> {
                 val bootTime = System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()
                 context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.putLong(KEY_BOOT_TIME, bootTime)?.commit()
                 null
             }
@@ -100,14 +112,14 @@ class ConfigSyncProvider : ContentProvider() {
                 // Lets the UI show yellow instead of red.
                 val bootTime = System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()
                 context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.putLong(KEY_BOOT_TIME_APP, bootTime)?.commit()
                 null
             }
             METHOD_ESC_CHECK_RESULT -> {
                 val detected = extras?.getBoolean(KEY_ESC_RESULT, false) ?: false
                 context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.putBoolean(KEY_ESC_RESULT, detected)
                     ?.putBoolean("esc_check_requested", false)
                     ?.apply()
@@ -116,13 +128,13 @@ class ConfigSyncProvider : ContentProvider() {
             METHOD_SET_KEYBOARD_DETECT -> {
                 val active = extras?.getBoolean(KEY_KEYBOARD_DETECT, false) ?: false
                 context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.putBoolean(PREF_KEYBOARD_DETECT, active)?.commit()
                 null
             }
             METHOD_GET_KEYBOARD_DETECT -> {
                 val prefs = context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                 val active = prefs?.getBoolean(PREF_KEYBOARD_DETECT, false) ?: false
                 Bundle().apply { putBoolean(KEY_KEYBOARD_DETECT, active) }
             }
@@ -154,13 +166,13 @@ class ConfigSyncProvider : ContentProvider() {
             }
             "getEscRequest" -> {
                 val prefs = context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                 val requested = prefs?.getBoolean("esc_check_requested", false) ?: false
                 Bundle().apply { putBoolean("requested", requested) }
             }
             "setEscRequest" -> {
                 context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.putBoolean("esc_check_requested", true)?.apply()
                 null
             }
@@ -170,80 +182,87 @@ class ConfigSyncProvider : ContentProvider() {
                 val value = extras?.getInt("val", -1) ?: -1
                 if (value < 0) return@call null
                 val prefs = context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
-                val oldQ = prefs?.getString("sys_write_queue", "[]") ?: "[]"
-                val entry = "{\"k\":\"$key\",\"v\":$value}"
-                val newQ = if (oldQ == "[]") "[$entry]" else oldQ.dropLast(1) + ",$entry]"
-                prefs?.edit()?.putString("sys_write_queue", newQ)?.apply()
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    ?: return@call null
+                val gson = com.google.gson.Gson()
+                val type = object : com.google.gson.reflect.TypeToken<MutableList<SysWriteQueueEntry>>() {}.type
+                val oldQ = prefs.getString("sys_write_queue", "[]") ?: "[]"
+                val list: MutableList<SysWriteQueueEntry> = try {
+                    gson.fromJson(oldQ, type) ?: mutableListOf()
+                } catch (_: Exception) {
+                    mutableListOf()
+                }
+                list.add(SysWriteQueueEntry().apply { k = key; v = value })
+                prefs.edit()?.putString("sys_write_queue", gson.toJson(list))?.apply()
                 null
             }
             "getLsposedOpenRequest" -> {
                 val prefs = context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                 val requested = prefs?.getBoolean("lsposed_open_requested", false) ?: false
                 Bundle().apply { putBoolean("requested", requested) }
             }
             "setLsposedOpenRequest" -> {
                 val requested = extras?.getBoolean("requested", true) ?: true
                 val prefs = context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                 if (requested) prefs?.edit()?.putBoolean("lsposed_open_requested", true)?.apply()
                 else prefs?.edit()?.remove("lsposed_open_requested")?.apply()
                 null
             }
             "setSysWriteAlert" -> {
                 context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.putBoolean("sys_write_alert", true)?.apply()
                 null
             }
             "getGrantSecureRequest" -> {
                 val prefs = context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                 Bundle().apply { putBoolean("requested",
                     prefs?.contains("grant_secure_requested") ?: false) }
             }
             "setGrantSecureRequest" -> {
                 context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.putBoolean("grant_secure_requested", true)?.apply()
                 null
             }
             "clearGrantSecureRequest" -> {
                 context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.remove("grant_secure_requested")?.apply()
                 null
             }
             "setGrantTermuxRequest" -> {
                 context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.putBoolean("grant_termux_requested", true)?.apply()
                 null
             }
             "getGrantTermuxRequest" -> {
                 val prefs = context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                 Bundle().apply { putBoolean("requested",
                     prefs?.getBoolean("grant_termux_requested", false) ?: false) }
             }
             "clearGrantTermuxRequest" -> {
                 context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.remove("grant_termux_requested")?.apply()
                 null
             }
             "drainSysWriteQueue" -> {
                 // system_server 原子读+清空（与 appendSysWriteQueue 都在 CP call() 内串行化）
                 val prefs = context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                 val json = prefs?.getString("sys_write_queue", "[]") ?: "[]"
                 prefs?.edit()?.remove("sys_write_queue")?.commit()
                 Bundle().apply { putString("queue", json) }
             }
             "getProfiles" -> {
                 val prefs = context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                 val json = prefs?.getString("ime_profiles", "[]") ?: "[]"
                 android.util.Log.i("BetterZUIKey", "[INFO] CP: getProfiles len=${json.length} pid=${android.os.Process.myPid()}")
                 Bundle().apply { putString("profiles_json", json) }
@@ -251,7 +270,7 @@ class ConfigSyncProvider : ContentProvider() {
             // Consume and return the delta queue, then clear it
             "getProfileChanges" -> {
                 val prefs = context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                 val json = prefs?.getString("ime_changes", "[]") ?: "[]"
                 android.util.Log.i("BetterZUIKey", "[INFO] CP: getProfileChanges len=${json.length} pid=${android.os.Process.myPid()}")
                 if (json != "[]") {
@@ -263,7 +282,7 @@ class ConfigSyncProvider : ContentProvider() {
             "appendProfileChange" -> {
                 val changeJson = extras?.getString("change") ?: return@call null
                 val prefs = context?.getSharedPreferences(
-                    RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
                 val old = prefs?.getString("ime_changes", "[]") ?: "[]"
                 val entry = if (old == "[]") "[$changeJson]" else old.dropLast(1) + ",$changeJson]"
                 val ok = prefs?.edit()?.putString("ime_changes", entry)?.commit() ?: false

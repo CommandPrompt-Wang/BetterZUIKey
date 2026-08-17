@@ -15,6 +15,8 @@ object AppKeyCommandExecutor {
 
     const val EXIT_TIMEOUT = -2
 
+    private const val MAX_LOG_OUTPUT_LEN = 512
+
     data class Result(val exitCode: Int, val output: String)
 
     private val processLock = Any()
@@ -182,15 +184,25 @@ object AppKeyCommandExecutor {
         if (result.exitCode == 0) {
             LogHelper.log(
                 VerboseLevel.INFO,
-                "AppKeyCommand: exit=0 root=", root.toString(),
-                if (result.output.isEmpty()) "" else " out=${result.output}"
+                "AppKeyCommand: exit=0 root=", root.toString()
             )
         } else {
             LogHelper.log(
                 VerboseLevel.WARNING,
                 "AppKeyCommand: exit=", result.exitCode.toString(),
-                " root=", root.toString(),
-                if (result.output.isEmpty()) "" else " out=${result.output}"
+                " root=", root.toString()
+            )
+        }
+        // 命令输出可能含敏感信息，降级为 DEBUG 并截断，避免全量进 logcat。
+        if (result.output.isNotEmpty()) {
+            val snippet = if (result.output.length > MAX_LOG_OUTPUT_LEN) {
+                result.output.take(MAX_LOG_OUTPUT_LEN) + "…(truncated)"
+            } else {
+                result.output
+            }
+            LogHelper.log(
+                VerboseLevel.DEBUG,
+                "AppKeyCommand: output=", snippet
             )
         }
     }

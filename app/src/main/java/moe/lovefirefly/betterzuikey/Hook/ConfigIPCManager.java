@@ -245,7 +245,8 @@ public class ConfigIPCManager {
             try {
                 userId = (Integer) Class.forName("android.app.ActivityManager")
                         .getMethod("getCurrentUser").invoke(null);
-            } catch (Throwable ignored) {
+            } catch (Throwable t) {
+                LogHelper.log(VerboseLevel.DEBUG, "AppKeyIPC: getCurrentUser failed:", t.getMessage());
                 try {
                     userId = (Integer) android.os.UserHandle.class
                             .getMethod("getUserId", int.class)
@@ -324,6 +325,12 @@ public class ConfigIPCManager {
     /**
      * Check for config changes via ContentProvider.call().
      * Called from every hook entry point (L0/L1/L3/L4).
+     *
+     * 每次按键都拉取完整 JSON 并做字符串比较，而不是用 revision 计数：
+     * 冷启动早期 ConfigSyncProvider 尚未就绪时，revision 无法可靠获取（恒为 -1），
+     * 会导致配置永不热重载——虚拟 Fn 映射（fnCustomProfiles/fnProfileKey）失效。
+     * 全量 JSON 体积小（几 KB），Binder IPC 代价可忽略；字符串比较在内容未变时
+     * 自然短路，可靠性高于需要额外单调递增计数器的方案。
      *
      * @return the new Config if changed, null otherwise
      */

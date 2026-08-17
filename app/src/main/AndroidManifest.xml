@@ -50,11 +50,6 @@
             android:name="xposedminversion"
             android:value="93" />
 
-        <!-- Enable New XSharedPreferences (world-readable prefs) -->
-        <meta-data
-            android:name="xposedsharedprefs"
-            android:value="true"/>
-
         <meta-data
             android:name="xposedscope"
             android:resource="@array/xposed_scope" />
@@ -123,13 +118,6 @@
             android:name=".ConfigSyncProvider"
             android:authorities="moe.lovefirefly.betterzuikey.config"
             android:exported="true" />
-
-        <!-- RemotePreferences: SharedPreferences 跨进程访问 -->
-        <provider
-            android:name=".RemotePrefProvider"
-            android:authorities="${applicationId}.prefs"
-            android:exported="true"
-            android:directBootAware="true" />
 
         <!-- FileProvider: APK 安装文件共享 -->
         <provider

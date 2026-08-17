@@ -29,7 +29,9 @@ public final class KeyInjector {
             Class.forName("android.os.SystemProperties")
                     .getMethod("set", String.class, String.class)
                     .invoke(null, key, value);
-        } catch (Throwable ignored) { }
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.DEBUG, "debugProp failed:", t.getMessage());
+        }
     }
 
     /** Convert a Throwable stack trace to String. */
@@ -193,8 +195,12 @@ public final class KeyInjector {
                     sFnToast = android.widget.Toast.makeText(ctx, msg,
                             android.widget.Toast.LENGTH_SHORT);
                     sFnToast.show();
-                } catch (Exception ignored) { }
+                } catch (Exception e) {
+                    LogHelper.log(VerboseLevel.DEBUG, "showToast inner failed:", e.getMessage());
+                }
             });
-        } catch (Throwable ignored) { }
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.DEBUG, "showToast failed:", t.getMessage());
+        }
     }
 }

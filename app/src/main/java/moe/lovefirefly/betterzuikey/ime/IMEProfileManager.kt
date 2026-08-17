@@ -52,7 +52,9 @@ object IMEProfileManager {
         try {
             val json = sp.getString(SP_PROFILES_KEY, "[]") ?: "[]"
             if (json != "[]") loadFromJsonArray(json)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            LogHelper.log(VerboseLevel.DEBUG, "$TAG: loadFromSP failed:", t.message)
+        }
         // Fix any null strategies (from old hook-strategy configs)
         for ((ime, p) in profiles) {
             if (p.strategy == null) {

@@ -30,7 +30,7 @@ class MainActivity : AppCompatActivity() {
             buttonText = getString(R.string.dialog_confirm_ok),
             onButtonClick = {
                 // 清除告警 flag
-                getSharedPreferences(RemotePrefProvider.PREF_FILE, MODE_PRIVATE)
+                getSharedPreferences(ConfigSyncProvider.PREF_FILE, MODE_PRIVATE)
                     .edit().remove("sys_write_alert").apply()
                 findViewById<android.view.View>(R.id.warning_banner)?.visibility = android.view.View.GONE
             },
@@ -149,7 +149,7 @@ class MainActivity : AppCompatActivity() {
                                 when (which) {
                                     0 -> showAgreementDialog(onAccept = { }, canExit = false)
                                     1 -> {
-                                        getSharedPreferences(RemotePrefProvider.PREF_FILE, MODE_PRIVATE)
+                                        getSharedPreferences(ConfigSyncProvider.PREF_FILE, MODE_PRIVATE)
                                             .edit().remove("secure_perm_dismissed").apply()
                                         android.widget.Toast.makeText(this@MainActivity,
                                             "Secure permission warning reset", android.widget.Toast.LENGTH_SHORT).show()

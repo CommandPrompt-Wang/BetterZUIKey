@@ -1,16 +1,11 @@
 package moe.lovefirefly.betterzuikey
 
 /**
- * Xposed/LSPosed module self-check probe.
+ * 遗留探针（deprecated）。
  *
- * The method [isLoaded] returns `false` by default (no Xposed).
- * When the module is activated, [MainHook] hooks this method via
- * XC_MethodReplacement.returnConstant(true) in its own package,
- * proving that hooks are actually loaded.
- *
- * This is the standard pattern used by Xposed modules to verify
- * active status — a direct, in-process proof that the framework
- * has loaded and applied hooks.
+ * 模块激活自检已由 [ModuleServiceBridge]（libxposed service API，XposedServiceHelper）
+ * 接管：UI 通过其 isActive() 判断是否激活。本对象的 isLoaded() 不再被 hook，
+ * 仅作为历史遗留保留，后续可移除。
  */
 object ModuleStatus {
     @JvmStatic

@@ -25,6 +25,9 @@ public final class HookCompat {
 
     private HookCompat() {}
 
+    /** One-time log guard for the per-invocation 'instance' field probe (hot path). */
+    private static volatile boolean sInstanceFieldLogged = false;
+
     // ----------------------------------------------------------------
     //  HookParam — mirrors the old MethodHookParam API
     // ----------------------------------------------------------------
@@ -54,7 +57,14 @@ public final class HookCompat {
                 java.lang.reflect.Field f = chain.getClass().getDeclaredField("instance");
                 f.setAccessible(true);
                 inst = f.get(chain);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                if (!sInstanceFieldLogged) {
+                    sInstanceFieldLogged = true;
+                    moe.lovefirefly.betterzuikey.Utils.LogHelper.log(
+                            moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel.DEBUG,
+                            "HookCompat: chain 'instance' field unavailable (thisObject=null):", e.getMessage());
+                }
+            }
             this.thisObject = inst;
             java.util.List<Object> argList = chain.getArgs();
             this.args = argList != null ? argList.toArray(new Object[0]) : new Object[0];
@@ -222,7 +232,11 @@ public final class HookCompat {
             Field field = clazz.getDeclaredField(fieldName);
             field.setAccessible(true);
             field.setBoolean(null, value);
-        } catch (Throwable ignored) {}
+        } catch (Throwable t) {
+            moe.lovefirefly.betterzuikey.Utils.LogHelper.log(
+                    moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel.DEBUG,
+                    "HookCompat: setStaticBooleanField failed for ", fieldName, ": ", t.getMessage());
+        }
     }
 
     /** Replacement for HookCompat.getObjectField. */

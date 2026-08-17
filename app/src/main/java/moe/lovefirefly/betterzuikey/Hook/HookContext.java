@@ -22,10 +22,10 @@ public class HookContext {
 
     // ---- Mutable state (updated by checkConfigChanged / constructor hook) ----
 
-    public Config cfg;
-    public ConfigResolver resolver;
-    public Object kscInstance;
-    public Object policyInstance;
+    public volatile Config cfg;
+    public volatile ConfigResolver resolver;
+    public volatile Object kscInstance;
+    public volatile Object policyInstance;
 
     /** Lenovo keyboard firmware scanCode handled in ZUI case 117. */
     public static final int ZUI_META_SCAN_CODE = 787345;
@@ -36,26 +36,26 @@ public class HookContext {
     public final MetaKeySession metaSession = new MetaKeySession();
 
     /** ScanCode of the last physical Meta DOWN (for L4 fallback). */
-    public int lastMetaScanCode = 0;
+    public volatile int lastMetaScanCode = 0;
 
     /** Set when L0 triggers Start Menu; suppress duplicate type=21. */
-    public boolean metaStartMenuDispatched = false;
+    public volatile boolean metaStartMenuDispatched = false;
 
     /** Meta UP must not open Start Menu (Win was used as modifier). Cleared on next Meta DOWN. */
-    public boolean metaSuppressStartMenu = false;
+    public volatile boolean metaSuppressStartMenu = false;
 
     /** UP cleanup after 507/508 was blocked on DOWN. */
-    public int appKeyPendingBlockUp = 0;
+    public volatile int appKeyPendingBlockUp = 0;
 
     /** Per-press 507/508 session for short vs long (CUSTOM). */
     public final AppKeySession appKeySession = new AppKeySession();
 
     public static final class AppKeySession {
-        public boolean active;
-        public int keyCode;
-        public long downTimeMs;
+        public volatile boolean active;
+        public volatile int keyCode;
+        public volatile long downTimeMs;
         /** Long-press timer fired (editor opened). */
-        public boolean longFired;
+        public volatile boolean longFired;
     }
 
     private android.os.Handler appKeyLongHandler;
@@ -112,13 +112,15 @@ public class HookContext {
         if (kscInstance != null) {
             try {
                 handler = (android.os.Handler) HookCompat.getObjectField(kscInstance, "mHandler");
-            } catch (Throwable ignored) {
+            } catch (Throwable t) {
+                LogHelper.log(VerboseLevel.DEBUG, "resolvePolicyHandler ksc mHandler:", t.getMessage());
             }
         }
         if (handler == null && policyInstance != null) {
             try {
                 handler = (android.os.Handler) HookCompat.getObjectField(policyInstance, "mHandler");
-            } catch (Throwable ignored) {
+            } catch (Throwable t) {
+                LogHelper.log(VerboseLevel.DEBUG, "resolvePolicyHandler policy mHandler:", t.getMessage());
             }
         }
         if (handler == null) {
@@ -129,18 +131,18 @@ public class HookContext {
     }
 
     public static final class MetaKeySession {
-        public boolean active;
-        public boolean upHandled;
-        public long downTimeMs;
-        public int scanCode;
-        public int keyCode = -1;
-        public int deviceId = -1;
+        public volatile boolean active;
+        public volatile boolean upHandled;
+        public volatile long downTimeMs;
+        public volatile int scanCode;
+        public volatile int keyCode = -1;
+        public volatile int deviceId = -1;
         /** Voice or IME long-press fired during this press. */
-        public boolean longFired;
+        public volatile boolean longFired;
         /** A top-row key was Fn-mapped during this Meta press (Win consumed as modifier). */
-        public boolean fnMapped;
+        public volatile boolean fnMapped;
         /** Another key was pressed with Win held (Win+D etc.). */
-        public boolean winComboUsed;
+        public volatile boolean winComboUsed;
 
         /** @return true if session was started; false if overlapping DOWN was ignored */
         public boolean begin(KeyEvent event) {
@@ -476,7 +478,8 @@ public class HookContext {
             sp.getMethod("set", String.class, String.class)
                     .invoke(null, "debug.bzuikey.dev_info",
                             vid + ":" + pid + ":" + devName);
-        } catch (Throwable ignored) {
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.DEBUG, "writeDetectKeyProperties failed:", t.getMessage());
         }
     }
 
@@ -584,7 +587,9 @@ public class HookContext {
                     return info.loadLabel(sysCtx.getPackageManager()).toString();
                 }
             }
-        } catch (Throwable ignored) { }
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.DEBUG, "getCurrentIMEName failed:", t.getMessage());
+        }
         return null;
     }
 

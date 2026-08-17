@@ -81,7 +81,9 @@ public final class ModuleServiceBridge implements XposedServiceHelper.OnServiceL
     public void onServiceBind(XposedService service) {
         sService = service;
         int api = 0;
-        try { api = service.getApiVersion(); } catch (Throwable ignored) {}
+        try { api = service.getApiVersion(); } catch (Throwable t) {
+            Log.d(TAG, "[BRIDGE] getApiVersion failed: " + t.getMessage());
+        }
         Log.i(TAG, "[BRIDGE] Service bound — module ACTIVE, api=" + api);
     }
 

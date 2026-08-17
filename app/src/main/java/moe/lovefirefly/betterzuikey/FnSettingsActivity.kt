@@ -148,7 +148,7 @@ class FnSettingsActivity : AppCompatActivity() {
     private fun detectEscToBackAsync(): Boolean {
         val ctx = this
         val prefs = ctx.getSharedPreferences(
-            RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+            ConfigSyncProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
         // 写请求 flag
         prefs.edit().putBoolean("esc_check_requested", true).apply()
 
@@ -156,7 +156,7 @@ class FnSettingsActivity : AppCompatActivity() {
         for (i in 1..30) {
             Thread.sleep(500)
             val reloaded = ctx.getSharedPreferences(
-                RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                ConfigSyncProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
             if (!reloaded.getBoolean("esc_check_requested", true)) {
                 // request cleared → result ready
                 return reloaded.getBoolean("esc_check_result", false)

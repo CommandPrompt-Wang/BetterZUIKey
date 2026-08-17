@@ -410,7 +410,9 @@ public class FnKeyManager {
                 mFnKeyboardDeviceIds.add(deviceId);
                 return true;
             }
-        } catch (Exception ignored) { }
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.DEBUG, "isFnKeyboardDevice lookup failed:", e.getMessage());
+        }
         return false;
     }
 

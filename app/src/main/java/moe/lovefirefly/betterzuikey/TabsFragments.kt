@@ -126,7 +126,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
 
             // 加载 Secure 权限提示的"不再提示"状态
             securePermDismissed = requireContext().getSharedPreferences(
-                RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+                ConfigSyncProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
                 .getBoolean("secure_perm_dismissed", false)
         }
 
@@ -240,7 +240,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
         val v = view ?: return
         // 检测 sys_write_queue 篡改告警
         val alertPrefs = requireContext().getSharedPreferences(
-            RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+            ConfigSyncProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
         if (alertPrefs.getBoolean("sys_write_alert", false)) {
             alertPrefs.edit().remove("sys_write_alert").apply()
             (requireActivity() as? MainActivity)?.showWarningBannerRed(
@@ -290,7 +290,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
         val cb = view?.findViewById<CheckBox>(R.id.cbSecurePermNever)
         if (cb?.isChecked == true) {
             securePermDismissed = true
-            requireContext().getSharedPreferences(RemotePrefProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
+            requireContext().getSharedPreferences(ConfigSyncProvider.PREF_FILE, android.content.Context.MODE_PRIVATE)
                 .edit().putBoolean("secure_perm_dismissed", true).apply()
         }
     }
