@@ -47,6 +47,26 @@ public class HookContext {
     /** UP cleanup after 507/508 was blocked on DOWN. */
     public volatile int appKeyPendingBlockUp = 0;
 
+    /**
+     * IME modifier-chord session (Ctrl+Shift / Alt+Shift).
+     * Passive tracking only — modifiers always pass through so Ctrl+Shift+Arrow
+     * selection keeps working. Fires on a clean release; any non-modifier key
+     * while armed contaminates and cancels the pending IME action.
+     */
+    public final ImeChordSession imeChord = new ImeChordSession();
+
+    public static final class ImeChordSession {
+        public volatile boolean armed;
+        public volatile boolean contaminated;
+        public volatile Config.IMEBinding chord;
+
+        public void reset() {
+            armed = false;
+            contaminated = false;
+            chord = null;
+        }
+    }
+
     /** Per-press 507/508 session for short vs long (CUSTOM). */
     public final AppKeySession appKeySession = new AppKeySession();
 

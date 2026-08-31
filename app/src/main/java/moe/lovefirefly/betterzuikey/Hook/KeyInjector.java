@@ -83,6 +83,41 @@ public final class KeyInjector {
             && event.isAltPressed() == alt;
     }
 
+    /** True for Ctrl / Shift / Alt / Meta / Caps / Num / Fn lock keys. */
+    public static boolean isModifierKeyCode(int keyCode) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_CTRL_LEFT:
+            case KeyEvent.KEYCODE_CTRL_RIGHT:
+            case KeyEvent.KEYCODE_SHIFT_LEFT:
+            case KeyEvent.KEYCODE_SHIFT_RIGHT:
+            case KeyEvent.KEYCODE_ALT_LEFT:
+            case KeyEvent.KEYCODE_ALT_RIGHT:
+            case KeyEvent.KEYCODE_META_LEFT:
+            case KeyEvent.KEYCODE_META_RIGHT:
+            case KeyEvent.KEYCODE_CAPS_LOCK:
+            case KeyEvent.KEYCODE_NUM_LOCK:
+            case KeyEvent.KEYCODE_FUNCTION:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    public static boolean isCtrlKeyCode(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_CTRL_LEFT
+                || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT;
+    }
+
+    public static boolean isShiftKeyCode(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_SHIFT_LEFT
+                || keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT;
+    }
+
+    public static boolean isAltKeyCode(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_ALT_LEFT
+                || keyCode == KeyEvent.KEYCODE_ALT_RIGHT;
+    }
+
     // ----------------------------------------------------------------
     //  Key injection (InputManager.injectInputEvent)
     // ----------------------------------------------------------------

@@ -53,7 +53,7 @@ BetterZUIKey 是一个 [LSPosed](https://github.com/LSPosed/LSPosed) 模块，�
 - **输入法增强** — 自定义输入法切换/输入法语言切换快捷键
   - Ctrl+Shift / Ctrl+Space / Alt+Shift / 右Alt / 长按Meta 可供选择
   - JSON 输入法适配器按需切换输入法内部语言状态
-  - ⚠️ 已知问题：组合键映射条件较宽，可能被误触发；例如 `Ctrl+Shift -> Ctrl+Space` 可能会在 `Ctrl+Shift+←/→` 等导航组合键场景中触发
+  - Ctrl+Shift / Alt+Shift 修饰键始终透传，仅在干净释放时触发
 - **国际化** — 应用内语言切换，配置变更即时生效
 
 ## 📐 层次架构

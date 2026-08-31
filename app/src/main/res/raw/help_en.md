@@ -236,9 +236,9 @@ Go to Settings tab → "IME Enhancement". Bind a physical key combo for "Switch 
 | Option | Description |
 |--------|-------------|
 | Follow System | No intervention, let ZUI handle |
-| Ctrl+Shift | Injects Ctrl+Shift combo to IME |
+| Ctrl+Shift | Modifiers pass through; fires on clean release |
 | Ctrl+Space | Injects Ctrl+Space combo to IME |
-| Alt+Shift | Injects Alt+Shift combo to IME |
+| Alt+Shift | Modifiers pass through; fires on clean release |
 | Right Alt | Standalone Alt_RIGHT key |
 | Win Long-Press | IME switch when accepting text, voice assistant otherwise |
 | Off | Block ZUI action, keys pass through |

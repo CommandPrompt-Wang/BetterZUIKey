@@ -1,6 +1,5 @@
 package moe.lovefirefly.betterzuikey.Hook;
 
-import android.os.IBinder;
 import android.view.KeyEvent;
 import moe.lovefirefly.betterzuikey.Hook.HookCompat;
 
@@ -8,7 +7,6 @@ import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Config.Config.IMEBinding;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import moe.lovefirefly.betterzuikey.ime.IMEDispatcher;
-import moe.lovefirefly.betterzuikey.ime.IMEProfileManager;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
 public class L1Interceptor  {
@@ -45,6 +43,14 @@ public class L1Interceptor  {
         boolean pt = PassthroughTrace.shouldTrace(event);
         if (pt) PassthroughTrace.in("L1", event, ctx);
         try {
+
+        // Contaminate pending IME chord on any non-modifier key (before other
+        // handlers may return early, e.g. Ctrl+Shift+T).
+        if (firstDown && ctx.imeChord.armed && !KeyInjector.isModifierKeyCode(keyCode)) {
+            ctx.imeChord.contaminated = true;
+            LogHelper.log(VerboseLevel.INFO, "L1: IME chord contaminated by ",
+                    KeyInjector.keyCodeToString(keyCode));
+        }
 
         // Alt+Tab OFF mode: strip Alt at L1 (closest to dispatch).
         // L0 also strips, but input system may re-add modifiers between
@@ -350,21 +356,11 @@ public class L1Interceptor  {
                         " sc=", String.valueOf(event.getScanCode()));
                 return;
             }
-            // Ctrl+Shift
-            if (firstDown && KeyInjector.modifiersMatch(event, false, true, true, false)
-                    && keyCode != KeyEvent.KEYCODE_T) {
-                LogHelper.log(VerboseLevel.INFO, "L1: Ctrl+Shift detected",
-                        " kc=", KeyInjector.keyCodeToString(keyCode),
-                        " imeBind=", ctx.cfg.imeSwitchBinding.name(),
-                        " langBind=", ctx.cfg.languageSwitchBinding.name());
-                if (dispatchIMEBinding(ctx.cfg.imeSwitchBinding, ctx.cfg.languageSwitchBinding,
-                        IMEBinding.CTRL_SHIFT, param, "Ctrl+Shift")) return;
-            }
-            // Alt+Shift
-            if (firstDown && KeyInjector.modifiersMatch(event, false, true, false, true)) {
-                if (dispatchIMEBinding(ctx.cfg.imeSwitchBinding, ctx.cfg.languageSwitchBinding,
-                        IMEBinding.ALT_SHIFT, param, "Alt+Shift")) return;
-            }
+
+            // Ctrl+Shift / Alt+Shift — pass-through track; fire only on clean release.
+            // Never consume modifiers so Ctrl+Shift+Arrow selection keeps working.
+            handleImeModifierChord(event, down, firstDown, keyCode);
+
             // Right Alt
             if (keyCode == KeyEvent.KEYCODE_ALT_RIGHT && firstDown
                     && !event.isShiftPressed() && !event.isCtrlPressed()
@@ -429,6 +425,94 @@ public class L1Interceptor  {
     }
 
     // ---- IME dispatch helper ----
+
+    /**
+     * Ctrl+Shift / Alt+Shift chord — passive tracking, modifiers always pass through.
+     * Arm when both modifiers are down; contaminate on any other key; on clean
+     * release fire the IME action as a side effect (does not consume the key).
+     */
+    private void handleImeModifierChord(KeyEvent event, boolean down, boolean firstDown,
+                                        int keyCode) {
+        boolean ctrlShiftBound = ctx.cfg.imeSwitchBinding == IMEBinding.CTRL_SHIFT
+                || ctx.cfg.languageSwitchBinding == IMEBinding.CTRL_SHIFT;
+        boolean altShiftBound = ctx.cfg.imeSwitchBinding == IMEBinding.ALT_SHIFT
+                || ctx.cfg.languageSwitchBinding == IMEBinding.ALT_SHIFT;
+        if (!ctrlShiftBound && !altShiftBound && !ctx.imeChord.armed)
+            return;
+
+        boolean isCtrl = KeyInjector.isCtrlKeyCode(keyCode);
+        boolean isShift = KeyInjector.isShiftKeyCode(keyCode);
+        boolean isAlt = KeyInjector.isAltKeyCode(keyCode);
+
+        // Arm when the completing modifier goes down — do NOT consume.
+        if (firstDown) {
+            if (ctrlShiftBound && (isCtrl || isShift)
+                    && KeyInjector.modifiersMatch(event, false, true, true, false)) {
+                ctx.imeChord.armed = true;
+                ctx.imeChord.contaminated = false;
+                ctx.imeChord.chord = IMEBinding.CTRL_SHIFT;
+                LogHelper.log(VerboseLevel.INFO, "L1: Ctrl+Shift armed (pass-through)",
+                        " kc=", KeyInjector.keyCodeToString(keyCode));
+                return;
+            }
+            if (altShiftBound && (isAlt || isShift)
+                    && KeyInjector.modifiersMatch(event, false, true, false, true)) {
+                ctx.imeChord.armed = true;
+                ctx.imeChord.contaminated = false;
+                ctx.imeChord.chord = IMEBinding.ALT_SHIFT;
+                LogHelper.log(VerboseLevel.INFO, "L1: Alt+Shift armed (pass-through)",
+                        " kc=", KeyInjector.keyCodeToString(keyCode));
+                return;
+            }
+        }
+
+        // Resolve on UP of a chord modifier: fire only if still clean.
+        if (!down && ctx.imeChord.armed) {
+            IMEBinding chord = ctx.imeChord.chord;
+            boolean relevantUp = (chord == IMEBinding.CTRL_SHIFT && (isCtrl || isShift))
+                    || (chord == IMEBinding.ALT_SHIFT && (isAlt || isShift));
+            if (!relevantUp)
+                return;
+
+            boolean clean = !ctx.imeChord.contaminated;
+            IMEBinding fireChord = chord;
+            String label = (fireChord == IMEBinding.ALT_SHIFT) ? "Alt+Shift" : "Ctrl+Shift";
+            ctx.imeChord.reset();
+
+            if (clean && fireChord != null) {
+                LogHelper.log(VerboseLevel.INFO, "L1: ", label,
+                        " clean release → fire (pass-through)");
+                fireIMEBinding(ctx.cfg.imeSwitchBinding, ctx.cfg.languageSwitchBinding,
+                        fireChord, label);
+            } else {
+                LogHelper.log(VerboseLevel.INFO, "L1: ", label,
+                        " dirty release → no IME action");
+            }
+        }
+    }
+
+    /** Run IME switch / language profile without consuming the KeyEvent. */
+    private void fireIMEBinding(IMEBinding ime, IMEBinding lang,
+                                IMEBinding combo, String label) {
+        boolean matchIme = (ime == combo);
+        boolean matchLang = (lang == combo);
+        if (!matchIme && !matchLang) return;
+
+        if (matchIme) {
+            LogHelper.log(VerboseLevel.INFO, "L1: ", label, " → switch IME");
+            String imeName = ctx.switchInputMethod();
+            if (ctx.cfg.imeToastEnabled && imeName != null) {
+                KeyInjector.showToast(imeName);
+            }
+            return;
+        }
+
+        LogHelper.log(VerboseLevel.INFO, "L1: ", label, " → switch language (profile)");
+        boolean ok = ctx.triggerIMEProfile();
+        if (ctx.cfg.imeToastEnabled) {
+            KeyInjector.showToast(ok ? "Language switched" : "No IME profile matched");
+        }
+    }
 
     /** @return true if the event was handled (consumed or intentionally passed through) */
     private boolean dispatchIMEBinding(IMEBinding ime, IMEBinding lang,

@@ -51,7 +51,7 @@ BetterZUIKey is an [LSPosed](https://github.com/LSPosed/LSPosed) module that int
 - **Regional adaptation** — Independent override for ROW/CN/KR regional behavior differences
 - **AOSP accessibility keys** — Win+Alt+3~6 for bounce keys / mouse keys / sticky keys / slow keys (via Settings.Secure read/write, bypassing System UI)
 - **IME enhancement** — Customizable key bindings for IME switching / language switching; JSON IME adapter for per-IME language state
-  - ⚠️ Known issue: the combo-key mapping trigger is intentionally broad and may fire unexpectedly; for example, mapping `Ctrl+Shift -> Ctrl+Space` can also trigger during `Ctrl+Shift+Left/Right` navigation combos
+  - Ctrl+Shift / Alt+Shift modifiers always pass through; IME action fires only on a clean release
 - **Internationalization** — In-app language switcher, config changes take effect instantly
 
 ## 📐 Architecture

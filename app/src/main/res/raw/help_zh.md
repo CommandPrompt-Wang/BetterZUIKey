@@ -243,9 +243,9 @@ Android 系统设置中提供了"辅助键重映射"功能（位于 设置 → �
 | 选项 | 说明 |
 |------|------|
 | 保持默认 | 不干预，ZUI 原生处理 |
-| Ctrl+Shift | 注入 Ctrl+Shift 组合键至输入法 |
+| Ctrl+Shift | 修饰键透传；干净释放时触发 |
 | Ctrl+Space | 注入 Ctrl+Space 组合键至输入法 |
-| Alt+Shift | 注入 Alt+Shift 组合键至输入法 |
+| Alt+Shift | 修饰键透传；干净释放时触发 |
 | 右 Alt | 独立 Alt_RIGHT 按键 |
 | Win 长按 | 输入态下 Win 长按触发，非输入态由语音助手接管 |
 | 关闭 | 阻止 ZUI 执行切换，按键本身透传 |
