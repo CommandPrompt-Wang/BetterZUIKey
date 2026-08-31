@@ -7,7 +7,7 @@
    <b><a href="README.md">简体中文</a></b> 丨 English
 </p>
 
-[![Android](https://img.shields.io/badge/API-34%2B-green)](https://developer.android.com/about/versions/15) [![Xposed](https://img.shields.io/badge/Xposed-LSPosed-blue)](https://github.com/LSPosed/LSPosed) [![Kotlin](https://img.shields.io/badge/Kotlin-2.1-7f52ff)](https://kotlinlang.org) [![License](https://img.shields.io/badge/License-GPL--3.0-orange)](LICENSE)
+[![Android](https://img.shields.io/badge/API-34%2B-green)](https://developer.android.com/about/versions/15) [![Xposed](https://img.shields.io/badge/Xposed-LSPosed-blue)](https://github.com/LSPosed/LSPosed) [![Kotlin](https://img.shields.io/badge/Kotlin-2.1-7f52ff)](https://kotlinlang.org) [![Version](https://img.shields.io/github/v/release/CommandPrompt-Wang/BetterZUIKey?display_name=tag&label=Version)](https://github.com/CommandPrompt-Wang/BetterZUIKey/releases) [![License](https://img.shields.io/badge/License-GPL--3.0-orange)](LICENSE)
 
 <p>An LSPosed module for overriding keyboard shortcuts on Lenovo ZUXOS devices</p>
 
@@ -51,6 +51,7 @@ BetterZUIKey is an [LSPosed](https://github.com/LSPosed/LSPosed) module that int
 - **Regional adaptation** — Independent override for ROW/CN/KR regional behavior differences
 - **AOSP accessibility keys** — Win+Alt+3~6 for bounce keys / mouse keys / sticky keys / slow keys (via Settings.Secure read/write, bypassing System UI)
 - **IME enhancement** — Customizable key bindings for IME switching / language switching; JSON IME adapter for per-IME language state
+  - ⚠️ Known issue: the combo-key mapping trigger is intentionally broad and may fire unexpectedly; for example, mapping `Ctrl+Shift -> Ctrl+Space` can also trigger during `Ctrl+Shift+Left/Right` navigation combos
 - **Internationalization** — In-app language switcher, config changes take effect instantly
 
 ## 📐 Architecture

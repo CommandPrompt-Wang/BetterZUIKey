@@ -7,7 +7,7 @@
    简体中文 丨 <b><a href="README_en.md">English</a></b>
 </p>
 
-[![Android](https://img.shields.io/badge/API-34%2B-green)](https://developer.android.com/about/versions/15) [![Xposed](https://img.shields.io/badge/Xposed-LSPosed-blue)](https://github.com/LSPosed/LSPosed) [![Kotlin](https://img.shields.io/badge/Kotlin-2.1-7f52ff)](https://kotlinlang.org) [![License](https://img.shields.io/badge/License-GPL--3.0-orange)](LICENSE)
+[![Android](https://img.shields.io/badge/API-34%2B-green)](https://developer.android.com/about/versions/15) [![Xposed](https://img.shields.io/badge/Xposed-LSPosed-blue)](https://github.com/LSPosed/LSPosed) [![Kotlin](https://img.shields.io/badge/Kotlin-2.1-7f52ff)](https://kotlinlang.org) [![Version](https://img.shields.io/github/v/release/CommandPrompt-Wang/BetterZUIKey?display_name=tag&label=Version)](https://github.com/CommandPrompt-Wang/BetterZUIKey/releases) [![License](https://img.shields.io/badge/License-GPL--3.0-orange)](LICENSE)
 
 <p>面向联想 ZUXOS 设备的 LSPosed 键盘快捷键覆写模块</p>
 
@@ -53,6 +53,7 @@ BetterZUIKey 是一个 [LSPosed](https://github.com/LSPosed/LSPosed) 模块，�
 - **输入法增强** — 自定义输入法切换/输入法语言切换快捷键
   - Ctrl+Shift / Ctrl+Space / Alt+Shift / 右Alt / 长按Meta 可供选择
   - JSON 输入法适配器按需切换输入法内部语言状态
+  - ⚠️ 已知问题：组合键映射条件较宽，可能被误触发；例如 `Ctrl+Shift -> Ctrl+Space` 可能会在 `Ctrl+Shift+←/→` 等导航组合键场景中触发
 - **国际化** — 应用内语言切换，配置变更即时生效
 
 ## 📐 层次架构
