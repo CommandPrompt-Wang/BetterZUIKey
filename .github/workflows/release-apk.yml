@@ -41,7 +41,7 @@ jobs:
     - name: Upload APK to Release
       uses: softprops/action-gh-release@v2
       with:
-        files: app/build/outputs/apk/debug/app-debug.apk
+        files: app/build/outputs/apk/debug/BetterZUIKey-v*.apk
 
     - name: Mirror release to LSPosed module repo
       env:
@@ -58,7 +58,7 @@ jobs:
         VERNAME=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts)
         TAG="${VERCODE}-${VERNAME// /_}"
         REPO="Xposed-Modules-Repo/moe.lovefirefly.betterzuikey"
-        APK="app/build/outputs/apk/debug/app-debug.apk"
+        APK=$(ls app/build/outputs/apk/debug/BetterZUIKey-v*.apk | head -n1)
         NOTES_FILE="$(mktemp)"
         printf '%s\n' "$RELEASE_BODY" > "$NOTES_FILE"
 
