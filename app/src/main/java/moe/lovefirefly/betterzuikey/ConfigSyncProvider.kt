@@ -26,6 +26,19 @@ class ConfigSyncProvider : ContentProvider() {
         /** 配置与 IPC 状态共享的 SharedPreferences 文件名。 */
         const val PREF_FILE = "betterzuikey_config"
 
+        /**
+         * libxposed 框架远端配置的 group 名（**独立于** [PREF_FILE]，别混淆）。
+         *
+         * App 侧通过 `XposedService.getRemotePreferences(group)` 写入，hooked 进程
+         * 通过 `XposedInterface.getRemotePreferences(group)` 只读读取 —— 这是把配置
+         * 送进输入法进程的唯一受支持通道：`ConfigSyncProvider.call()` 有 UID 白名单
+         * （只放行 system_server 与自身），输入法进程不在白名单里。
+         */
+        const val REMOTE_PREF_GROUP = "betterzuikey_remote"
+
+        /** 远端配置里 IME profiles 的 key。 */
+        const val KEY_IME_PROFILES = "ime_profiles"
+
         @JvmField
         val RELOAD_URI: Uri = Uri.parse("content://$AUTHORITY/reload")
         const val METHOD_GET_SYNC = "getSync"
@@ -56,10 +69,15 @@ class ConfigSyncProvider : ContentProvider() {
         // so system_server can discover them on its first keypress.
         // System_server only does a full pullProfiles() when it sees "reload"
         // in the delta queue, but the App hasn't run yet to push it.
+        //
+        // 不要直接读 SP 的 profile key：那会绕过 IMEProfileManager 的一次性迁移
+        // （v1 → v2），拿到的可能是空/过期数据。统一走 loadFromSP，顺带把迁移做掉。
         try {
-            val prefs = context?.getSharedPreferences(
+            val ctx = context ?: return true
+            moe.lovefirefly.betterzuikey.ime.IMEProfileManager.loadFromSP(ctx)
+            val prefs = ctx.getSharedPreferences(
                 PREF_FILE, android.content.Context.MODE_PRIVATE)
-            val profiles = prefs?.getString("ime_profiles", "[]") ?: "[]"
+            val profiles = moe.lovefirefly.betterzuikey.ime.IMEProfileManager.toJsonArray()
             if (profiles != "[]") {
                 val old = prefs?.getString("ime_changes", "[]") ?: "[]"
                 // Only seed if the queue is empty (avoid overwriting pending changes)
@@ -261,9 +279,9 @@ class ConfigSyncProvider : ContentProvider() {
                 Bundle().apply { putString("queue", json) }
             }
             "getProfiles" -> {
-                val prefs = context?.getSharedPreferences(
-                    PREF_FILE, android.content.Context.MODE_PRIVATE)
-                val json = prefs?.getString("ime_profiles", "[]") ?: "[]"
+                // 返回内存态（IMEProfileManager 是唯一真值来源），不要直接读 SP：
+                // 那样会绕过 v1→v2 迁移，可能返回空/过期数据给 system_server。
+                val json = moe.lovefirefly.betterzuikey.ime.IMEProfileManager.toJsonArray()
                 android.util.Log.i("BetterZUIKey", "[INFO] CP: getProfiles len=${json.length} pid=${android.os.Process.myPid()}")
                 Bundle().apply { putString("profiles_json", json) }
             }

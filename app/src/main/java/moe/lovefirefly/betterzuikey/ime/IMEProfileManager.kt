@@ -54,17 +54,27 @@ object IMEProfileManager {
     // 初始化 & 加载
     // -----------------------------------------------------------------
 
-    private const val SP_PROFILES_KEY = "ime_profiles"
+    /** 当前存储 key（v2）。 */
+    private const val SP_PROFILES_KEY = "ime_profiles_v2"
 
-    /** 从 SP 加载所有 profile 到内存。 */
+    /** 旧存储 key。<b>只用于一次性迁移读取</b>，迁移完就删掉。 */
+    private const val SP_PROFILES_KEY_V1 = "ime_profiles"
+
+    private const val PREF_FILE = "betterzuikey_config"
+
+    /** 从 SP 加载所有 profile 到内存；v2 不存在时先做一次性迁移。 */
     @JvmStatic
     fun loadFromSP(context: android.content.Context) {
         profiles.clear()
-        val sp = context.getSharedPreferences(
-            "betterzuikey_config", android.content.Context.MODE_PRIVATE)
+        val sp = context.getSharedPreferences(PREF_FILE, android.content.Context.MODE_PRIVATE)
         try {
-            val json = sp.getString(SP_PROFILES_KEY, "[]") ?: "[]"
-            if (json != "[]") loadFromJsonArray(json)
+            val v2 = sp.getString(SP_PROFILES_KEY, null)
+            if (v2 != null) {
+                // 已经迁移过：只认 v2，老 key 即便又冒出来也忽略
+                if (v2 != "[]") loadFromJsonArray(v2)
+            } else {
+                migrateFromV1(sp)
+            }
         } catch (t: Throwable) {
             LogHelper.log(VerboseLevel.DEBUG, "$TAG: loadFromSP failed:", t.message)
         }
@@ -87,35 +97,62 @@ object IMEProfileManager {
     }
 
     /**
-     * 首次启动时 seed 内置配置；**并补齐升级后新增的内置项**。
+     * 从旧 key（`ime_profiles`）一次性迁移到 v2。
      *
-     * 早先只在"SP 为空"时 seed，导致已有安装永远拿不到后加的内置项
-     * （例如新增的 Sogou OEM「框架接管」那条）。这里改成按 UUID 补齐：
-     * 用户改过的同名项不动，只把"缺的那几条内置"插进去。
+     * <p>规则：**旧内置全部丢弃** —— 它们是本模块自己写进去的默认值，没有用户意图，
+     * 而且新版内置集已经不同（多了 framework 条目、索引改成了包名|策略）。
+     * 只保留用户自建的那些（uuid 不带 `bzuikey-builtin-` 前缀）。
+     *
+     * <p>迁移完立刻删掉旧 key：它既是幂等标记，也避免两份数据互相矛盾。
+     */
+    private fun migrateFromV1(sp: android.content.SharedPreferences) {
+        val legacy = sp.getString(SP_PROFILES_KEY_V1, null)
+        var kept = 0
+        var dropped = 0
+        if (!legacy.isNullOrBlank() && legacy != "[]") {
+            try {
+                val arr = gson.fromJson(legacy, Array<IMEProfile>::class.java) ?: emptyArray()
+                for (p in arr) {
+                    if (p.ime?.trim().isNullOrEmpty()) continue
+                    if (IMEProfile.isBuiltin(p.uuid)) {
+                        dropped++
+                        continue
+                    }
+                    profiles[imeKey(p.ime, p.strategy)] = p
+                    kept++
+                }
+            } catch (t: Throwable) {
+                // 旧数据坏了也不能卡住升级：按空处理，后面会 seed 新内置
+                LogHelper.log(VerboseLevel.WARNING,
+                    "$TAG: migrateFromV1 parse failed, treating as empty: ${t.message}")
+            }
+        }
+        LogHelper.log(VerboseLevel.INFO,
+            "$TAG: migrated v1 -> v2 (kept user=$kept, dropped builtin=$dropped)")
+
+        // 写 v2 并删除旧 key（即使这次没读到东西也要写，标记"已迁移"）
+        sp.edit()
+            .putString(SP_PROFILES_KEY, toJsonArray())
+            .remove(SP_PROFILES_KEY_V1)
+            .commit()
+    }
+
+    /**
+     * 没有内置项时 seed 全部内置。
+     *
+     * <p>判据是"**是否存在内置项**"而不是"列表是否为空"：v1 迁移会把旧内置整体丢弃，
+     * 若用户自建的条目还在，列表就非空 —— 用 isEmpty 判断会让新内置永远补不上。
      */
     @JvmStatic
     fun seedBuiltinsIfEmpty(context: android.content.Context) {
         loadFromSP(context)
-        var changed = false
-        if (profiles.isEmpty()) {
-            for (p in IMEProfile.BUILTIN_DEFAULTS) {
-                if (p.ime?.trim().isNullOrEmpty()) continue
-                profiles[imeKey(p.ime, p.strategy)] = p
-                changed = true
-            }
-            LogHelper.log(VerboseLevel.INFO, "$TAG: seeded ${profiles.size} builtin(s)")
-        } else {
-            val present = profiles.values.mapNotNull { it.uuid }.toSet()
-            for (p in IMEProfile.BUILTIN_DEFAULTS) {
-                if (p.ime?.trim().isNullOrEmpty()) continue
-                if (p.uuid != null && p.uuid in present) continue
-                profiles[imeKey(p.ime, p.strategy)] = p
-                changed = true
-                LogHelper.log(VerboseLevel.INFO,
-                    "$TAG: backfilled builtin ${p.uuid} (${p.strategy})")
-            }
+        if (profiles.values.any { IMEProfile.isBuiltin(it.uuid) }) return
+        for (p in IMEProfile.BUILTIN_DEFAULTS) {
+            if (p.ime?.trim().isNullOrEmpty()) continue
+            profiles[imeKey(p.ime, p.strategy)] = p
         }
-        if (changed) saveToConfig(context)
+        saveToConfig(context)
+        LogHelper.log(VerboseLevel.INFO, "$TAG: seeded ${profiles.size} builtin(s)")
     }
 
     /** "还原内置配置" — upsert BUILTIN_DEFAULTS 到现有列表。 */
@@ -131,14 +168,14 @@ object IMEProfileManager {
     }
 
     /**
-     * App 进程：将内存 profiles 写入独立 SP key `ime_profiles`，
+     * App 进程：将内存 profiles 写入独立 SP key `ime_profiles_v2`，
      * 并通过 delta 队列通知 system_server。与 Config 完全解耦。
      */
     @JvmStatic
     fun saveToConfig(context: android.content.Context) {
         try {
             val json = toJsonArray()
-            context.getSharedPreferences("betterzuikey_config", android.content.Context.MODE_PRIVATE)
+            context.getSharedPreferences(PREF_FILE, android.content.Context.MODE_PRIVATE)
                 .edit()?.putString(SP_PROFILES_KEY, json)?.commit()
             // Signal system_server via delta queue
             appendChange(context, "reload", null)

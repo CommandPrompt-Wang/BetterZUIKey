@@ -30,13 +30,20 @@ data class IMEProfile(
     val hook: HookConfig? = null,
 
     /**
-     * 该条配置是否启用（界面上的勾选框）。
+     * 该条配置是否启用（界面上的勾选框）；`null` 表示 JSON 里没有这个字段。
      *
-     * 缺省 true：老的 JSON 里没有这个字段，读出来应当是"启用"，
-     * 免得升级后所有已有配置被静默关掉。
+     * <p>**不要直接读这个字段**，用 [enabled]（缺省即启用）。做成可空是因为：
+     * Gson 用 Unsafe 反射直接写字段，缺字段时置成 JVM 默认的 `false`，而 Kotlin
+     * 构造器的"默认值合并"救不回来（Gson 传 null 被当成"未指定"，于是照写 false）。
+     * 用可空类型 + 派生属性才能真正区分"没这个字段"和"显式 false"。
      */
-    val enabled: Boolean = true
+    @SerializedName("enabled")
+    val enabledRaw: Boolean? = null
 ) {
+    /** 是否启用。**JSON 里没有 `enabled` 字段一律视为启用**（老配置、老导出文件都如此）。 */
+    val enabled: Boolean
+        get() = enabledRaw ?: true
+
     companion object {
         /** 内置默认配置（不可删除，按 UUID 识别） */
         @JvmField
@@ -69,7 +76,7 @@ data class IMEProfile(
                 strategy = Strategy.framework,
                 name = "Sogou OEM",
                 uuid = "bzuikey-builtin-framework-sogou-oem-0101",
-                enabled = false
+                enabledRaw = false
             )
         )
 

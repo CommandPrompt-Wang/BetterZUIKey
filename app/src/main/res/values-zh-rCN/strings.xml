@@ -509,15 +509,10 @@
     <string name="ime_import_profile">导入输入法适配配置</string>
     <string name="ime_import_invalid">无效的输入法配置：缺少 ime 字段</string>
     <string name="ime_import_success">输入法配置 "%1$s" 已导入</string>
-    <string name="ime_manage_profiles">管理输入法适配配置</string>
-    <string name="ime_manage_title">输入法适配配置</string>
     <string name="ime_manage_empty">未找到输入法配置</string>
     <string name="ime_manage_strategy">策略</string>
     <string name="ime_manage_search_hint">搜索配置…</string>
     <string name="profile_manage_search_hint">搜索配置…</string>
-    <string name="ime_manage_delete">删除</string>
-    <string name="ime_manage_delete_msg">删除 "%1$s"？</string>
-    <string name="ime_manage_deleted">"%1$s" 已删除</string>
     <string name="ime_builtin_nodelete">内置配置不可删除</string>
     <string name="ime_import_fail_title">导入失败</string>
     <string name="ime_import_raw">您的输入：</string>
@@ -543,6 +538,7 @@
     <!-- ═══ IME Enhancement: common ═══ -->
     <string name="profile_maker_unfilled">【未填充】</string>
     <string name="profile_maker_copied">已复制！</string>
+    <string name="ime_restore_builtins">恢复内置配置</string>
     <string name="restore_done">内置配置已还原</string>
     <string name="rename_title">重命名</string>
     <string name="import_overwrite_title">覆盖确认</string>
@@ -550,9 +546,6 @@
     <string name="import_overwrite_btn">覆盖</string>
 
     <!-- ═══ IME Enhancement: strategy labels ═══ -->
-    <string name="strategy_framework_label">发送系统信号</string>
-    <string name="strategy_keyremap_label">重映射快捷键 → %1$s</string>
-    <string name="strategy_hook_label">进程内 Hook（DexKit）</string>
     <string name="profile_maker_framework_label">发送系统信号</string>
     <string name="profile_maker_keyremap_label_short">重映射快捷键</string>
 

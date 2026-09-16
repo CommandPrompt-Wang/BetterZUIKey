@@ -88,8 +88,11 @@ class IMEAdapterActivity : AppCompatActivity() {
         binding.tvImport.setOnClickListener {
             startActivity(Intent(this, IMEImportActivity::class.java))
         }
-        binding.tvManage.setOnClickListener {
-            startActivity(Intent(this, IMEProfileManageActivity::class.java))
+        // 恢复内置配置：把 BUILTIN_DEFAULTS upsert 回来（用户自建条目不动）
+        binding.tvRestoreBuiltins.setOnClickListener {
+            IMEProfileManager.restoreBuiltins(this)
+            refresh()
+            Toast.makeText(this, getString(R.string.restore_done), Toast.LENGTH_SHORT).show()
         }
         binding.tvMakeProfile.setOnClickListener {
             startActivity(Intent(this, ProfileMakerActivity::class.java))
@@ -135,15 +138,23 @@ class IMEAdapterActivity : AppCompatActivity() {
         framework: Boolean,
     ): View {
         val row = ItemImeRowBinding.inflate(inflater, container, false)
-        row.tvName.text = displayName(profile.ime)
+        row.tvName.text = rowTitle(profile)
         row.tvPkg.text = profile.ime ?: ""
+
+        // 非内置条目可改显示名（内置名由代码定义，改了也会被"恢复内置配置"覆盖）
+        if (IMEProfile.isBuiltin(profile.uuid)) {
+            row.tvName.setOnClickListener(null)
+            row.tvName.isClickable = false
+        } else {
+            row.tvName.isClickable = true
+            row.tvName.setOnClickListener { showRenameDialog(profile) }
+        }
 
         // 勾选框 = profile.enabled
         row.cbEnabled.setOnCheckedChangeListener(null)
         row.cbEnabled.isChecked = profile.enabled
         row.cbEnabled.setOnCheckedChangeListener { _, checked ->
-            IMEProfileManager.putProfile(profile.copy(enabled = checked))
-            IMEProfileManager.appendChange(this, "reload", null)
+            applyProfile(profile.copy(enabledRaw = checked))
         }
 
         if (framework) {
@@ -160,11 +171,42 @@ class IMEAdapterActivity : AppCompatActivity() {
                 val picked = remapBindings[pos]
                 val raw = rawRemapName(picked)
                 if (raw != profile.remapTo) {
-                    IMEProfileManager.putProfile(profile.copy(remapTo = raw))
+                    applyProfile(profile.copy(remapTo = raw))
                 }
             }
         }
         return row.root
+    }
+
+    /**
+     * 落盘一处修改。
+     *
+     * <p>必须同时 `saveToConfig`（写 SP + 推送/通知 system_server）—— 只 `putProfile`
+     * 的话改动仅存在于内存，进程重启就丢。
+     */
+    private fun applyProfile(updated: IMEProfile) {
+        IMEProfileManager.putProfile(updated)
+        IMEProfileManager.saveToConfig(this)
+    }
+
+    /** 重命名非内置条目。 */
+    private fun showRenameDialog(profile: IMEProfile) {
+        val input = android.widget.EditText(this).apply {
+            setText(profile.name ?: "")
+            selectAll()
+            isSingleLine = true
+            setPadding(48, 32, 48, 0)
+        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.rename_title)
+            .setView(input)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val newName = input.text.toString().trim()
+                applyProfile(profile.copy(name = newName.ifBlank { null }))
+                refresh()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     /** 底部「当前已安装」：扫 moe.lovefirefly.bzk 前缀的模块，一行一个。 */
@@ -204,14 +246,14 @@ class IMEAdapterActivity : AppCompatActivity() {
                 duplicate = true
                 continue
             }
-            IMEProfileManager.putProfile(
+            applyProfile(
                 IMEProfile(
                     ime = pkg,
                     strategy = strategy,
                     name = displayName(pkg),
                     uuid = IMEProfile.generateUUID(),
                     remapTo = if (strategy == Strategy.keyremap) "Ctrl+Space" else null,
-                    enabled = true,
+                    enabledRaw = true,
                 )
             )
             added++
@@ -222,6 +264,35 @@ class IMEAdapterActivity : AppCompatActivity() {
 
     // ────────────────────────── 显示辅助 ──────────────────────────
 
+    /**
+     * 行标题：**已安装的应用优先显示真实应用名**（跟着系统语言走），
+     * 取不到（没装 / 查不到）才回退到 profile 里存的内置名。
+     */
+    private fun rowTitle(profile: IMEProfile): String {
+        val real = appLabel(profile.ime)
+        if (!real.isNullOrBlank()) return real
+        return profile.name ?: profile.ime ?: ""
+    }
+
+    /** 应用真实名称；未安装返回 null。 */
+    private fun appLabel(pkg: String?): String? {
+        if (pkg.isNullOrBlank()) return null
+        return try {
+            val info = if (Build.VERSION.SDK_INT >= 33) {
+                packageManager.getApplicationInfo(
+                    pkg, PackageManager.ApplicationInfoFlags.of(0)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getApplicationInfo(pkg, 0)
+            }
+            packageManager.getApplicationLabel(info)?.toString()
+        } catch (t: Throwable) {
+            null
+        }
+    }
+
+    /** 添加应用时的初始名字：优先真实应用名，取不到才用包名。 */
     private fun displayName(pkg: String?): String {
         if (pkg.isNullOrBlank()) return ""
         return try {

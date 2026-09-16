@@ -240,15 +240,10 @@
     <string name="ime_import_profile">Import IME Profile</string>
     <string name="ime_import_invalid">Invalid IME profile: missing or blank ime field</string>
     <string name="ime_import_success">IME profile \"%1$s\" imported</string>
-    <string name="ime_manage_profiles">Manage IME Profiles</string>
-    <string name="ime_manage_title">IME Profiles</string>
     <string name="ime_manage_empty">No IME profiles found</string>
     <string name="ime_manage_strategy">Strategy</string>
     <string name="ime_manage_search_hint">Search profiles…</string>
     <string name="profile_manage_search_hint">Search profiles…</string>
-    <string name="ime_manage_delete">Delete</string>
-    <string name="ime_manage_delete_msg">Delete \"%1$s\"?</string>
-    <string name="ime_manage_deleted">\"%1$s\" deleted</string>
     <string name="ime_builtin_nodelete">Cannot delete built-in profile</string>
     <!-- ═══ IME Enhancement: common ═══ -->
     <string name="ime_import_fail_title">Import Failed</string>
@@ -258,6 +253,7 @@
     <string name="ime_import_from_text">From text</string>
     <string name="profile_maker_unfilled">【未填充】</string>
     <string name="profile_maker_copied">Copied!</string>
+    <string name="ime_restore_builtins">Restore Builtins</string>
     <string name="restore_done">Builtins restored</string>
     <string name="rename_title">Rename</string>
     <string name="import_overwrite_title">Overwrite?</string>
@@ -265,9 +261,6 @@
     <string name="import_overwrite_btn">Overwrite</string>
 
     <!-- ═══ IME Enhancement: strategy labels ═══ -->
-    <string name="strategy_framework_label">Send System Signal</string>
-    <string name="strategy_keyremap_label">Remap → %1$s</string>
-    <string name="strategy_hook_label">In-process Hook (DexKit)</string>
     <string name="profile_maker_framework_label">Send System Signal</string>
     <string name="profile_maker_keyremap_label_short">Remap Shortcut</string>
 
