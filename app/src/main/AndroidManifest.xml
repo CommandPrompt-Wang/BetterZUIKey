@@ -82,6 +82,10 @@
             android:label="输入法增强" />
 
         <activity
+            android:name=".IMEAdapterActivity"
+            android:label="输入法适配管理" />
+
+        <activity
             android:name=".IMEImportActivity"
             android:label="导入输入法配置" />
 

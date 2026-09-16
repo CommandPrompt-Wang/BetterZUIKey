@@ -58,7 +58,7 @@ data class IMEProfile(
             IMEProfile(
                 ime = "com.sohu.inputmethod.sogou",
                 strategy = Strategy.keyremap,
-                name = "Sogou (Public)",
+                name = "搜狗输入法",
                 uuid = "bzuikey-builtin-sogou-pub-0003",
                 remapTo = "Ctrl+Shift"
             ),
