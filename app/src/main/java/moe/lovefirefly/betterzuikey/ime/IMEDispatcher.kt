@@ -119,19 +119,40 @@ object IMEDispatcher {
         }
     }
 
-    private fun getVisibilityComputer(): Any? {
+    /** IMMS 当前用户的 UserData（可见性判断与 subtype 切换都要用）。 */
+    private fun getUserData(): Any? {
         val ims = getInputMethodManagerService() ?: return null
         return try {
             val userId = ims.javaClass.getDeclaredField("mCurrentImeUserId")
                 .apply { isAccessible = true }.getInt(ims)
-            val userData = ims.javaClass.getMethod("getUserData", Int::class.javaPrimitiveType)
-                .invoke(ims, userId) ?: return null
+            ims.javaClass.getMethod("getUserData", Int::class.javaPrimitiveType)
+                .invoke(ims, userId)
+        } catch (t: Throwable) {
+            LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: getUserData failed:", t.message)
+            null
+        }
+    }
+
+    private fun getVisibilityComputer(): Any? {
+        val userData = getUserData() ?: return null
+        return try {
             userData.javaClass.getDeclaredField("mVisibilityStateComputer")
                 .apply { isAccessible = true }.get(userData)
         } catch (t: Throwable) {
             LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: getVisibilityComputer failed:", t.message)
             null
         }
+    }
+
+    /** system_server 里的 InputMethodManager（公开 API 侧，用于读 subtype 列表）。 */
+    private fun getSystemImm(): InputMethodManager? = try {
+        val at = Class.forName("android.app.ActivityThread")
+            .getMethod("currentActivityThread").invoke(null)
+        val sysCtx = at.javaClass.getMethod("getSystemContext").invoke(at) as Context
+        sysCtx.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+    } catch (t: Throwable) {
+        LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: getSystemImm failed:", t.message)
+        null
     }
 
     /**
@@ -160,14 +181,65 @@ object IMEDispatcher {
      * 供 AdapterManager 做适配器匹配。
      */
     @JvmStatic
-    fun getCurrentIMEPackage(): String? {
-        try {
-            val at = Class.forName("android.app.ActivityThread")
-                .getMethod("currentActivityThread").invoke(null)
-            val sysCtx = at.javaClass.getMethod("getSystemContext").invoke(at) as Context
-            val imm = sysCtx.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            return imm.currentInputMethodInfo?.packageName?.trim()
-        } catch (t: Throwable) { return null }
+    fun getCurrentIMEPackage(): String? =
+        try { getSystemImm()?.currentInputMethodInfo?.packageName?.trim() } catch (t: Throwable) { null }
+
+    // -----------------------------------------------------------------
+    // subtype 切换（framework 策略）
+    // -----------------------------------------------------------------
+
+    /**
+     * 切换当前 IME 的 subtype —— framework 策略的正解。
+     *
+     * 公开 API 在 system_server 侧走不通：`InputMethodManager` 需要 IME 的 token
+     * （系统实例拿不到），而且它自己明确拒绝系统进程调用
+     * （"System process should not call setCurrentInputMethodSubtype() ... Consider
+     * directly interacting with InputMethodManagerService via LocalServices."）。
+     *
+     * 所以这里直接操作 IMMS：按框架的锁语义 synchronized(ImfLock)，
+     * 统一前进到**本输入法内**的下一个 subtype。
+     *
+     * <p>顺序 = 框架 enabled subtype 列表的顺序，也就是输入法自己声明的顺序
+     * （搜狗那边这个顺序由语言模块按用户拖拽的顺序注入，BZK 不需要知道任何配置）。
+     * 没有下一个 subtype 时（例如只有一个）什么都不做，**不会**切到别的输入法。
+     */
+    @JvmStatic
+    fun switchCurrentImeSubtype(): Boolean {
+        val ims = getInputMethodManagerService()
+        val userData = getUserData()
+        if (ims == null || userData == null) {
+            LogHelper.log(VerboseLevel.WARNING,
+                "IMEDispatcher: switchCurrentImeSubtype — IMMS/UserData unavailable")
+            return false
+        }
+        return try {
+            val lock = Class.forName("com.android.server.inputmethod.ImfLock", false, systemClassLoader)
+            synchronized(lock) {
+                // 只在本输入法内前进；没有下一个 subtype 就什么都不做 ——
+                // 绝不切到别的输入法（那会让 Ctrl+Shift 变成"换输入法"）
+                switchToNextLocked(ims, userData, true)
+            }
+        } catch (t: Throwable) {
+            LogHelper.log(VerboseLevel.WARNING,
+                "IMEDispatcher: switchCurrentImeSubtype failed:", t.message)
+            false
+        }
+    }
+
+    /** IMMS.switchToNextInputMethodLocked(onlyCurrentIme, userData)。 */
+    private fun switchToNextLocked(ims: Any, userData: Any, onlyCurrentIme: Boolean): Boolean = try {
+        val m = ims.javaClass.getDeclaredMethod("switchToNextInputMethodLocked",
+            Boolean::class.javaPrimitiveType, userData.javaClass)
+        m.isAccessible = true
+        val r = m.invoke(ims, onlyCurrentIme, userData)
+        LogHelper.log(VerboseLevel.INFO,
+            "IMEDispatcher: subtype → next (onlyCurrentIme=", onlyCurrentIme.toString(),
+            ") result=", r?.toString() ?: "null")
+        r == true
+    } catch (t: Throwable) {
+        LogHelper.log(VerboseLevel.WARNING,
+            "IMEDispatcher: switchToNextLocked failed:", t.message)
+        false
     }
 
     // -----------------------------------------------------------------
