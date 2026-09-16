@@ -89,11 +89,13 @@ object IMEProfileManager {
         loadedOnce = true
         // 同步到框架远端配置：hooked 输入法进程只能通过 libxposed 远端配置拿到 profiles
         pushProfilesToRemote(toJsonArray())
-        // Push full reload signal to system_server so it picks up existing profiles
-        // (covers boot sync race: SP has data but no delta changes were made)
-        if (profiles.isNotEmpty()) {
-            appendChange(context, "reload", null)
-        }
+        // 启动期的 reload 信号由 ConfigSyncProvider.onCreate 负责（它只在队列为空时塞一条）。
+        //
+        // 这里**不能**再无条件 append：loadFromSP 在一个进程里会被调用多次
+        // （ModuleApp.onCreate / ConfigSyncProvider.onCreate / seedBuiltinsIfEmpty…），
+        // 每调一次就多一条 "reload"，而 appendProfileChange 是"重写整个数组"实现的，
+        // 队列于是变成 1+2+3+… 的平方级增长。实测踩过：5583 条 reload / 162KB，
+        // 最终把 shared_prefs 的 XML 写坏（截断在数组中间，整个文件解析失败）。
     }
 
     /**

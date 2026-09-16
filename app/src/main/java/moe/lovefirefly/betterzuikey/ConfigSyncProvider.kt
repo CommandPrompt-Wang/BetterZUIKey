@@ -302,7 +302,21 @@ class ConfigSyncProvider : ContentProvider() {
                 val prefs = context?.getSharedPreferences(
                     PREF_FILE, android.content.Context.MODE_PRIVATE)
                 val old = prefs?.getString("ime_changes", "[]") ?: "[]"
-                val entry = if (old == "[]") "[$changeJson]" else old.dropLast(1) + ",$changeJson]"
+
+                // 队列是"整串重写"实现的，必须防它无界增长：超过阈值就**合并**成
+                // 一条 reload —— 语义上等价（system_server 收到 reload 会整体拉取），
+                // 但不会让文件无限膨胀、也不会把 shared_prefs 写坏。
+                val MAX_QUEUE = 64
+                val over = old.length > MAX_QUEUE * 64
+                val entry = if (over || old == "[]") {
+                    if (over) {
+                        android.util.Log.w("BetterZUIKey",
+                            "[WARN] CP: ime_changes 合并 ($old.length bytes -> reload)")
+                    }
+                    "[$changeJson]"
+                } else {
+                    old.dropLast(1) + ",$changeJson]"
+                }
                 val ok = prefs?.edit()?.putString("ime_changes", entry)?.commit() ?: false
                 android.util.Log.i("BetterZUIKey", "[INFO] CP: appendProfileChange ok=$ok old_len=${old.length} entry_len=${entry.length} change=$changeJson")
                 null
