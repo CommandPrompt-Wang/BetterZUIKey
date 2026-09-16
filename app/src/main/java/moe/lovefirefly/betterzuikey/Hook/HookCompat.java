@@ -51,18 +51,27 @@ public final class HookCompat {
         HookParam(XposedInterface.Chain chain) {
             this.chain = chain;
             this.method = (Member) chain.getExecutable();
-            // Try to extract thisObject via reflection (libxposed doesn't expose it directly)
+            // 优先用 API 101 的 Chain.getThisObject()，只在框架没实现时退回反射读
+            // 内部字段 —— 反射访问 Xposed API 会被 PROP_RT_API_PROTECTION（LSPosed
+            // “Xposed API 调用保护”）针对，能不走反射就不走。
             Object inst = null;
             try {
-                java.lang.reflect.Field f = chain.getClass().getDeclaredField("instance");
-                f.setAccessible(true);
-                inst = f.get(chain);
-            } catch (Exception e) {
-                if (!sInstanceFieldLogged) {
-                    sInstanceFieldLogged = true;
-                    moe.lovefirefly.betterzuikey.Utils.LogHelper.log(
-                            moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel.DEBUG,
-                            "HookCompat: chain 'instance' field unavailable (thisObject=null):", e.getMessage());
+                inst = chain.getThisObject();
+            } catch (Throwable ignored) {
+                // 老框架可能未实现，退回下面的反射
+            }
+            if (inst == null) {
+                try {
+                    java.lang.reflect.Field f = chain.getClass().getDeclaredField("instance");
+                    f.setAccessible(true);
+                    inst = f.get(chain);
+                } catch (Exception e) {
+                    if (!sInstanceFieldLogged) {
+                        sInstanceFieldLogged = true;
+                        moe.lovefirefly.betterzuikey.Utils.LogHelper.log(
+                                moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel.DEBUG,
+                                "HookCompat: chain 'instance' field unavailable (thisObject=null):", e.getMessage());
+                    }
                 }
             }
             this.thisObject = inst;

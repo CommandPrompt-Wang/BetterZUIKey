@@ -175,6 +175,18 @@ public class MainHook extends XposedModule {
         LogHelper.log(VerboseLevel.INFO, "onPackageReady: package=", packageName,
                 " firstPackage=", String.valueOf(param.isFirstPackage()));
 
+        // IME hook strategy — 在输入法进程内安装（DexKit 锚点定位 + 入口 hook）。
+        // 必须在 first-package 早退之前：每个被 hook 的输入法都是独立进程。
+        if (appCl != null && !"moe.lovefirefly.betterzuikey".equals(packageName)) {
+            try {
+                ImeProcessHook.installFromRemoteConfig(
+                        this, packageName, appCl, param.getApplicationInfo());
+            } catch (Throwable t) {
+                LogHelper.log(VerboseLevel.WARNING,
+                        "onPackageReady: IME hook dispatch failed: ", t.getMessage());
+            }
+        }
+
         if (sSelfHookDone) return;
         if (!param.isFirstPackage()) return;
 
