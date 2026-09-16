@@ -471,6 +471,21 @@
     <!-- 输入法增强 -->
     <!-- ================================================================ -->
     <string name="ime_title">输入法增强</string>
+    <!-- 输入法增强：两段式界面（系统输入法框架 / 重映射快捷键） -->
+    <string name="ime_sec_framework">添加应用适配</string>
+    <string name="ime_sec_framework_desc">由系统输入法框架接管语言切换（需要输入法自己暴露 subtype）</string>
+    <string name="ime_sec_remap">重映射快捷键</string>
+    <string name="ime_sec_remap_desc">选择该输入法本来的语言切换快捷键，BZK 拦截它并执行切换</string>
+    <string name="ime_add_app">＋ 添加应用</string>
+    <string name="ime_note_1">1. 点击“添加应用”以添加需要适配的输入法程序</string>
+    <string name="ime_note_2">2. “重映射快捷键”模式中，在右侧下拉选择输入法本来的语言切换快捷键</string>
+    <string name="ime_note_3">3. 对于同时存在于两种配置模式且开启的输入法，“系统输入法框架”优先生效</string>
+    <string name="ime_note_4">4. 对于安装了适配器插件的输入法，推荐使用“系统输入法框架”以完全接管语言切换行为</string>
+    <string name="ime_installed_modules">当前已安装</string>
+    <string name="ime_pick_framework_hint">选择一个要由框架接管的输入法</string>
+    <string name="ime_pick_remap_hint">选择一个要重映射快捷键的输入法</string>
+    <string name="ime_already_added">该输入法已在此列表中</string>
+
     <string name="ime_enabled">启用</string>
     <string name="ime_toast">切换时弹出提示</string>
     <string name="ime_switch_label">切换输入法</string>
@@ -535,6 +550,7 @@
     <!-- ═══ IME Enhancement: strategy labels ═══ -->
     <string name="strategy_framework_label">发送系统信号</string>
     <string name="strategy_keyremap_label">重映射快捷键 → %1$s</string>
+    <string name="strategy_hook_label">进程内 Hook（DexKit）</string>
     <string name="profile_maker_framework_label">发送系统信号</string>
     <string name="profile_maker_keyremap_label_short">重映射快捷键</string>
 

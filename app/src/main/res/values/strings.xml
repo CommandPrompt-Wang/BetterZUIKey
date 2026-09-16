@@ -160,6 +160,20 @@
     <!-- IME Settings (activity_ime_settings.xml + IMESettingsActivity) -->
     <!-- ================================================================ -->
     <string name="ime_title">IME Enhancement</string>
+    <!-- IME enhancement: two-section UI (system framework / shortcut remap) -->
+    <string name="ime_sec_framework">Add App Adaptation</string>
+    <string name="ime_sec_framework_desc">Let the system IME framework take over language switching (needs subtypes)</string>
+    <string name="ime_sec_remap">Remap Shortcut</string>
+    <string name="ime_sec_remap_desc">Pick the IME\'s own language-switch shortcut; BZK intercepts it</string>
+    <string name="ime_add_app">＋ Add App</string>
+    <string name="ime_note_1">1. Tap “Add App” to add an IME that needs adaptation</string>
+    <string name="ime_note_2">2. In “Remap Shortcut”, pick the IME\'s own language-switch shortcut on the right</string>
+    <string name="ime_note_3">3. If an IME is enabled in both sections, “System IME Framework” wins</string>
+    <string name="ime_note_4">4. For IMEs with an adapter plugin, prefer “System IME Framework” to fully take over</string>
+    <string name="ime_installed_modules">Installed</string>
+    <string name="ime_pick_framework_hint">Pick an IME to be driven by the framework</string>
+    <string name="ime_pick_remap_hint">Pick an IME whose shortcut should be remapped</string>
+    <string name="ime_already_added">That IME is already in this list</string>
     <string name="ime_enabled">Enable</string>
     <string name="ime_toast">Show Toast on switch</string>
     <string name="ime_switch_label">Switch IME</string>
@@ -251,6 +265,7 @@
     <!-- ═══ IME Enhancement: strategy labels ═══ -->
     <string name="strategy_framework_label">Send System Signal</string>
     <string name="strategy_keyremap_label">Remap → %1$s</string>
+    <string name="strategy_hook_label">In-process Hook (DexKit)</string>
     <string name="profile_maker_framework_label">Send System Signal</string>
     <string name="profile_maker_keyremap_label_short">Remap Shortcut</string>
 

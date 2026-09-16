@@ -23,16 +23,20 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="24dp">
 
-            <!-- 启用开关 -->
+            <!-- 总开关 -->
             <LinearLayout
                 android:id="@+id/row_ime_enabled"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="12dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
                 android:clickable="true"
                 android:focusable="true"
                 android:foreground="?attr/selectableItemBackground">
@@ -48,14 +52,15 @@
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
-            <!-- Toast 调试开关 -->
+            <!-- 切换时提示 -->
             <LinearLayout
                 android:id="@+id/row_ime_toast"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="12dp"
+                android:paddingTop="10dp"
+                android:paddingBottom="10dp"
                 android:clickable="true"
                 android:focusable="true"
                 android:foreground="?attr/selectableItemBackground">
@@ -71,112 +76,95 @@
                     android:layout_height="wrap_content" />
             </LinearLayout>
 
-            <!-- 切换输入法 -->
+            <!-- ═══ 系统输入法框架 ═══ -->
+            <TextView
+                style="@style/ImeSectionHeader"
+                android:text="@string/ime_sec_framework" />
+
             <LinearLayout
-                android:id="@+id/row_ime_switch"
+                android:id="@+id/list_framework"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="12dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginEnd="8dp"
-                        android:text="@string/ime_switch_label"
-                        android:textAppearance="?attr/textAppearanceBodyLarge" />
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                        android:layout_width="wrap_content"
-                        android:minWidth="180dp"
-                        android:layout_height="wrap_content"
-                        app:boxBackgroundColor="?attr/colorSurfaceContainerHighest"
-                        app:hintEnabled="false"
-                        app:endIconMode="dropdown_menu">
-                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                            android:id="@+id/sp_ime_switch"
-                            android:dropDownWidth="wrap_content"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="none"
-                            android:focusable="true"
-                            android:clickable="true" />
-                    </com.google.android.material.textfield.TextInputLayout>
-                </LinearLayout>
-                <TextView
-                    android:id="@+id/tv_ime_switch_desc"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginEnd="8dp"
-                    android:textAppearance="?attr/textAppearanceBodySmall"
-                    android:textColor="?attr/colorOnSurfaceVariant" />
-            </LinearLayout>
+                android:orientation="vertical" />
 
-            <!-- 切换语言 -->
+            <TextView
+                android:id="@+id/btn_add_framework"
+                style="@style/ImeAddButton"
+                android:text="@string/ime_add_app" />
+
+            <!-- ═══ 重映射快捷键 ═══ -->
+            <TextView
+                style="@style/ImeSectionHeader"
+                android:layout_marginTop="20dp"
+                android:text="@string/ime_sec_remap" />
+
             <LinearLayout
-                android:id="@+id/row_ime_language"
+                android:id="@+id/list_remap"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="12dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground">
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginEnd="8dp"
-                        android:text="@string/ime_language_label"
-                        android:textAppearance="?attr/textAppearanceBodyLarge" />
-                    <com.google.android.material.textfield.TextInputLayout
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                        android:layout_width="wrap_content"
-                        android:minWidth="180dp"
-                        android:layout_height="wrap_content"
-                        app:boxBackgroundColor="?attr/colorSurfaceContainerHighest"
-                        app:hintEnabled="false"
-                        app:endIconMode="dropdown_menu">
-                        <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                            android:id="@+id/sp_ime_language"
-                            android:dropDownWidth="wrap_content"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:inputType="none"
-                            android:focusable="true"
-                            android:clickable="true" />
-                    </com.google.android.material.textfield.TextInputLayout>
-                </LinearLayout>
-                <TextView
-                    android:id="@+id/tv_ime_language_desc"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:layout_marginEnd="8dp"
-                    android:textAppearance="?attr/textAppearanceBodySmall"
-                    android:textColor="?attr/colorOnSurfaceVariant" />
-            </LinearLayout>
+                android:orientation="vertical" />
 
-            <!-- Import / Manage IME Profiles -->
+            <TextView
+                android:id="@+id/btn_add_remap"
+                style="@style/ImeAddButton"
+                android:text="@string/ime_add_app" />
+
+            <!-- ═══ 说明 ═══ -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="16dp"
+                android:background="?attr/colorOutlineVariant" />
+
+            <TextView
+                style="@style/ImeNote"
+                android:layout_marginTop="12dp"
+                android:text="@string/ime_sec_framework_desc" />
+
+            <TextView
+                style="@style/ImeNote"
+                android:text="@string/ime_note_1" />
+            <TextView
+                style="@style/ImeNote"
+                android:text="@string/ime_note_2" />
+            <TextView
+                style="@style/ImeNote"
+                android:text="@string/ime_note_3" />
+            <TextView
+                style="@style/ImeNote"
+                android:text="@string/ime_note_4" />
+
+            <!-- ═══ 当前已安装 ═══ -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="16dp"
+                android:background="?attr/colorOutlineVariant" />
+
+            <TextView
+                style="@style/ImeSectionHeader"
+                android:layout_marginTop="12dp"
+                android:text="@string/ime_installed_modules" />
+
+            <LinearLayout
+                android:id="@+id/list_installed"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <!-- 高级入口（导入 / 管理 / 制作 / 强制更新） -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginTop="16dp"
+                android:background="?attr/colorOutlineVariant" />
+
             <TextView
                 android:id="@+id/tv_import"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="12dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp"
                 android:text="@string/ime_import_profile"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
                 android:textColor="?attr/colorPrimary"
@@ -188,7 +176,8 @@
                 android:id="@+id/tv_manage"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="12dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp"
                 android:text="@string/ime_manage_profiles"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
                 android:textColor="?attr/colorPrimary"
@@ -196,12 +185,12 @@
                 android:focusable="true"
                 android:background="?attr/selectableItemBackground" />
 
-            <!-- 制作配置文件 -->
             <TextView
                 android:id="@+id/tv_make_profile"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="12dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp"
                 android:text="@string/profile_maker_ime_label_short"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
                 android:textColor="?attr/colorPrimary"
@@ -209,12 +198,12 @@
                 android:focusable="true"
                 android:background="?attr/selectableItemBackground" />
 
-            <!-- 强制更新配置 -->
             <TextView
                 android:id="@+id/tv_force_update"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="12dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp"
                 android:text="@string/ime_force_update"
                 android:textAppearance="?attr/textAppearanceBodyLarge"
                 android:textColor="?attr/colorPrimary"
