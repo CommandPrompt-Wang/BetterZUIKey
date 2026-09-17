@@ -23,7 +23,7 @@ import moe.lovefirefly.betterzuikey.ime.Strategy
 /**
  * 输入法增强 —— 两段式配置界面。
  *
- * 上面「添加应用适配」= 由**系统输入法框架**接管（strategy=framework，输入法自己暴露 subtype）；
+ * 上面「使用系统框架」= 由**系统输入法框架**接管（strategy=framework，输入法自己暴露 subtype）；
  * 下面「重映射快捷键」  = 拦截该输入法**原本的**语言切换快捷键，改由 BZK 执行切换
  * （strategy=keyremap，右侧下拉选它原本用哪个组合键）。
  *
@@ -175,6 +175,9 @@ class IMEAdapterActivity : AppCompatActivity() {
                 }
             }
         }
+
+        // 删除（右下角，spinner 下面）
+        row.tvDelete.setOnClickListener { confirmDelete(profile) }
         return row.root
     }
 
@@ -206,6 +209,34 @@ class IMEAdapterActivity : AppCompatActivity() {
                 refresh()
             }
             .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /**
+     * 删除一条配置（界面上的删除按钮）。
+     *
+     * <p>内置条目（[IMEProfile.BUILTIN_DEFAULTS]，uuid 带 `bzuikey-builtin-` 前缀）不给删：
+     * 它们的名字与默认值由代码定义，删掉也会被 [IMEProfileManager.seedBuiltinsIfEmpty]
+     * 或「恢复内置配置」原样补回来，所以直接拦掉并提示。
+     *
+     * <p>删除必须按「包名 + 策略」精确匹配 —— 同一个输入法可以在两段里各有一条，
+     * 只按包名删会把另一段一起带走。
+     */
+    private fun confirmDelete(profile: IMEProfile) {
+        if (IMEProfile.isBuiltin(profile.uuid)) {
+            Toast.makeText(this, R.string.ime_builtin_nodelete, Toast.LENGTH_SHORT).show()
+            return
+        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(R.string.profile_delete_title)
+            .setMessage(getString(R.string.profile_delete_msg, rowTitle(profile)))
+            .setPositiveButton(R.string.profile_delete_confirm) { _, _ ->
+                IMEProfileManager.removeProfile(profile.ime, profile.strategy)
+                IMEProfileManager.saveToConfig(this)
+                refresh()
+                Toast.makeText(this, R.string.profile_deleted_toast, Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(R.string.dialog_confirm_cancel, null)
             .show()
     }
 

@@ -52,28 +52,53 @@
 
         </LinearLayout>
 
-        <!-- 下拉放右侧，与其它设置行一致 -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/til_spin"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+        <!-- 右侧：下拉（上）+ 删除（下），删除落在右下角 -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:minWidth="150dp"
-            android:visibility="gone"
-            app:boxBackgroundColor="?attr/colorSurfaceContainerHighest"
-            app:hintEnabled="false"
-            app:endIconMode="dropdown_menu">
+            android:gravity="end"
+            android:orientation="vertical">
 
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/spin"
-                android:layout_width="match_parent"
+            <!-- 下拉放右侧，与其它设置行一致 -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_spin"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:dropDownWidth="wrap_content"
-                android:focusable="true"
+                android:minWidth="150dp"
+                android:visibility="gone"
+                app:boxBackgroundColor="?attr/colorSurfaceContainerHighest"
+                app:hintEnabled="false"
+                app:endIconMode="dropdown_menu">
+
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/spin"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:dropDownWidth="wrap_content"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:inputType="none" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- 删除：与模板行 / 配置行同款（BodySmall + colorError） -->
+            <TextView
+                android:id="@+id/tv_delete"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:text="@string/profile_btn_delete"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="?attr/colorError"
                 android:clickable="true"
-                android:inputType="none" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground" />
+
+        </LinearLayout>
 
     </LinearLayout>
 
