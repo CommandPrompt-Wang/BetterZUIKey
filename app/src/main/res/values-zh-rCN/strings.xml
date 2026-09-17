@@ -474,7 +474,7 @@
     <!-- 输入法增强：两段式界面（系统输入法框架 / 重映射快捷键） -->
     <string name="ime_adapter_manage">输入法适配管理</string>
     <string name="ime_adapter_title">输入法适配管理</string>
-    <string name="ime_sec_framework">添加应用适配</string>
+    <string name="ime_sec_framework">使用系统框架</string>
     <string name="ime_sec_framework_desc">由系统输入法框架接管语言切换（需要输入法自己暴露 subtype）</string>
     <string name="ime_sec_remap">重映射快捷键</string>
     <string name="ime_sec_remap_desc">选择该输入法本来的语言切换快捷键，BZK 拦截它并执行切换</string>

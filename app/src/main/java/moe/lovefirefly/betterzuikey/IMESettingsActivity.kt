@@ -69,7 +69,7 @@ class IMESettingsActivity : AppCompatActivity() {
         binding.rowImeSwitch.setOnClickListener { toggleSpinner(binding.spImeSwitch) }
         binding.rowImeLanguage.setOnClickListener { toggleSpinner(binding.spImeLanguage) }
 
-        // 输入法适配管理 —— 两段式界面（添加应用适配 / 重映射快捷键），
+        // 输入法适配管理 —— 两段式界面（使用系统框架 / 重映射快捷键），
         // 里面再放导入 / 管理 / 制作 / 强制更新那几个入口。
         binding.tvAdapterManage.setOnClickListener {
             startActivity(Intent(this, IMEAdapterActivity::class.java))

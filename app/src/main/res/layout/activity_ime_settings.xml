@@ -171,7 +171,7 @@
                     android:textColor="?attr/colorOnSurfaceVariant" />
             </LinearLayout>
 
-            <!-- 输入法适配管理（两段式界面：添加应用适配 / 重映射快捷键） -->
+            <!-- 输入法适配管理（两段式界面：使用系统框架 / 重映射快捷键） -->
             <TextView
                 android:id="@+id/tv_adapter_manage"
                 android:layout_width="match_parent"

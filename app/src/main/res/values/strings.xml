@@ -163,7 +163,7 @@
     <!-- IME enhancement: two-section UI (system framework / shortcut remap) -->
     <string name="ime_adapter_manage">IME Adaptation</string>
     <string name="ime_adapter_title">IME Adaptation</string>
-    <string name="ime_sec_framework">Add App Adaptation</string>
+    <string name="ime_sec_framework">Use System Framework</string>
     <string name="ime_sec_framework_desc">Let the system IME framework take over language switching (needs subtypes)</string>
     <string name="ime_sec_remap">Remap Shortcut</string>
     <string name="ime_sec_remap_desc">Pick the IME\'s own language-switch shortcut; BZK intercepts it</string>
