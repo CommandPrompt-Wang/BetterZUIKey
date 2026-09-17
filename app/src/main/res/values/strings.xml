@@ -229,6 +229,8 @@
     <string name="update_download_retry">Retry</string>
     <string name="update_download_close">Close</string>
     <string name="update_dialog_cancel">Cancel</string>
+    <string name="update_dialog_notes_label">Release notes:</string>
+    <string name="update_dialog_notes_unavailable">Release notes unavailable — see [GitHub](%1$s) for details</string>
     <string name="update_dialog_source_label">Update source:</string>
     <string name="update_check_failed_title">Update check failed</string>
     <string name="update_check_failed_reason">Reason: %1$s</string>

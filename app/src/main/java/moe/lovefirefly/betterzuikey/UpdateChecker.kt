@@ -2,6 +2,10 @@ package moe.lovefirefly.betterzuikey
 
 import android.content.Context
 import android.content.Intent
+import android.text.Spannable
+import android.text.method.LinkMovementMethod
+import android.text.style.URLSpan
+import android.view.MotionEvent
 import android.widget.ArrayAdapter
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -10,6 +14,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
+import io.noties.markwon.Markwon
+import io.noties.markwon.ext.tables.TablePlugin
+import io.noties.markwon.linkify.LinkifyPlugin
 import moe.lovefirefly.betterzuikey.Config.Config
 import org.json.JSONObject
 import java.io.File
@@ -26,6 +33,9 @@ object UpdateChecker {
     private const val GITHUB1_RELEASE = "https://github.com/CommandPrompt-Wang/BetterZUIKey/releases/latest"
     private const val GITHUB2_RELEASE = "https://github.com/Xposed-Modules-Repo/moe.lovefirefly.betterzuikey/releases/latest"
     private const val PERSONAL_URL = "https://lovefirefly.moe/posts/betterzuikey/"
+
+    /** 没拿到更新日志时，让用户去这里看（用户要求的回退入口） */
+    private const val RELEASES_LATEST = "https://github.com/CommandPrompt-Wang/BetterZUIKey/releases/latest"
 
     /** All download source URLs (for fallback dialog) */
     val ALL_DOWNLOAD_URLS = listOf(GITHUB1_RELEASE, GITHUB2_RELEASE, PERSONAL_URL)
@@ -79,9 +89,11 @@ object UpdateChecker {
         runOnUi(context) {
             when (result) {
                 is Result.Latest -> {
-                    // 伪装：把当前版本当作"新版本"弹出对话框
+                    // 伪装：把当前版本当作"新版本"弹出对话框。
+                    // 顺便把"最新发布"的真实更新日志一起取来，方便在没新版本时也能验证日志展示。
                     showUpdateDialog(context, cfg,
-                        Result.NewVersion(BuildConfig.VERSION_NAME, ""))
+                        Result.NewVersion(BuildConfig.VERSION_NAME, "",
+                            releaseNote = fetchLatestNoteQuietly(cfg.updateChannel)))
                 }
                 is Result.NewVersion -> {
                     showUpdateDialog(context, cfg, result)
@@ -127,6 +139,59 @@ object UpdateChecker {
             setPadding(dp2px(ctx, 24), dp2px(ctx, 8), dp2px(ctx, 24), 0)
             addView(label)
             addView(spinner)
+
+            // 更新日志：有就渲染 markdown；没有就给一条回退提示（带 GitHub 链接）
+            val note = newVer.releaseNote?.takeIf { it.isNotBlank() }
+            addView(TextView(ctx).apply {
+                text = ctx.getString(R.string.update_dialog_notes_label)
+                setPadding(dp2px(ctx, 4), dp2px(ctx, 12), 0, dp2px(ctx, 4))
+            })
+            addView(android.widget.ScrollView(ctx).apply {
+                // 限高，避免日志很长时把对话框撑爆
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp2px(ctx, 220))
+                addView(TextView(ctx).apply {
+                    textSize = 12f
+                    setPadding(dp2px(ctx, 4), dp2px(ctx, 4), dp2px(ctx, 4), dp2px(ctx, 4))
+                    if (note != null) {
+                        // 与「帮助」界面同一套渲染配置
+                        val markwon = Markwon.builder(ctx)
+                            .usePlugin(TablePlugin.create(ctx))
+                            .usePlugin(LinkifyPlugin.create())
+                            .build()
+                        markwon.setMarkdown(this, note)
+                    } else {
+                        // 回退：让用户去 GitHub 最新发布页看（链接可点）
+                        markwon(ctx).setMarkdown(this,
+                            ctx.getString(R.string.update_dialog_notes_unavailable, RELEASES_LATEST))
+                    }
+                    movementMethod = object : LinkMovementMethod() {
+                        override fun onTouchEvent(
+                            widget: TextView, buffer: Spannable, event: MotionEvent
+                        ): Boolean {
+                            if (event.action == MotionEvent.ACTION_UP) {
+                                val x = event.x.toInt() - widget.totalPaddingLeft + widget.scrollX
+                                val y = event.y.toInt() - widget.totalPaddingTop + widget.scrollY
+                                val layout = widget.layout ?: return super.onTouchEvent(widget, buffer, event)
+                                val off = layout.getOffsetForHorizontal(
+                                    layout.getLineForVertical(y), x.toFloat())
+                                val spans = buffer.getSpans(off, off, URLSpan::class.java)
+                                if (spans.isNotEmpty()) {
+                                    val url = spans[0].url
+                                    if (url.startsWith("http")) {
+                                        try {
+                                            ctx.startActivity(Intent(Intent.ACTION_VIEW,
+                                                android.net.Uri.parse(url)))
+                                        } catch (_: Exception) { }
+                                        return true
+                                    }
+                                }
+                            }
+                            return super.onTouchEvent(widget, buffer, event)
+                        }
+                    }
+                })
+            })
         }
 
         fun selectedChannel(): Config.UpdateChannel = when (spinner.selectedItemPosition) {
@@ -498,7 +563,8 @@ object UpdateChecker {
             val (code, version) = parseTag(tag)
             if (isNewer(code, version)) {
                 val apkUrl = findApkAsset(obj)
-                Result.NewVersion(version, obj.optString("html_url"), apkUrl)
+                Result.NewVersion(version, obj.optString("html_url"), apkUrl,
+                    releaseNote = obj.optString("body", "").takeIf { it.isNotBlank() })
             }
             else Result.Latest
         } catch (e: Exception) {
@@ -516,7 +582,8 @@ object UpdateChecker {
             val (code, version) = parseTag(tag)
             if (isNewer(code, version)) {
                 val apkUrl = findApkAsset(obj)
-                Result.NewVersion(version, obj.optString("html_url"), apkUrl)
+                Result.NewVersion(version, obj.optString("html_url"), apkUrl,
+                    releaseNote = obj.optString("body", "").takeIf { it.isNotBlank() })
             }
             else Result.Latest
         } catch (e: Exception) {
@@ -531,7 +598,9 @@ object UpdateChecker {
             val code = obj.optInt("versionCode", 0)
             val dl = obj.optString("download", "").takeIf { it.isNotEmpty() }
             val apkUrl = if (dl != null && dl.startsWith("/")) PERSONAL_BASE + dl else dl
-            if (isNewer(code, version)) Result.NewVersion(version, dl ?: "", apkUrl)
+            if (isNewer(code, version)) {
+                Result.NewVersion(version, dl ?: "", apkUrl, releaseNote = fetchReleaseNote(obj))
+            }
             else Result.Latest
         } catch (e: Exception) {
             Result.Failed(e.message ?: "", getStackTrace(e))
@@ -580,6 +649,53 @@ object UpdateChecker {
     }
 
     /** HTTP GET with User-Agent (GitHub API requires it). */
+    /**
+     * 调试用：不管版本新旧，直接把对应通道"最新发布"的更新日志取来。
+     *
+     * <p>仅在 {@link #debugForceDialog} 里调用（那条路径本身就在后台线程）。
+     * 任何失败都返回 null，不影响对话框弹出。
+     */
+    private fun fetchLatestNoteQuietly(channel: Config.UpdateChannel): String? {
+        return try {
+            when (channel) {
+                Config.UpdateChannel.PERSONAL ->
+                    fetchReleaseNote(JSONObject(httpGet(PERSONAL_API)))
+                else -> {
+                    val api = if (channel == Config.UpdateChannel.GITHUB2) GITHUB2_API else GITHUB1_API
+                    JSONObject(httpGet(api)).optString("body", "").takeIf { it.isNotBlank() }
+                }
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * 个人镜像的更新日志：`latest.json` 里的 `"releasenote"` 指向一个 markdown 文件
+     * （如 `"/moe.lovefirefly.betterzuikey/v1.6.1.md"`），相对路径按 [PERSONAL_BASE] 拼接。
+     *
+     * <p>抓取失败**不影响更新检查本身** —— 只是对话框里不显示日志。
+     */
+    private fun fetchReleaseNote(obj: JSONObject): String? {
+        val path = obj.optString("releasenote", "").takeIf { it.isNotBlank() } ?: return null
+        val url = if (path.startsWith("http")) path
+                  else if (path.startsWith("/")) PERSONAL_BASE + path
+                  else PERSONAL_BASE + "/" + path
+        return try {
+            httpGet(url).takeIf { it.isNotBlank() }
+        } catch (e: Exception) {
+            // 日志拉不到不算更新检查失败
+            null
+        }
+    }
+
+    /** 与「帮助」界面保持一致的 markdown 渲染器。 */
+    private fun markwon(ctx: Context): Markwon =
+        Markwon.builder(ctx)
+            .usePlugin(TablePlugin.create(ctx))
+            .usePlugin(LinkifyPlugin.create())
+            .build()
+
     private fun httpGet(url: String): String {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.setRequestProperty("User-Agent", "BetterZUIKey")
@@ -632,7 +748,13 @@ object UpdateChecker {
 
     sealed class Result {
         data object Latest : Result()
-        data class NewVersion(val version: String, val url: String = "", val downloadUrl: String? = null) : Result()
+        data class NewVersion(
+            val version: String,
+            val url: String = "",
+            val downloadUrl: String? = null,
+            /** 更新日志（markdown 原文；无则 null） */
+            val releaseNote: String? = null
+        ) : Result()
         data class Failed(val error: String, val stackTrace: String? = null) : Result()
     }
 
