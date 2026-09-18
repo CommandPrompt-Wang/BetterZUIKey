@@ -14,12 +14,12 @@ import android.view.inputmethod.InputMethodSubtype
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
 import moe.lovefirefly.betterzuikey.Config.Config
+import moe.lovefirefly.betterzuikey.databinding.ActivitySubtypeOrderBinding
 import moe.lovefirefly.betterzuikey.Utils.LogHelper
 import moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel
 import moe.lovefirefly.betterzuikey.ime.SubtypeRotation
@@ -52,6 +52,8 @@ class SubtypeOrderActivity : AppCompatActivity() {
     private var currentKey: String? = null
     private var pad = 0
 
+    private lateinit var binding: ActivitySubtypeOrderBinding
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         cfg = Config.load()
@@ -62,86 +64,37 @@ class SubtypeOrderActivity : AppCompatActivity() {
         imePkg = intent.getStringExtra(EXTRA_IME_PACKAGE)?.trim().takeUnless { it.isNullOrEmpty() }
             ?: currentImePackage().orEmpty()
 
-        setContentView(buildUi())
-        load()
-    }
+        binding = ActivitySubtypeOrderBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-    // ────────────────────────── 界面 ──────────────────────────
+        // 外壳与 BZK 其他页面同构：toolbar 的 up 箭头返回
+        binding.toolbar.title = getString(R.string.subtype_order_title, appLabel(imePkg) ?: imePkg)
+        binding.toolbar.setNavigationOnClickListener { finish() }
 
-    private fun buildUi(): View {
-        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-
-        // 顶栏：返回按钮 + 标题（返回按钮是显式的，不依赖系统返回手势）
-        val bar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(pad, pad, pad * 2, 0)
-        }
-        bar.addView(TextView(this).apply {
-            text = getString(R.string.subtype_order_back)
-            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium)
-            setTextColor(themeColor(com.google.android.material.R.attr.colorPrimary))
-            setPadding(0, pad / 2, pad, pad / 2)
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { finish() }
-        })
-        bar.addView(TextView(this).apply {
-            text = getString(R.string.subtype_order_title, appLabel(imePkg) ?: imePkg)
-            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleLarge)
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-            setPadding(pad / 2, pad / 2, 0, pad / 2)
-        })
-        root.addView(bar)
-
-        root.addView(TextView(this).apply {
-            text = getString(R.string.subtype_order_hint)
-            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
-            setTextColor(themeColor(com.google.android.material.R.attr.colorOnSurfaceVariant))
-            setPadding(pad * 2, 0, pad * 2, pad / 2)
-        })
         // 「框架顺序」= 清掉这份顺序，回到输入法自己声明的顺序
-        root.addView(TextView(this).apply {
-            text = getString(R.string.subtype_order_reset)
-            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyLarge)
-            setTextColor(themeColor(com.google.android.material.R.attr.colorPrimary))
-            setPadding(pad * 2, pad / 2, pad * 2, pad / 2)
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                cfg.imeSubtypeOrders = LinkedHashMap(cfg.imeSubtypeOrders).apply { put(imePkg, "") }
-                cfg.save()
-                Config.syncToSharedPrefs(this@SubtypeOrderActivity, cfg)
-                load()
-            }
-        })
-
-        val rv = RecyclerView(this).apply {
-            layoutManager = LinearLayoutManager(this@SubtypeOrderActivity)
-            clipToPadding = false
-            setPadding(0, pad / 2, 0, pad * 2)
-            // 项数很少：让整页滚动、列表按内容撑开（拖动仍然可用）
-            isNestedScrollingEnabled = false
+        binding.tvReset.setOnClickListener {
+            cfg.imeSubtypeOrders = LinkedHashMap(cfg.imeSubtypeOrders).apply { put(imePkg, "") }
+            cfg.save()
+            Config.syncToSharedPrefs(this, cfg)
+            load()
         }
+
+        binding.rv.layoutManager = LinearLayoutManager(this)
         adapter = Adapter()
-        rv.adapter = adapter
-        attachDrag(rv)
+        binding.rv.adapter = adapter
+        attachDrag(binding.rv)
 
         // 下拉刷新：重新读框架的 subtype 列表（例如刚在输入法模块里改了暴露项）
-        val swipe = androidx.swiperefreshlayout.widget.SwipeRefreshLayout(this).apply {
-            setOnRefreshListener {
-                cfg = Config.load()
-                // 让转圈至少露一帧；load() 本身是同步的
-                post {
-                    load()
-                    isRefreshing = false
-                }
+        binding.swipe.setOnRefreshListener {
+            cfg = Config.load()
+            // 让转圈至少露一帧；load() 本身是同步的
+            binding.swipe.post {
+                load()
+                binding.swipe.isRefreshing = false
             }
-            addView(NestedScrollView(this@SubtypeOrderActivity).apply { addView(rv) })
         }
-        root.addView(swipe, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
-        return root
+
+        load()
     }
 
     /** 长按拖动（与搜狗的语言顺序页同一套）。 */

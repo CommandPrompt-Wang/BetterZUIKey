@@ -175,7 +175,6 @@
     <string name="ime_note_5">5. Long-press a “System IME Framework” entry to drag its language rotation order</string>
     <string name="ime_installed_modules">Installed</string>
     <!-- Framework takeover: language rotation order (SubtypeOrderActivity) -->
-    <string name="subtype_order_back">← Back</string>
     <string name="subtype_order_title">Rotation order — %s</string>
     <string name="subtype_order_hint">Drag to reorder. The switch key rotates through them in order.</string>
     <string name="subtype_order_empty">No enabled subtypes for this IME (or they can\'t be read)</string>
