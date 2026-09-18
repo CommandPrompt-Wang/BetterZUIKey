@@ -352,6 +352,14 @@ public class Config {
      * 顺序表里没提到的语言不会被跳过 —— 自动接在链尾（见 SubtypeRotation）。
      */
     public String imeSubtypeOrder = "";
+    /**
+     * **按输入法**的语言轮转顺序：包名 → 顺序串（格式同 [imeSubtypeOrder]）。
+     *
+     * <p>各家输入法语言集不同（Gboard 中/日/英三门、搜狗只有中/英），顺序本来就该分开存；
+     * 界面上**长按「使用系统框架」里的某一条**即排它自己的顺序。
+     * 这里没有该输入法时才回退到全局的 [imeSubtypeOrder]。
+     */
+    public java.util.Map<String, String> imeSubtypeOrders = new java.util.LinkedHashMap<>();
 
     // ================================================================
     // 内部枚举定义
@@ -875,6 +883,7 @@ public class Config {
         languageSwitchBinding = IMEBinding.FOLLOW_SYSTEM;
         imeProfilesJson = "[]";
         imeSubtypeOrder = "";
+        imeSubtypeOrders = new java.util.LinkedHashMap<>();
     }
 
     /**
