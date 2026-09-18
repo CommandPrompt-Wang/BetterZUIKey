@@ -251,65 +251,21 @@
     <string name="update_ratelimit_hint">API rate limit exceeded.\nIf you are using a proxy, try disabling it or switch to the "Personal Mirror" channel.</string>
 
     <!-- IME Profile import -->
-    <string name="ime_import_profile">Import IME Profile</string>
-    <string name="ime_import_invalid">Invalid IME profile: missing or blank ime field</string>
-    <string name="ime_import_success">IME profile \"%1$s\" imported</string>
     <string name="ime_manage_empty">No IME profiles found</string>
     <string name="ime_manage_strategy">Strategy</string>
     <string name="ime_manage_search_hint">Search profiles…</string>
     <string name="profile_manage_search_hint">Search profiles…</string>
     <string name="ime_builtin_nodelete">Cannot delete built-in profile</string>
     <!-- ═══ IME Enhancement: common ═══ -->
-    <string name="ime_import_fail_title">Import Failed</string>
-    <string name="ime_import_raw">Your input:</string>
-    <string name="ime_import_text_hint">Paste JSON here…</string>
-    <string name="ime_import_from_file">From file</string>
-    <string name="ime_import_from_text">From text</string>
-    <string name="profile_maker_unfilled">【未填充】</string>
-    <string name="profile_maker_copied">Copied!</string>
     <string name="ime_restore_builtins">Restore Builtins</string>
     <string name="restore_done">Builtins restored</string>
     <string name="rename_title">Rename</string>
-    <string name="import_overwrite_title">Overwrite?</string>
-    <string name="import_overwrite_msg">A profile for \"%1$s\" already exists. Overwrite?</string>
-    <string name="import_overwrite_btn">Overwrite</string>
 
     <!-- ═══ IME Enhancement: strategy labels ═══ -->
-    <string name="profile_maker_framework_label">Send System Signal</string>
-    <string name="profile_maker_keyremap_label_short">Remap Shortcut</string>
 
     <!-- ═══ IME Enhancement: error codes ═══ -->
-    <string name="ime_err_parse">Parse error</string>
-    <string name="ime_err_unknown">Unknown internal error</string>
-    <string name="ime_err_missing_ime">Missing required field: ime</string>
-    <string name="ime_err_missing_strategy">Missing required field: strategy</string>
-    <string name="ime_err_keyremap_missing_target">keyremap strategy requires \"remap-to\"</string>
-    <string name="ime_err_unknown_strategy">Unknown or missing strategy type</string>
 
     <!-- ═══ IME Enhancement: profile maker ═══ -->
-    <string name="profile_maker_title">Create IME Profile</string>
-    <string name="profile_maker_ime_label_short">Make Profile</string>
-    <string name="profile_maker_ime_label">1. Select IME</string>
-    <string name="profile_maker_ime_placeholder">Select IME…</string>
-    <string name="profile_maker_select_ime">Select IME</string>
-    <string name="profile_maker_strategy_label">2. Select Strategy</string>
-    <string name="profile_maker_strategy_hint">Choose strategy</string>
-    <string name="profile_maker_strategy_framework">Framework (switchToNextInputMethod)</string>
-    <string name="profile_maker_strategy_keyremap">Key Remap (inject keys)</string>
-    <string name="profile_maker_strategy_placeholder">Choose…</string>
-    <string name="profile_maker_keyremap_label">3. Remap Target</string>
-    <string name="profile_maker_keyremap_placeholder">Enter shortcut</string>
-    <string name="profile_maker_keyremap_hint">e.g. Ctrl+Space or Ctrl+Shift</string>
-    <string name="profile_maker_invalid_key">Unknown key: %1$s</string>
-    <string name="profile_maker_no_ime">No enabled IMEs found</string>
-    <string name="profile_maker_set_shortcut_btn">Set Shortcut</string>
-    <string name="profile_maker_shortcut_hint">Press keys here…</string>
-    <string name="profile_maker_dialog_title">Set Shortcut</string>
-    <string name="profile_maker_dialog_msg">Press a key combination on the physical keyboard (e.g. Ctrl+Space)</string>
-    <string name="profile_maker_preview_label">Preview</string>
-    <string name="profile_maker_preview_incomplete">Preview</string>
-    <string name="profile_maker_preview_complete">Preview (click to copy)</string>
-    <string name="profile_maker_tap_to_copy">(tap to copy)</string>
     <string name="ime_problem_title">Problem: %1$s</string>
     <string name="ime_problem_msg">Your profile \"%1$s\" (uuid: %2$s) has problems:\n%3$s\n\nProfile content (long-press to select):\n%4$s\n\nThis profile will be deleted.</string>
 

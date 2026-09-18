@@ -97,11 +97,3 @@ data class ProfileChange(
     val content: IMEProfile? = null
 )
 
-/** 校验结果 */
-data class ProfileValidationError(
-    val profile: IMEProfile,
-    val problems: List<String>,
-    val rawJson: String
-) {
-    val isBuiltin get() = IMEProfile.isBuiltin(profile.uuid)
-}

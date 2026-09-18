@@ -89,15 +89,7 @@
             android:name=".SubtypeOrderActivity"
             android:label="语言轮转顺序" />
 
-        <activity
-            android:name=".IMEImportActivity"
-            android:label="导入输入法配置" />
-
-        <activity
-            android:name=".ProfileMakerActivity"
-            android:label="制作配置文件" />
-
-        <activity
+                        <activity
             android:name=".ProfileManageActivity"
             android:label="配置文件管理" />
 

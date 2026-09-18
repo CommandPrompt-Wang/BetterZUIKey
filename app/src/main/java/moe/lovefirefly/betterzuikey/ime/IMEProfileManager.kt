@@ -498,62 +498,6 @@ object IMEProfileManager {
         else -> 0
     }
 
-    // -----------------------------------------------------------------
-    // 校验
-    // -----------------------------------------------------------------
-
-    @JvmStatic
-    fun validateAndFix(rawJson: String): Pair<IMEProfile?, List<String>> {
-        val problems = mutableListOf<String>()
-
-        val profile = try {
-            gson.fromJson(rawJson, IMEProfile::class.java)
-        } catch (t: Throwable) {
-            return null to listOf("err_json_parse", t.message ?: "")
-        }
-        if (profile == null) return null to listOf("err_json_null", "")
-
-        if (profile.ime == null || profile.ime.isBlank()) problems += "err_missing_ime"
-
-        val stratField = Regex("\"strategy\"\\s*:").containsMatchIn(rawJson)
-        if (!stratField) problems += "err_missing_strategy"
-
-        when (profile.strategy) {
-            Strategy.keyremap -> {
-                if (profile.remapTo.isNullOrBlank() && !Regex("\"remap-to\"\\s*:").containsMatchIn(rawJson))
-                    problems += "err_keyremap_missing_target"
-            }
-            Strategy.framework -> { /* no extra required */ }
-            null -> problems += "err_unknown_strategy"
-        }
-
-        val hasName = profile.name != null && Regex("\"name\"\\s*:").containsMatchIn(rawJson)
-        val hasUuid = profile.uuid != null && Regex("\"uuid\"\\s*:").containsMatchIn(rawJson)
-
-        val fixedName = if (hasName) profile.name else "${profile.ime ?: "unknown"} 的配置"
-        val fixedUuid = if (hasUuid) profile.uuid else IMEProfile.generateUUID()
-
-        val fixed = if (hasName && hasUuid) profile
-        else profile.copy(name = fixedName, uuid = fixedUuid)
-
-        return fixed to problems
-    }
-
-    @JvmStatic
-    fun localizeError(code: String, detail: String, ctx: android.content.Context): String {
-        if (code.startsWith("err_json_")) {
-            val reason = ctx.getString(R.string.ime_err_parse)
-            return "$reason\n${if (detail.isNotBlank()) detail else ctx.getString(R.string.ime_err_unknown)}"
-        }
-        return when (code) {
-            "err_missing_ime" -> ctx.getString(R.string.ime_err_missing_ime)
-            "err_missing_strategy" -> ctx.getString(R.string.ime_err_missing_strategy)
-            "err_keyremap_missing_target" -> ctx.getString(R.string.ime_err_keyremap_missing_target)
-            "err_unknown_strategy" -> ctx.getString(R.string.ime_err_unknown_strategy)
-            else -> code
-        }
-    }
-
     /** 清除所有缓存的 profile */
     @JvmStatic
     fun clear() {
