@@ -208,17 +208,31 @@ class IMEAdapterActivity : AppCompatActivity() {
         IMEProfileManager.saveToConfig(this)
     }
 
-    /** 按下缩一点、松手弹回（点行、点删除、长按都吃这套反馈）。返回 false ⇒ 不吞事件。 */
+    /**
+     * 按下缩一点、松手弹回（点行、点勾选框、点下拉、长按都有反馈）。
+     *
+     * <p>**必须递归挂到整棵子树**：触摸目标是命中的那个子 View（checkbox / 标题 / 下拉），
+     * 只挂在根上时根收不到事件 ⇒ 看起来"没有动画"。监听器一律返回 false ⇒ 不吞事件。
+     */
     private fun attachPressFeedback(v: View) {
-        v.setOnTouchListener { view, e ->
+        val listener = View.OnTouchListener { _, e ->
             when (e.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN ->
-                    view.animate().scaleX(0.98f).scaleY(0.98f).setDuration(90).start()
+                    v.animate().scaleX(0.98f).scaleY(0.98f).setDuration(90).start()
                 android.view.MotionEvent.ACTION_UP,
                 android.view.MotionEvent.ACTION_CANCEL ->
-                    view.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
             }
             false
+        }
+        walk(v) { it.setOnTouchListener(listener) }
+    }
+
+    /** 深度优先遍历子树（给自己挂按压反馈用）。 */
+    private fun walk(v: View, action: (View) -> Unit) {
+        action(v)
+        if (v is android.view.ViewGroup) {
+            for (i in 0 until v.childCount) walk(v.getChildAt(i), action)
         }
     }
 

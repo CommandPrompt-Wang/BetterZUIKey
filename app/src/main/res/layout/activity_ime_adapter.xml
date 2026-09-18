@@ -81,6 +81,15 @@
                 style="@style/ImeSectionHeader"
                 android:text="@string/ime_sec_framework" />
 
+            <TextView
+                style="@style/ImeNote"
+                android:layout_marginTop="4dp"
+                android:text="@string/ime_sec_framework_desc" />
+            <TextView
+                style="@style/ImeNote"
+                android:text="@string/ime_framework_longpress_hint"
+                android:textColor="?attr/colorPrimary" />
+
             <LinearLayout
                 android:id="@+id/list_framework"
                 android:layout_width="match_parent"
@@ -115,15 +124,6 @@
                 android:layout_height="1dp"
                 android:layout_marginTop="16dp"
                 android:background="?attr/colorOutlineVariant" />
-
-            <TextView
-                style="@style/ImeNote"
-                android:layout_marginTop="12dp"
-                android:text="@string/ime_sec_framework_desc" />
-            <TextView
-                style="@style/ImeNote"
-                android:text="@string/ime_framework_longpress_hint"
-                android:textColor="?attr/colorPrimary" />
 
             <TextView
                 style="@style/ImeNote"
