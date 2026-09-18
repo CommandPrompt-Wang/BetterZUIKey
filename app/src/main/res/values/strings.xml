@@ -173,12 +173,15 @@
     <string name="ime_note_3">3. If an IME is enabled in both sections, “System IME Framework” wins</string>
     <string name="ime_note_4">4. For IMEs with an adapter plugin, prefer “System IME Framework” to fully take over</string>
     <string name="ime_note_5">5. Long-press a “System IME Framework” entry to drag its language rotation order</string>
+    <string name="ime_framework_longpress_hint">Long-press to manage language rotation</string>
     <string name="ime_installed_modules">Installed</string>
     <!-- Framework takeover: language rotation order (SubtypeOrderActivity) -->
     <string name="subtype_order_title">Rotation order — %s</string>
     <string name="subtype_order_hint">Drag to reorder. The switch key rotates through them in order.</string>
     <string name="subtype_order_empty">No enabled subtypes for this IME (or they can\'t be read)</string>
     <string name="subtype_order_reset">Reset to framework order</string>
+    <string name="subtype_order_override">Override default rotation order</string>
+    <string name="subtype_order_override_note">By default the system framework only rotates between the 2 most recently used languages. Turn this on to rotate through multiple languages.</string>
     <string name="subtype_order_current_tag">  ← current</string>
     <string name="ime_pick_framework_hint">Pick an IME to be driven by the framework</string>
     <string name="ime_pick_remap_hint">Pick an IME whose shortcut should be remapped</string>

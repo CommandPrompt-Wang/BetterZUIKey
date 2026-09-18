@@ -634,6 +634,13 @@ public class HookContext {
             order = (c != null ? c.imeSubtypeOrder : null);
         }
         IMEDispatcher.setSubtypeOrder(order);
+        // 只有该输入法开了「覆盖默认轮转顺序」才走顺序轮转；否则保持框架原生的"最近两门"
+        boolean override = false;
+        if (c != null && c.imeSubtypeOrderOverride != null && imePkg != null) {
+            final Boolean b = c.imeSubtypeOrderOverride.get(imePkg);
+            override = (b != null && b);
+        }
+        IMEDispatcher.setSubtypeOrderEnabled(override);
         LogHelper.log(VerboseLevel.INFO, "IME: triggerIMEProfile — current IME package=",
                 imePkg != null ? imePkg : "<null>",
                 " profiles loaded=", String.valueOf(IMEProfileManager.getProfileCount()));

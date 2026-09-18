@@ -484,12 +484,15 @@
     <string name="ime_note_3">3. 对于同时存在于两种配置模式且开启的输入法，“系统输入法框架”优先生效</string>
     <string name="ime_note_4">4. 对于安装了适配器插件的输入法，推荐使用“系统输入法框架”以完全接管语言切换行为</string>
     <string name="ime_note_5">5. 长按“使用系统框架”里的某一条，可拖动排序它的语言轮转顺序</string>
+    <string name="ime_framework_longpress_hint">长按进入语言轮转管理</string>
     <string name="ime_installed_modules">当前已安装</string>
     <!-- 框架接管：语言轮转顺序（SubtypeOrderActivity，拖动排序） -->
     <string name="subtype_order_title">轮转顺序 — %s</string>
     <string name="subtype_order_hint">拖动以排序。切换语言时将依次轮转。</string>
     <string name="subtype_order_empty">读不到这个输入法的已启用 subtype（或它一个都没启用）</string>
     <string name="subtype_order_reset">恢复框架顺序</string>
+    <string name="subtype_order_override">覆盖默认轮转顺序</string>
+    <string name="subtype_order_override_note">默认情况下系统框架仅会轮转最近使用的 2 门语言，开启此开关以在多门语言轮转。</string>
     <string name="subtype_order_current_tag">  ← 当前</string>
     <string name="ime_pick_framework_hint">选择一个要由框架接管的输入法</string>
     <string name="ime_pick_remap_hint">选择一个要重映射快捷键的输入法</string>

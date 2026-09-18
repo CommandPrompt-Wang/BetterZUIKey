@@ -161,6 +161,7 @@ class IMEAdapterActivity : AppCompatActivity() {
             // 框架模式没有快捷键可选；**长按这一条**排它自己的语言轮转顺序
             row.tilSpin.visibility = View.GONE
             val openOrder = View.OnLongClickListener {
+                pulseLongPress(row.root)     // 长按动效（随后进子页面）
                 startActivity(
                     Intent(this, SubtypeOrderActivity::class.java)
                         .putExtra(SubtypeOrderActivity.EXTRA_IME_PACKAGE, profile.ime)
@@ -189,6 +190,10 @@ class IMEAdapterActivity : AppCompatActivity() {
 
         // 删除（右下角，spinner 下面）
         row.tvDelete.setOnClickListener { confirmDelete(profile) }
+
+        // 点击/长按动效：按下缩一点、松手弹回；长按再补一个短脉冲
+        row.root.isClickable = true
+        attachPressFeedback(row.root)
         return row.root
     }
 
@@ -201,6 +206,27 @@ class IMEAdapterActivity : AppCompatActivity() {
     private fun applyProfile(updated: IMEProfile) {
         IMEProfileManager.putProfile(updated)
         IMEProfileManager.saveToConfig(this)
+    }
+
+    /** 按下缩一点、松手弹回（点行、点删除、长按都吃这套反馈）。返回 false ⇒ 不吞事件。 */
+    private fun attachPressFeedback(v: View) {
+        v.setOnTouchListener { view, e ->
+            when (e.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN ->
+                    view.animate().scaleX(0.98f).scaleY(0.98f).setDuration(90).start()
+                android.view.MotionEvent.ACTION_UP,
+                android.view.MotionEvent.ACTION_CANCEL ->
+                    view.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+            }
+            false
+        }
+    }
+
+    /** 长按触发时的短脉冲，让"这一下被吃下了"看得见。 */
+    private fun pulseLongPress(v: View) {
+        v.animate().scaleX(0.95f).scaleY(0.95f).setDuration(80)
+            .withEndAction { v.animate().scaleX(1f).scaleY(1f).setDuration(140).start() }
+            .start()
     }
 
     /** 重命名非内置条目。 */

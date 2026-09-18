@@ -360,6 +360,14 @@ public class Config {
      * 这里没有该输入法时才回退到全局的 [imeSubtypeOrder]。
      */
     public java.util.Map<String, String> imeSubtypeOrders = new java.util.LinkedHashMap<>();
+    /**
+     * **按输入法**：是否用 BZK 的顺序轮转**覆盖框架默认**（默认 false）。
+     *
+     * <p>false = 框架原生行为：只在"最近使用的两门"语言之间轮转（`mSwitchingAwareRotationList`）；
+     * true = BZK 自己算目标、按 [imeSubtypeOrders] 的顺序轮转多门语言。
+     * 开关在「语言轮转顺序」子页面里（长按「使用系统框架」那一条进入）。
+     */
+    public java.util.Map<String, Boolean> imeSubtypeOrderOverride = new java.util.LinkedHashMap<>();
 
     // ================================================================
     // 内部枚举定义
@@ -884,6 +892,7 @@ public class Config {
         imeProfilesJson = "[]";
         imeSubtypeOrder = "";
         imeSubtypeOrders = new java.util.LinkedHashMap<>();
+        imeSubtypeOrderOverride = new java.util.LinkedHashMap<>();
     }
 
     /**

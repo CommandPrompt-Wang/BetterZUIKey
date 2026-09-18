@@ -79,6 +79,8 @@ class SubtypeOrderActivity : AppCompatActivity() {
             load()
         }
 
+        bindOverrideSwitch()
+
         binding.rv.layoutManager = LinearLayoutManager(this)
         adapter = Adapter()
         binding.rv.adapter = adapter
@@ -189,6 +191,9 @@ class SubtypeOrderActivity : AppCompatActivity() {
             setTextColor(themeColor(com.google.android.material.R.attr.colorOnSurfaceVariant))
         })
         line.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        // 点击/长按的按压反馈（拖动时另有 elevation/缩放反馈，见 attachDrag）
+        card.isClickable = true
+        attachPressFeedback(card)
         card.addView(line)
         return card
     }
@@ -225,6 +230,7 @@ class SubtypeOrderActivity : AppCompatActivity() {
             cfg.imeSubtypeOrders?.get(imePkg)?.takeUnless { it.isNullOrBlank() } ?: cfg.imeSubtypeOrder
         )
         SubtypeRotation.buildChain(keys, order).forEach { items.add(entries[it]) }
+        bindOverrideSwitch()
         LogHelper.log(VerboseLevel.INFO,
             "SubtypeOrder: ime=", imePkg,
             " raw=", raw.size.toString(),
@@ -235,6 +241,36 @@ class SubtypeOrderActivity : AppCompatActivity() {
     }
 
     /** 落盘：只写**这个输入法**那份顺序；配置随 IPC 走 ⇒ 下一次按键即生效（不用重启）。 */
+    /** 开关状态（该输入法）：回读配置时先摘监听，避免自触发。 */
+    private fun bindOverrideSwitch() {
+        val on = cfg.imeSubtypeOrderOverride?.get(imePkg) == true
+        binding.swOverride.setOnCheckedChangeListener(null)
+        binding.swOverride.isChecked = on
+        binding.swOverride.setOnCheckedChangeListener { _, checked ->
+            cfg.imeSubtypeOrderOverride = LinkedHashMap(cfg.imeSubtypeOrderOverride).apply {
+                put(imePkg, checked)
+            }
+            cfg.save()
+            Config.syncToSharedPrefs(this, cfg)
+            LogHelper.log(VerboseLevel.INFO,
+                "SubtypeOrder: override=", checked.toString(), " for ", imePkg)
+        }
+    }
+
+    /** 按下缩一点、松手弹回（长按拖动另有反馈）。返回 false ⇒ 不影响正常触摸与拖动。 */
+    private fun attachPressFeedback(v: View) {
+        v.setOnTouchListener { view, e ->
+            when (e.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN ->
+                    view.animate().scaleX(0.97f).scaleY(0.97f).setDuration(90).start()
+                android.view.MotionEvent.ACTION_UP,
+                android.view.MotionEvent.ACTION_CANCEL ->
+                    view.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+            }
+            false
+        }
+    }
+
     private fun save() {
         if (items.isEmpty()) return
         val chain = items.joinToString(",") { it.key }
