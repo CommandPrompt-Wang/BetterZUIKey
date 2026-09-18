@@ -623,6 +623,10 @@ public class HookContext {
 
         String imePkg = IMEDispatcher.getCurrentIMEPackage();
         if (imePkg != null) imePkg = imePkg.trim();
+        // 语言轮转顺序（framework 策略用）：Config 随 IPC 到 system_server，
+        // 触发前灌给 dispatcher（它自己不持 Config）
+        Config c = cfg;
+        IMEDispatcher.setSubtypeOrder(c != null ? c.imeSubtypeOrder : null);
         LogHelper.log(VerboseLevel.INFO, "IME: triggerIMEProfile — current IME package=",
                 imePkg != null ? imePkg : "<null>",
                 " profiles loaded=", String.valueOf(IMEProfileManager.getProfileCount()));

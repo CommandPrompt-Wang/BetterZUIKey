@@ -344,6 +344,14 @@ public class Config {
     public IMEBinding languageSwitchBinding = IMEBinding.FOLLOW_SYSTEM;
     /** IME 适配器配置 JSON（嵌入 Config，通过 IPC 同步，免文件权限问题） */
     public String imeProfilesJson = "[]";
+    /**
+     * 框架接管时的语言轮转顺序（逗号分隔的**语言标签**，如 `zh-CN,ja-JP,*`）。
+     *
+     * 空串 = 按框架给的已启用 subtype 顺序（输入法自己声明的顺序）。
+     * `*` = 没有语言标签的那个 subtype（Gboard 的英文隐式默认键盘）。
+     * 顺序表里没提到的语言不会被跳过 —— 自动接在链尾（见 SubtypeRotation）。
+     */
+    public String imeSubtypeOrder = "";
 
     // ================================================================
     // 内部枚举定义
@@ -866,6 +874,7 @@ public class Config {
         imeSwitchBinding = IMEBinding.FOLLOW_SYSTEM;
         languageSwitchBinding = IMEBinding.FOLLOW_SYSTEM;
         imeProfilesJson = "[]";
+        imeSubtypeOrder = "";
     }
 
     /**
