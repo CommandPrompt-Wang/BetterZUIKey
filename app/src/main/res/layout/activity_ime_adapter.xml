@@ -160,6 +160,19 @@
                 android:background="?attr/colorOutlineVariant" />
 
             <TextView
+                android:id="@+id/tv_subtype_order"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp"
+                android:text="@string/ime_subtype_order"
+                android:textAppearance="?attr/textAppearanceBodyLarge"
+                android:textColor="?attr/colorPrimary"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackground" />
+
+            <TextView
                 android:id="@+id/tv_import"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
