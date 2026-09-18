@@ -94,6 +94,37 @@ class SubtypeRotationTest {
     }
 
     @Test
+    fun uniqueKeys_splitsSameLocaleByMode() {
+        // 搜狗：拼音(zh-CN/keyboard) + 英语(en-US) + 五笔(zh-CN/wubi)
+        val bases = listOf("zh-cn", "en-us", "zh-cn")
+        val modes = listOf("keyboard", "keyboard", "wubi")
+        assertEquals(listOf("zh-cn", "en-us", "zh-cn#wubi"),
+            SubtypeRotation.uniqueKeys(bases, modes))
+        // 去重后顺序表能完整表达三个（不会像 parseOrder 那样合并）
+        val keys = SubtypeRotation.uniqueKeys(bases, modes)
+        val order = SubtypeRotation.parseOrder("zh-cn#wubi,zh-cn,en-us")
+        assertEquals(listOf(2, 0, 1), SubtypeRotation.buildChain(keys, order))
+    }
+
+    @Test
+    fun uniqueKeys_fallsBackToNumberingWhenModeAlsoCollides() {
+        val keys = SubtypeRotation.uniqueKeys(
+            listOf("zh-cn", "zh-cn", "zh-cn"),
+            listOf("keyboard", "keyboard", "keyboard"))
+        assertEquals(listOf("zh-cn", "zh-cn#keyboard", "zh-cn#keyboard#2"), keys)
+        // 键唯一 ⇒ 链不会丢项
+        assertEquals(3, SubtypeRotation.buildChain(keys, emptyList()).distinct().size)
+    }
+
+    @Test
+    fun uniqueKeys_keepsBaseKeyMatchableByLanguage() {
+        // 顺序表里只写基键也能认领（matches 的主语言兜底）
+        val keys = SubtypeRotation.uniqueKeys(listOf("zh-cn", "zh-cn"), listOf("keyboard", "wubi"))
+        val order = SubtypeRotation.parseOrder("zh-cn")
+        assertEquals(listOf(0, 1), SubtypeRotation.buildChain(keys, order))
+    }
+
+    @Test
     fun duplicateTaglessKeys_doNotLoopForever() {
         // 万一有两个无标签 subtype，第一个被顺序表认领，第二个按框架顺序接尾
         val keys = listOf("*", "*", "zh-CN")

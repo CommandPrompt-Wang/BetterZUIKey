@@ -224,7 +224,9 @@ class SubtypeOrderActivity : AppCompatActivity() {
         } catch (t: Throwable) {
             null
         }
-        val entries = raw.map { Entry(subtypeKey(it), subtypeLabel(it, imi!!)) }
+        val keysOfList = SubtypeRotation.uniqueKeys(
+            raw.map { subtypeKey(it) }, raw.map { it.mode ?: "" })
+        val entries = raw.mapIndexed { i, s -> Entry(keysOfList[i], subtypeLabel(s, imi!!)) }
         val keys = entries.map { it.key }
         val order = SubtypeRotation.parseOrder(
             cfg.imeSubtypeOrders?.get(imePkg)?.takeUnless { it.isNullOrBlank() } ?: cfg.imeSubtypeOrder
