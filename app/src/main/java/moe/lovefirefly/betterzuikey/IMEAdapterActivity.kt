@@ -19,6 +19,7 @@ import moe.lovefirefly.betterzuikey.databinding.ItemImeRowBinding
 import moe.lovefirefly.betterzuikey.ime.IMEProfile
 import moe.lovefirefly.betterzuikey.ime.IMEProfileManager
 import moe.lovefirefly.betterzuikey.ime.Strategy
+import moe.lovefirefly.betterzuikey.ime.SubtypeRotation
 
 /**
  * 输入法增强 —— 两段式配置界面。
@@ -101,6 +102,7 @@ class IMEAdapterActivity : AppCompatActivity() {
             IMEProfileManager.seedBuiltinsIfEmpty(this)
             Toast.makeText(this, getString(R.string.ime_force_update_done_toast), Toast.LENGTH_SHORT).show()
         }
+        binding.tvSubtypeOrder.setOnClickListener { showSubtypeOrderDialog() }
 
         // 内置默认配置要落在本地（system_server 写不了 App 的 filesDir）
         IMEProfileManager.seedBuiltinsIfEmpty(this)
@@ -257,6 +259,150 @@ class IMEAdapterActivity : AppCompatActivity() {
         }
         binding.listInstalled.visibility = if (rows.isEmpty()) View.GONE else View.VISIBLE
     }
+
+    // ────────────────────────── 语言轮转顺序 ──────────────────────────
+
+    /**
+     * 「语言轮转顺序」——「使用系统框架」时切换快捷键按什么顺序轮转语言。
+     *
+     * 列出的就是**当前输入法框架里已启用的 subtype**，顺序 = 现在生效的轮转链
+     * （用 [SubtypeRotation.buildChain]，与 system_server 侧**同一套纯逻辑** ✓）。
+     * 排序后的整条链写进 [Config.imeSubtypeOrder]（键 = 语言标签 / `*`），
+     * 它随 Config 走 IPC ⇒ **不用重启**，下一次按键就按新顺序切 ✓。
+     */
+    private fun showSubtypeOrderDialog() {
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE)
+                as? android.view.inputmethod.InputMethodManager
+        val imi = imm?.currentInputMethodInfo
+        val entries: List<Pair<String, String>> = if (imm == null || imi == null) emptyList() else {
+            (imm.getEnabledInputMethodSubtypeList(imi, true) ?: emptyList())
+                .map { s -> subtypeKey(s) to subtypeLabel(s, imi) }
+        }
+        if (entries.isEmpty()) {
+            Toast.makeText(this, R.string.subtype_order_empty, Toast.LENGTH_LONG).show()
+            return
+        }
+        val currentKey = try {
+            imm?.currentInputMethodSubtype?.let { subtypeKey(it) }
+        } catch (t: Throwable) {
+            null
+        }
+
+        val cfg = Config.load()
+        val keys = entries.map { it.first }
+        val visible = SubtypeRotation
+            .buildChain(keys, SubtypeRotation.parseOrder(cfg.imeSubtypeOrder))
+            .map { entries[it] }
+            .toMutableList()
+
+        // ---- 构造对话框内容（行是代码拼的，不新增 layout 文件）----
+        val box = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+            layoutParams = android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+        box.addView(TextView(this).apply {
+            text = getString(R.string.subtype_order_hint)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+            alpha = 0.8f
+            setPadding(0, 0, 0, dp(8))
+        })
+        val listBox = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+        }
+        box.addView(listBox)
+
+        fun move(from: Int, to: Int) {
+            if (to < 0 || to >= visible.size) return
+            val item = visible.removeAt(from)
+            visible.add(to, item)
+        }
+
+        fun render() {
+            listBox.removeAllViews()
+            visible.forEachIndexed { idx, entry ->
+                val row = android.widget.LinearLayout(this).apply {
+                    orientation = android.widget.LinearLayout.HORIZONTAL
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                }
+                row.addView(TextView(this).apply {
+                    text = entry.second +
+                            if (entry.first == currentKey) getString(R.string.subtype_order_current_tag) else ""
+                    setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyLarge)
+                    layoutParams = android.widget.LinearLayout.LayoutParams(
+                        0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                })
+                row.addView(arrowButton("↑", idx > 0) { move(idx, idx - 1); render() })
+                row.addView(arrowButton("↓", idx < visible.size - 1) { move(idx, idx + 1); render() })
+                listBox.addView(row)
+            }
+        }
+        render()
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle(getString(R.string.subtype_order_title, appLabel(imi!!.packageName) ?: imi.packageName))
+            .setView(box)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                saveSubtypeOrder(cfg, visible.joinToString(",") { it.first })
+            }
+            .setNeutralButton(R.string.subtype_order_reset) { _, _ ->
+                saveSubtypeOrder(cfg, "")
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /** ↑/↓ 按钮；到头的那个变淡且不响应。 */
+    private fun arrowButton(label: String, enabled: Boolean, onClick: () -> Unit): TextView =
+        TextView(this).apply {
+            text = label
+            textSize = 20f
+            setPadding(dp(14), dp(6), dp(14), dp(6))
+            alpha = if (enabled) 1f else 0.25f
+            isClickable = enabled
+            if (enabled) setOnClickListener { onClick() }
+        }
+
+    /** 落盘顺序串：写 Config + 推给 system_server（下一次按键就生效，不用重启）。 */
+    private fun saveSubtypeOrder(cfg: Config, order: String) {
+        cfg.imeSubtypeOrder = order
+        cfg.save()
+        Config.syncToSharedPrefs(this, cfg)
+        Toast.makeText(this, R.string.subtype_order_saved, Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * subtype 的顺序键 —— 必须与 system_server 侧（`IMEDispatcher`）算出来的**完全一致**：
+     * 有语言标签用标签，否则用 locale 串，都没有才是 `*`。
+     */
+    private fun subtypeKey(s: android.view.inputmethod.InputMethodSubtype): String {
+        val tag = if (Build.VERSION.SDK_INT >= 34) {
+            try { s.languageTag } catch (t: Throwable) { null }
+        } else null
+        return SubtypeRotation.keyOf(tag, s.locale)
+    }
+
+    /** 列表里显示的名字：输入法给的显示名，取不到才退回键；无标签那条补一个 `*` 提示。 */
+    private fun subtypeLabel(
+        s: android.view.inputmethod.InputMethodSubtype,
+        imi: android.view.inputmethod.InputMethodInfo,
+    ): String {
+        val key = subtypeKey(s)
+        val name = try {
+            s.getDisplayName(this, imi.packageName, imi.serviceInfo.applicationInfo)?.toString()
+        } catch (t: Throwable) {
+            null
+        }
+        return when {
+            name.isNullOrBlank() -> key
+            key == SubtypeRotation.KEY_TAGLESS -> "$name （$key）"
+            else -> name
+        }
+    }
+
+    private fun dp(v: Int): Int = (resources.displayMetrics.density * v).toInt()
 
     // ────────────────────────── 添加应用 ──────────────────────────
 
