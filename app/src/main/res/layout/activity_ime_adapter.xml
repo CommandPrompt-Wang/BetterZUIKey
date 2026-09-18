@@ -87,8 +87,7 @@
                 android:text="@string/ime_sec_framework_desc" />
             <TextView
                 style="@style/ImeNote"
-                android:text="@string/ime_framework_longpress_hint"
-                android:textColor="?attr/colorPrimary" />
+                android:text="@string/ime_framework_longpress_hint" />
 
             <LinearLayout
                 android:id="@+id/list_framework"

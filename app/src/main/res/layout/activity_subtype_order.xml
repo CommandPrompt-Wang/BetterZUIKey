@@ -17,17 +17,6 @@
         app:titleCentered="false"
         style="@style/Widget.Material3.Toolbar.Surface" />
 
-    <TextView
-        android:id="@+id/tv_hint"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingStart="32dp"
-        android:paddingEnd="32dp"
-        android:paddingBottom="8dp"
-        android:text="@string/subtype_order_hint"
-        android:textAppearance="?attr/textAppearanceBodySmall"
-        android:textColor="?attr/colorOnSurfaceVariant" />
-
     <com.google.android.material.materialswitch.MaterialSwitch
         android:id="@+id/sw_override"
         android:layout_width="match_parent"
@@ -38,6 +27,18 @@
         android:paddingBottom="4dp"
         android:text="@string/subtype_order_override"
         android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+    <!-- 开关的 desc（Material 的 supporting text 同款：BodySmall + onSurfaceVariant） -->
+    <TextView
+        android:id="@+id/tv_override_desc"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:paddingBottom="4dp"
+        android:text="@string/subtype_order_override_note"
+        android:textAppearance="?attr/textAppearanceBodySmall"
+        android:textColor="?attr/colorOnSurfaceVariant" />
 
     <TextView
         android:id="@+id/tv_reset"
@@ -53,6 +54,17 @@
         android:clickable="true"
         android:focusable="true"
         android:background="?attr/selectableItemBackground" />
+
+    <TextView
+        android:id="@+id/tv_reset_desc"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:paddingBottom="8dp"
+        android:text="@string/subtype_order_hint"
+        android:textAppearance="?attr/textAppearanceBodySmall"
+        android:textColor="?attr/colorOnSurfaceVariant" />
 
     <!-- 下拉刷新：重新读框架的 subtype 列表 -->
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -70,14 +82,5 @@
             android:paddingBottom="32dp" />
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
-
-    <TextView
-        android:id="@+id/tv_note"
-        style="@style/ImeNote"
-        android:paddingStart="32dp"
-        android:paddingEnd="32dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="16dp"
-        android:text="@string/subtype_order_override_note" />
 
 </LinearLayout>
