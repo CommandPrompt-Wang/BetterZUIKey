@@ -177,7 +177,7 @@
     <!-- Framework takeover: language rotation order (SubtypeOrderActivity) -->
     <string name="subtype_order_back">← Back</string>
     <string name="subtype_order_title">Rotation order — %s</string>
-    <string name="subtype_order_hint">Drag to reorder the languages the switch key rotates through. Languages not in the list are appended after them (never skipped); “*” is the subtype with no language tag (Gboard\'s English).</string>
+    <string name="subtype_order_hint">Drag to reorder. The switch key rotates through them in order.</string>
     <string name="subtype_order_empty">No enabled subtypes for this IME (or they can\'t be read)</string>
     <string name="subtype_order_reset">Reset to framework order</string>
     <string name="subtype_order_current_tag">  ← current</string>
