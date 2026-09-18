@@ -178,6 +178,9 @@ class IMEAdapterActivity : AppCompatActivity() {
         // 删除（右下角，spinner 下面）
         row.tvDelete.setOnClickListener { confirmDelete(profile) }
 
+        // 点击/长按动效：按下缩一点、松手弹回；长按再补一个短脉冲
+        row.root.isClickable = true
+        attachPressFeedback(row.root)
         return row.root
     }
 
@@ -190,6 +193,34 @@ class IMEAdapterActivity : AppCompatActivity() {
     private fun applyProfile(updated: IMEProfile) {
         IMEProfileManager.putProfile(updated)
         IMEProfileManager.saveToConfig(this)
+    }
+
+    /**
+     * 按下缩一点、松手弹回（点行、点勾选框、点下拉、长按都有反馈）。
+     *
+     * <p>**必须递归挂到整棵子树**：触摸目标是命中的那个子 View（checkbox / 标题 / 下拉），
+     * 只挂在根上时根收不到事件 ⇒ 看起来"没有动画"。监听器一律返回 false ⇒ 不吞事件。
+     */
+    private fun attachPressFeedback(v: View) {
+        val listener = View.OnTouchListener { _, e ->
+            when (e.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN ->
+                    v.animate().scaleX(0.98f).scaleY(0.98f).setDuration(90).start()
+                android.view.MotionEvent.ACTION_UP,
+                android.view.MotionEvent.ACTION_CANCEL ->
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+            }
+            false
+        }
+        walk(v) { it.setOnTouchListener(listener) }
+    }
+
+    /** 深度优先遍历子树（给自己挂按压反馈用）。 */
+    private fun walk(v: View, action: (View) -> Unit) {
+        action(v)
+        if (v is android.view.ViewGroup) {
+            for (i in 0 until v.childCount) walk(v.getChildAt(i), action)
+        }
     }
 
     /** 长按触发时的短脉冲，让"这一下被吃下了"看得见。 */
