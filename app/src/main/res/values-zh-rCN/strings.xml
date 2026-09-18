@@ -500,7 +500,6 @@
     <string name="ime_pick_remap_hint">选择一个要重映射快捷键的输入法</string>
     <string name="ime_already_added">该输入法已在此列表中</string>
 
-    <string name="ime_enabled">启用</string>
     <string name="ime_toast">切换时弹出提示</string>
     <string name="ime_switch_label">切换输入法</string>
     <string name="ime_switch_desc">选择切换输入法的物理按键组合</string>

@@ -26,29 +26,7 @@
             android:padding="16dp">
 
             <!-- 启用开关 -->
-            <LinearLayout
-                android:id="@+id/row_ime_enabled"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="12dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground">
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/ime_enabled"
-                    android:textAppearance="?attr/textAppearanceBodyLarge" />
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/sw_enabled"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-
-            <!-- Toast 调试开关 -->
+                        <!-- Toast 调试开关 -->
             <LinearLayout
                 android:id="@+id/row_ime_toast"
                 android:layout_width="match_parent"

@@ -67,19 +67,12 @@ class IMEAdapterActivity : AppCompatActivity() {
 
         val cfg = Config.load()
 
-        binding.swEnabled.isChecked = cfg.imeMasterEnabled
-        binding.swEnabled.setOnCheckedChangeListener { _, checked ->
-            cfg.imeMasterEnabled = checked
-            cfg.save()
-            Config.syncToSharedPrefs(this, cfg)
-        }
         binding.swToast.isChecked = cfg.imeToastEnabled
         binding.swToast.setOnCheckedChangeListener { _, checked ->
             cfg.imeToastEnabled = checked
             cfg.save()
             Config.syncToSharedPrefs(this, cfg)
         }
-        binding.rowImeEnabled.setOnClickListener { binding.swEnabled.toggle() }
         binding.rowImeToast.setOnClickListener { binding.swToast.toggle() }
 
         binding.btnAddFramework.setOnClickListener { launchPicker(pickFramework) }

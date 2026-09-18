@@ -740,7 +740,7 @@ public class HookContext {
      * Dispatches to switch-input-method or language profile depending on binding.
      */
     public void dispatchWinLongPressIme() {
-        if (cfg == null || !cfg.imeMasterEnabled || !isAcceptingText()) return;
+        if (cfg == null || !isAcceptingText()) return;
         if (cfg.imeSwitchBinding == Config.IMEBinding.WIN) {
             LogHelper.log(VerboseLevel.INFO, "Win long → switch IME");
             String imeName = switchInputMethod();

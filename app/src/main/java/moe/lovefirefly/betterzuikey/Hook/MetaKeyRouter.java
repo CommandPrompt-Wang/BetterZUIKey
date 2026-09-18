@@ -316,7 +316,7 @@ public class MetaKeyRouter {
     static boolean isImeWinActive(HookContext ctx) {
         boolean winBound = ctx.cfg.imeSwitchBinding == IMEBinding.WIN
                 || ctx.cfg.languageSwitchBinding == IMEBinding.WIN;
-        return winBound && ctx.cfg.imeMasterEnabled && ctx.isAcceptingText();
+        return winBound && ctx.isAcceptingText();
     }
 
     static boolean shouldHandleShortUp(Config.OverrideMode metaSingle, boolean imeWinActive) {
