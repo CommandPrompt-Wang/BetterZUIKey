@@ -66,6 +66,15 @@ data class IMEProfile(
                 uuid = "bzuikey-builtin-sogou-pub-0003",
                 remapTo = "Ctrl+Shift"
             ),
+            // Gboard 的框架模式：与下面搜狗那条同规矩 —— 默认存在、默认关闭，按需勾选。
+            // 勾上后 BZK 用框架切换（配合「语言轮转顺序」页的开关决定是否按顺序轮转）。
+            IMEProfile(
+                ime = "com.google.android.inputmethod.latin",
+                strategy = Strategy.framework,
+                name = "Gboard",
+                uuid = "bzuikey-builtin-framework-gboard-0102",
+                enabledRaw = false
+            ),
             // 系统输入法框架模式：默认存在但**默认关闭**（用户按需勾选）。
             // 装的模块（如搜狗增强）会自己把 subtype 补出来，勾上即由框架接管语言。
             IMEProfile(

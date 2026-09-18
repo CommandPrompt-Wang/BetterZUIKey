@@ -161,7 +161,10 @@ object IMEProfileManager {
         loadFromSP(context)
         for (p in IMEProfile.BUILTIN_DEFAULTS) {
             if (p.ime?.trim().isNullOrEmpty()) continue
-            profiles[imeKey(p.ime, p.strategy)] = p
+            val key = imeKey(p.ime, p.strategy)
+            val old = profiles[key]
+            // 保留用户原有的「启用/停用」选择：否则新增一条内置会把已勾选的同款条目关掉
+            profiles[key] = if (old != null) p.copy(enabledRaw = old.enabledRaw) else p
         }
         saveToConfig(context)
         LogHelper.log(VerboseLevel.INFO, "$TAG: restoreBuiltins — ${profiles.size} profile(s)")
