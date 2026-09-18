@@ -280,14 +280,14 @@ object IMEDispatcher {
             return false
         }
 
-        val setter = findMethod(ims.javaClass, "setInputMethodAndSubtypeLocked",
-            String::class.java, InputMethodSubtype::class.java, userData.javaClass) ?: return null
+        val setter = findMethodFor(ims.javaClass, "setInputMethodAndSubtypeLocked",
+            listOf<Any?>(imeId, enabled[nextIdx], userData)) ?: return null
         LogHelper.log(VerboseLevel.INFO,
             "IMEDispatcher: subtype ordered switch ",
             describeSubtype(enabled, keys, curIdx),
             " -> ", describeSubtype(enabled, keys, nextIdx),
             " (order=", order.joinToString("/"), " avail=", enabled.size.toString(),
-            " ime=", imeId, ")")
+            " keys=", keys.joinToString("/"), " ime=", imeId, ")")
         setter.invoke(ims, imeId, enabled[nextIdx], userData)
         return true
     }
@@ -341,8 +341,45 @@ object IMEDispatcher {
         null
     }
 
-    /** IMMS.getEnabledInputMethodSubtypeList(imeId, true, userId) —— 与框架轮转表同源。 */
+    /**
+     * 当前 IME 的**已启用 subtype 列表** —— 与框架自己的轮转表同源。
+     *
+     * 两条独立路子，任一成功即可：
+     * 1. **公开 API**：system_server 里也有一个 `InputMethodManager` 实例
+     *    （`getCurrentIMEPackage()` 一直在用 ✓），让**框架自己**去解 SafeList —— 最省事；
+     * 2. **IMMS 内部**：`getEnabledInputMethodSubtypeList` 返回的是
+     *    `InputMethodSubtypeSafeList`（**不是 List**，是个装了 marshall 字节的壳，
+     *    见 `AbstractSafeList.mBuffer[B`）⇒ 要用框架自己的
+     *    `AbstractSafeList.extractFrom(safeList, CREATOR)` 解出来。
+     *
+     * 两条都不行就返回 null（调用方退回框架的 next，**绝不猜**）。
+     */
     private fun getEnabledSubtypes(ims: Any, imeId: String, userId: Int): List<InputMethodSubtype>? {
+        // 先走 IMMS（in-process，用户号确定，与框架轮转表同源），再退公开 API
+        fromIMMS(ims, imeId, userId)?.let { return it }
+        return fromPublicApi()
+    }
+
+    /** 路子 1：公开 API（框架自己解壳）。 */
+    private fun fromPublicApi(): List<InputMethodSubtype>? = try {
+        val imm = getSystemImm()
+        val imi = imm?.currentInputMethodInfo
+        if (imm == null || imi == null) null else {
+            val list = imm.getEnabledInputMethodSubtypeList(imi, true)
+                ?.filterIsInstance<InputMethodSubtype>()
+            if (list.isNullOrEmpty()) null else {
+                LogHelper.log(VerboseLevel.DEBUG,
+                    "IMEDispatcher: enabled subtypes via public API, n=", list.size.toString())
+                list
+            }
+        }
+    } catch (t: Throwable) {
+        LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: public-API subtype list failed:", t.message)
+        null
+    }
+
+    /** 路子 2：IMMS 内部 + 反射解 SafeList。 */
+    private fun fromIMMS(ims: Any, imeId: String, userId: Int): List<InputMethodSubtype>? {
         val m = findMethod(ims.javaClass, "getEnabledInputMethodSubtypeList",
             String::class.java, java.lang.Boolean.TYPE, java.lang.Integer.TYPE)
             ?: return null
@@ -350,15 +387,64 @@ object IMEDispatcher {
             LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: getEnabledSubtypes failed:", t.message)
             return null
         } ?: return null
-        if (raw is List<*>) return raw.filterIsInstance<InputMethodSubtype>()
-        // AbstractSafeList 系列：万一不是 List 再取内部列表
-        val inner = try { raw.javaClass.getMethod("getList").invoke(raw) } catch (t: Throwable) { null }
-        if (inner !is List<*>) {
+        if (raw is List<*>) return raw.filterIsInstance<InputMethodSubtype>().ifEmpty { null }
+        val list = extractSafeList(raw)
+        if (list == null) {
             LogHelper.log(VerboseLevel.WARNING,
                 "IMEDispatcher: subtype list type unexpected:", raw.javaClass.name)
-            return null
+        } else {
+            LogHelper.log(VerboseLevel.DEBUG,
+                "IMEDispatcher: enabled subtypes via IMMS, n=", list.size.toString())
         }
-        return inner.filterIsInstance<InputMethodSubtype>()
+        return list?.ifEmpty { null }
+    }
+
+    /**
+     * 把 `AbstractSafeList` 壳解开成 List —— 用框架自己的 `extractFrom`。
+     *
+     * 两个形态都试：
+     * - 具体类上的 `extractFrom(SafeList)`（静态或实例方法都可能）；
+     * - 父类上继承来的 `extractFrom(AbstractSafeList, Parcelable.Creator)` + 壳的 `CREATOR` 字段。
+     */
+    private fun extractSafeList(raw: Any): List<InputMethodSubtype>? {
+        // (a) 具体类自带的单参版本
+        for (c in hierarchy(raw.javaClass)) {
+            val one = try { c.getDeclaredMethod("extractFrom", raw.javaClass) } catch (t: Throwable) { null }
+            if (one != null) {
+                one.isAccessible = true
+                val r = try {
+                    if (java.lang.reflect.Modifier.isStatic(one.modifiers)) one.invoke(null, raw)
+                    else one.invoke(raw)
+                } catch (t: Throwable) { null }
+                (r as? List<*>)?.let { return it.filterIsInstance<InputMethodSubtype>() }
+            }
+        }
+        // (b) 父类的静态 extractFrom(SafeList, Parcelable.Creator)
+        val creator = try { raw.javaClass.getField("CREATOR").get(null) } catch (t: Throwable) { null }
+        if (creator != null) {
+            for (c in hierarchy(raw.javaClass)) {
+                for (mm in c.declaredMethods) {
+                    if (mm.name != "extractFrom") continue
+                    if (!java.lang.reflect.Modifier.isStatic(mm.modifiers)) continue
+                    if (mm.parameterTypes.size != 2) continue
+                    if (!mm.parameterTypes[0].isAssignableFrom(raw.javaClass)) continue
+                    mm.isAccessible = true
+                    val r = try { mm.invoke(null, raw, creator) } catch (t: Throwable) { null }
+                    (r as? List<*>)?.let { return it.filterIsInstance<InputMethodSubtype>() }
+                }
+            }
+        }
+        return null
+    }
+
+    private fun hierarchy(cls: Class<*>): List<Class<*>> {
+        val out = ArrayList<Class<*>>()
+        var c: Class<*>? = cls
+        while (c != null && c != Any::class.java) {
+            out.add(c)
+            c = c.superclass
+        }
+        return out
     }
 
     /** 框架当前的 subtype —— 先问 IMMS，再问绑定控制器。 */
@@ -406,6 +492,34 @@ object IMEDispatcher {
                 return c.getDeclaredMethod(name, *params).apply { isAccessible = true }
             } catch (e: NoSuchMethodException) {
                 c = c.superclass
+            }
+        }
+        return null
+    }
+
+    /**
+     * 按**参数形状**找方法：先精确类型，再"名字 + 参数个数 + 可赋值"。
+     *
+     * 用它的原因：ROM 可能把参数类型换成子类（本机就有 ZUI 自己的
+     * `ZuiInputMethodManagerService`），精确匹配会踩空而形状匹配不会。
+     */
+    private fun findMethodFor(cls: Class<*>, name: String, args: List<Any?>): Method? {
+        val types = args.map { it?.javaClass ?: Any::class.java }.toTypedArray()
+        findMethod(cls, name, *types)?.let { return it }
+        for (c in hierarchy(cls)) {
+            for (m in c.declaredMethods) {
+                if (m.name != name || m.parameterTypes.size != args.size) continue
+                var ok = true
+                for (i in args.indices) {
+                    val p = m.parameterTypes[i]
+                    val a = args[i]
+                    if (a == null) {
+                        if (p.isPrimitive) { ok = false; break }
+                    } else if (!p.isAssignableFrom(a.javaClass)) {
+                        ok = false; break
+                    }
+                }
+                if (ok) return m.apply { isAccessible = true }
             }
         }
         return null
