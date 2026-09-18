@@ -486,7 +486,6 @@
     <string name="ime_note_5">5. 长按“使用系统框架”里的某一条，可拖动排序它的语言轮转顺序</string>
     <string name="ime_installed_modules">当前已安装</string>
     <!-- 框架接管：语言轮转顺序（SubtypeOrderActivity，拖动排序） -->
-    <string name="subtype_order_back">← 返回</string>
     <string name="subtype_order_title">轮转顺序 — %s</string>
     <string name="subtype_order_hint">拖动以排序。切换语言时将依次轮转。</string>
     <string name="subtype_order_empty">读不到这个输入法的已启用 subtype（或它一个都没启用）</string>
