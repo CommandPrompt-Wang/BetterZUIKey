@@ -259,17 +259,31 @@ class SubtypeOrderActivity : AppCompatActivity() {
         }
     }
 
-    /** 按下缩一点、松手弹回（长按拖动另有反馈）。返回 false ⇒ 不影响正常触摸与拖动。 */
+    /**
+     * 按下缩一点、松手弹回（长按拖动另有 elevation/缩放反馈）。
+     *
+     * <p>递归挂到整棵子树（触摸目标通常是行里的子 View）；监听器返回 false ⇒
+     * 不吞事件、不影响 ItemTouchHelper 的长按拖动。
+     */
     private fun attachPressFeedback(v: View) {
-        v.setOnTouchListener { view, e ->
+        val listener = View.OnTouchListener { _, e ->
             when (e.actionMasked) {
                 android.view.MotionEvent.ACTION_DOWN ->
-                    view.animate().scaleX(0.97f).scaleY(0.97f).setDuration(90).start()
+                    v.animate().scaleX(0.97f).scaleY(0.97f).setDuration(90).start()
                 android.view.MotionEvent.ACTION_UP,
                 android.view.MotionEvent.ACTION_CANCEL ->
-                    view.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(120).start()
             }
             false
+        }
+        walk(v) { it.setOnTouchListener(listener) }
+    }
+
+    /** 深度优先遍历子树（给自己挂按压反馈用）。 */
+    private fun walk(v: View, action: (View) -> Unit) {
+        action(v)
+        if (v is android.view.ViewGroup) {
+            for (i in 0 until v.childCount) walk(v.getChildAt(i), action)
         }
     }
 
