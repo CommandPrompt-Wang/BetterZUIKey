@@ -71,11 +71,29 @@ class SubtypeOrderActivity : AppCompatActivity() {
     private fun buildUi(): View {
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
-        root.addView(TextView(this).apply {
-            text = getString(R.string.subtype_order_title, appLabel(imePkg) ?: imePkg)
-            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_HeadlineSmall)
-            setPadding(pad * 2, pad * 2, pad * 2, pad / 2)
+        // 顶栏：返回按钮 + 标题（返回按钮是显式的，不依赖系统返回手势）
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(pad, pad, pad * 2, 0)
+        }
+        bar.addView(TextView(this).apply {
+            text = getString(R.string.subtype_order_back)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium)
+            setTextColor(themeColor(com.google.android.material.R.attr.colorPrimary))
+            setPadding(0, pad / 2, pad, pad / 2)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { finish() }
         })
+        bar.addView(TextView(this).apply {
+            text = getString(R.string.subtype_order_title, appLabel(imePkg) ?: imePkg)
+            setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleLarge)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            setPadding(pad / 2, pad / 2, 0, pad / 2)
+        })
+        root.addView(bar)
+
         root.addView(TextView(this).apply {
             text = getString(R.string.subtype_order_hint)
             setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
@@ -109,7 +127,20 @@ class SubtypeOrderActivity : AppCompatActivity() {
         rv.adapter = adapter
         attachDrag(rv)
 
-        root.addView(NestedScrollView(this).apply { addView(rv) })
+        // 下拉刷新：重新读框架的 subtype 列表（例如刚在输入法模块里改了暴露项）
+        val swipe = androidx.swiperefreshlayout.widget.SwipeRefreshLayout(this).apply {
+            setOnRefreshListener {
+                cfg = Config.load()
+                // 让转圈至少露一帧；load() 本身是同步的
+                post {
+                    load()
+                    isRefreshing = false
+                }
+            }
+            addView(NestedScrollView(this@SubtypeOrderActivity).apply { addView(rv) })
+        }
+        root.addView(swipe, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         return root
     }
 
