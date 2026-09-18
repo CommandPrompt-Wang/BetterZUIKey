@@ -28,6 +28,17 @@
         android:textAppearance="?attr/textAppearanceBodySmall"
         android:textColor="?attr/colorOnSurfaceVariant" />
 
+    <com.google.android.material.materialswitch.MaterialSwitch
+        android:id="@+id/sw_override"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:text="@string/subtype_order_override"
+        android:textAppearance="?attr/textAppearanceBodyLarge" />
+
     <TextView
         android:id="@+id/tv_reset"
         android:layout_width="match_parent"
@@ -59,5 +70,14 @@
             android:paddingBottom="32dp" />
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    <TextView
+        android:id="@+id/tv_note"
+        style="@style/ImeNote"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="16dp"
+        android:text="@string/subtype_order_override_note" />
 
 </LinearLayout>

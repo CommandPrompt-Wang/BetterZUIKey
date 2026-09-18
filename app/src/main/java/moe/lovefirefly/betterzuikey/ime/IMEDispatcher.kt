@@ -206,6 +206,22 @@ object IMEDispatcher {
     }
 
     /**
+     * 是否**覆盖框架默认轮转**（该输入法的开关）。
+     *
+     * <p>false = 框架原生行为：`switchToNextInputMethodLocked`，只在"最近使用的两门"之间转
+     * （`mSwitchingAwareRotationList` 只装最近两项为证）；true = 按模型自己算目标、点名切，
+     * 能轮满所有已启用 subtype。
+     */
+    @Volatile
+    private var subtypeOrderEnabled: Boolean = false
+
+    /** 灌入"是否覆盖默认轮转"（由 HookContext 按当前输入法取）。 */
+    @JvmStatic
+    fun setSubtypeOrderEnabled(enabled: Boolean) {
+        subtypeOrderEnabled = enabled
+    }
+
+    /**
      * 切换当前 IME 的 subtype —— **按顺序点名切**（framework 策略的正解）。
      *
      * 公开 API 在 system_server 侧走不通：`InputMethodManager` 需要 IME 的 token
@@ -237,14 +253,21 @@ object IMEDispatcher {
         return try {
             val lock = Class.forName("com.android.server.inputmethod.ImfLock", false, systemClassLoader)
             synchronized(lock) {
-                val ordered = switchOrderedLocked(ims, userData)
-                if (ordered != null) {
-                    ordered
-                } else {
-                    // 算不出来（老系统 / ROM 改过签名）才退回框架的 "next"
-                    LogHelper.log(VerboseLevel.WARNING,
-                        "IMEDispatcher: ordered switch unavailable — falling back to framework next")
+                if (!subtypeOrderEnabled) {
+                    // 没开「覆盖默认轮转顺序」⇒ 保持框架原生语义（最近使用的两门）
+                    LogHelper.log(VerboseLevel.INFO,
+                        "IMEDispatcher: subtype → framework next (override off)")
                     switchToNextLocked(ims, userData, true)
+                } else {
+                    val ordered = switchOrderedLocked(ims, userData)
+                    if (ordered != null) {
+                        ordered
+                    } else {
+                        // 算不出来（老系统 / ROM 改过签名）才退回框架的 "next"
+                        LogHelper.log(VerboseLevel.WARNING,
+                            "IMEDispatcher: ordered switch unavailable — falling back to framework next")
+                        switchToNextLocked(ims, userData, true)
+                    }
                 }
             }
         } catch (t: Throwable) {
