@@ -1,12 +1,16 @@
 package moe.lovefirefly.betterzuikey.ime
 
 import android.content.Context
+import android.os.Build
 import android.os.SystemClock
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.inputmethod.InputMethodManager
+import android.view.inputmethod.InputMethodSubtype
 import moe.lovefirefly.betterzuikey.Utils.LogHelper
 import moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel
+import java.lang.reflect.Field
+import java.lang.reflect.Method
 
 /**
  * IME 按键注入调度器 — 所有定向注入和状态查询的入口。
@@ -125,7 +129,7 @@ object IMEDispatcher {
         return try {
             val userId = ims.javaClass.getDeclaredField("mCurrentImeUserId")
                 .apply { isAccessible = true }.getInt(ims)
-            ims.javaClass.getMethod("getUserData", Int::class.javaPrimitiveType)
+            ims.javaClass.getMethod("getUserData", java.lang.Integer.TYPE)
                 .invoke(ims, userId)
         } catch (t: Throwable) {
             LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: getUserData failed:", t.message)
@@ -189,19 +193,37 @@ object IMEDispatcher {
     // -----------------------------------------------------------------
 
     /**
-     * 切换当前 IME 的 subtype —— framework 策略的正解。
+     * 用户配置的语言顺序（逗号分隔的键，空 = 按框架顺序）。
+     * 由 system_server 侧在每次触发前从 Config 灌进来（见 HookContext.triggerIMEProfile）。
+     */
+    @Volatile
+    private var subtypeOrderRaw: String = ""
+
+    /** 灌入语言顺序（见 [SubtypeRotation.parseOrder] 认的格式）。 */
+    @JvmStatic
+    fun setSubtypeOrder(order: String?) {
+        subtypeOrderRaw = order?.trim().orEmpty()
+    }
+
+    /**
+     * 切换当前 IME 的 subtype —— **按顺序点名切**（framework 策略的正解）。
      *
      * 公开 API 在 system_server 侧走不通：`InputMethodManager` 需要 IME 的 token
      * （系统实例拿不到），而且它自己明确拒绝系统进程调用
      * （"System process should not call setCurrentInputMethodSubtype() ... Consider
      * directly interacting with InputMethodManagerService via LocalServices."）。
      *
-     * 所以这里直接操作 IMMS：按框架的锁语义 synchronized(ImfLock)，
-     * 统一前进到**本输入法内**的下一个 subtype。
+     * <p>所以直接操作 IMMS，按框架的锁语义 synchronized(ImfLock)。**但不再用框架的
+     * "next"**：`switchToNextInputMethodLocked` 不是遍历语义（MRU / 分组，三门语言常常
+     * 只在两门之间来回跳，见 ANALYSIS 的 `mSwitchingAwareRotationList`）。改成：
      *
-     * <p>顺序 = 框架 enabled subtype 列表的顺序，也就是输入法自己声明的顺序
-     * （搜狗那边这个顺序由语言模块按用户拖拽的顺序注入，BZK 不需要知道任何配置）。
-     * 没有下一个 subtype 时（例如只有一个）什么都不做，**不会**切到别的输入法。
+     * 1. 读当前 IME 的**已启用 subtype 列表**（框架自己的那份，含隐式默认 subtype）；
+     * 2. 读框架当前 subtype，定位它在列表里的下标；
+     * 3. 用 [SubtypeRotation] 按用户顺序算出下一个；
+     * 4. `IMMS.setInputMethodAndSubtypeLocked(id, subtype, userData)` 点名切过去。
+     *
+     * <p>只在本输入法内切；只有一个可用 subtype 时什么都不做，**不会**切到别的输入法。
+     * 顺序表认不出 / 老系统没有那个方法时才退回框架的 "next"。
      */
     @JvmStatic
     fun switchCurrentImeSubtype(): Boolean {
@@ -215,9 +237,15 @@ object IMEDispatcher {
         return try {
             val lock = Class.forName("com.android.server.inputmethod.ImfLock", false, systemClassLoader)
             synchronized(lock) {
-                // 只在本输入法内前进；没有下一个 subtype 就什么都不做 ——
-                // 绝不切到别的输入法（那会让 Ctrl+Shift 变成"换输入法"）
-                switchToNextLocked(ims, userData, true)
+                val ordered = switchOrderedLocked(ims, userData)
+                if (ordered != null) {
+                    ordered
+                } else {
+                    // 算不出来（老系统 / ROM 改过签名）才退回框架的 "next"
+                    LogHelper.log(VerboseLevel.WARNING,
+                        "IMEDispatcher: ordered switch unavailable — falling back to framework next")
+                    switchToNextLocked(ims, userData, true)
+                }
             }
         } catch (t: Throwable) {
             LogHelper.log(VerboseLevel.WARNING,
@@ -226,20 +254,174 @@ object IMEDispatcher {
         }
     }
 
-    /** IMMS.switchToNextInputMethodLocked(onlyCurrentIme, userData)。 */
+    /**
+     * 按顺序切（调用方须已持 ImfLock）。
+     *
+     * @return true/false = 切了 / 试过但不用切；**null = 这条路走不通**（退回框架 next）
+     */
+    private fun switchOrderedLocked(ims: Any, userData: Any): Boolean? {
+        val userId = getCurrentUserId(ims) ?: return null
+        val imeId = getCurrentImeId(ims, userData) ?: return null
+        val enabled = getEnabledSubtypes(ims, imeId, userId) ?: return null
+        if (enabled.isEmpty()) return null
+
+        val keys = enabled.map {
+            SubtypeRotation.keyOf(languageTagOf(it), it.locale)
+        }
+        val curIdx = indexOfCurrentSubtype(ims, userData, enabled)
+        val order = SubtypeRotation.parseOrder(subtypeOrderRaw)
+        val nextIdx = SubtypeRotation.nextIndex(keys, order, curIdx)
+        if (nextIdx < 0) {
+            LogHelper.log(VerboseLevel.INFO,
+                "IMEDispatcher: subtype ordered switch — nothing to do",
+                " avail=", enabled.size.toString(),
+                " order=", order.size.toString(),
+                " chain=", keys.joinToString("/"))
+            return false
+        }
+
+        val setter = findMethod(ims.javaClass, "setInputMethodAndSubtypeLocked",
+            String::class.java, InputMethodSubtype::class.java, userData.javaClass) ?: return null
+        LogHelper.log(VerboseLevel.INFO,
+            "IMEDispatcher: subtype ordered switch ",
+            describeSubtype(enabled, keys, curIdx),
+            " -> ", describeSubtype(enabled, keys, nextIdx),
+            " (order=", order.joinToString("/"), " avail=", enabled.size.toString(),
+            " ime=", imeId, ")")
+        setter.invoke(ims, imeId, enabled[nextIdx], userData)
+        return true
+    }
+
+    /** 框架的 "next" —— 只在按顺序切走不通时兜底。 */
     private fun switchToNextLocked(ims: Any, userData: Any, onlyCurrentIme: Boolean): Boolean = try {
-        val m = ims.javaClass.getDeclaredMethod("switchToNextInputMethodLocked",
-            Boolean::class.javaPrimitiveType, userData.javaClass)
-        m.isAccessible = true
+        val m = findMethod(ims.javaClass, "switchToNextInputMethodLocked",
+            java.lang.Boolean.TYPE, userData.javaClass) ?: return false
         val r = m.invoke(ims, onlyCurrentIme, userData)
         LogHelper.log(VerboseLevel.INFO,
-            "IMEDispatcher: subtype → next (onlyCurrentIme=", onlyCurrentIme.toString(),
-            ") result=", r?.toString() ?: "null")
+            "IMEDispatcher: subtype → next (framework fallback, onlyCurrentIme=",
+            onlyCurrentIme.toString(), ") result=", r?.toString() ?: "null")
         r == true
     } catch (t: Throwable) {
         LogHelper.log(VerboseLevel.WARNING,
             "IMEDispatcher: switchToNextLocked failed:", t.message)
         false
+    }
+
+    // -----------------------------------------------------------------
+    // 按顺序切换用的框架读数（全部反射，锚点只用框架自己的名字）
+    // -----------------------------------------------------------------
+
+    /** IMMS.mCurrentImeUserId。 */
+    private fun getCurrentUserId(ims: Any): Int? = try {
+        findField(ims.javaClass, "mCurrentImeUserId")?.getInt(ims)
+    } catch (t: Throwable) {
+        LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: getCurrentUserId failed:", t.message)
+        null
+    }
+
+    /** 当前 IME 的 id（`包名/服务类名`）—— 先问 InputMethodBindingController，再退回公开 API。 */
+    private fun getCurrentImeId(ims: Any, userData: Any): String? {
+        val bc = bindingController(userData)
+        if (bc != null) {
+            val id = try { findMethod(bc.javaClass, "getCurId")?.invoke(bc) as? String } catch (t: Throwable) { null }
+            if (!id.isNullOrBlank()) return id
+        }
+        return try {
+            getSystemImm()?.currentInputMethodInfo?.id?.takeIf { it.isNotBlank() }
+        } catch (t: Throwable) {
+            LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: getCurrentImeId failed:", t.message)
+            null
+        }
+    }
+
+    /** UserData.mBindingController（Android 14+ 起 id / 当前 subtype 都挂在它上面）。 */
+    private fun bindingController(userData: Any): Any? = try {
+        findField(userData.javaClass, "mBindingController")?.get(userData)
+    } catch (t: Throwable) {
+        null
+    }
+
+    /** IMMS.getEnabledInputMethodSubtypeList(imeId, true, userId) —— 与框架轮转表同源。 */
+    private fun getEnabledSubtypes(ims: Any, imeId: String, userId: Int): List<InputMethodSubtype>? {
+        val m = findMethod(ims.javaClass, "getEnabledInputMethodSubtypeList",
+            String::class.java, java.lang.Boolean.TYPE, java.lang.Integer.TYPE)
+            ?: return null
+        val raw = try { m.invoke(ims, imeId, true, userId) } catch (t: Throwable) {
+            LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: getEnabledSubtypes failed:", t.message)
+            return null
+        } ?: return null
+        if (raw is List<*>) return raw.filterIsInstance<InputMethodSubtype>()
+        // AbstractSafeList 系列：万一不是 List 再取内部列表
+        val inner = try { raw.javaClass.getMethod("getList").invoke(raw) } catch (t: Throwable) { null }
+        if (inner !is List<*>) {
+            LogHelper.log(VerboseLevel.WARNING,
+                "IMEDispatcher: subtype list type unexpected:", raw.javaClass.name)
+            return null
+        }
+        return inner.filterIsInstance<InputMethodSubtype>()
+    }
+
+    /** 框架当前的 subtype —— 先问 IMMS，再问绑定控制器。 */
+    private fun getCurrentSubtype(ims: Any, userData: Any): InputMethodSubtype? {
+        val userId = getCurrentUserId(ims)
+        if (userId != null) {
+            val m = findMethod(ims.javaClass, "getCurrentInputMethodSubtype", java.lang.Integer.TYPE)
+            if (m != null) {
+                val r = try { m.invoke(ims, userId) } catch (t: Throwable) { null }
+                if (r is InputMethodSubtype) return r
+            }
+        }
+        val bc = bindingController(userData) ?: return null
+        return try { findMethod(bc.javaClass, "getCurrentSubtype")?.invoke(bc) as? InputMethodSubtype } catch (t: Throwable) { null }
+    }
+
+    /** 当前 subtype 在已启用列表里的下标（按 hashCode 认，认不出再按 equals）。-1 = 认不出。 */
+    private fun indexOfCurrentSubtype(
+        ims: Any, userData: Any, enabled: List<InputMethodSubtype>
+    ): Int {
+        val cur = getCurrentSubtype(ims, userData) ?: return -1
+        val h = cur.hashCode()
+        val byHash = enabled.indexOfFirst { it.hashCode() == h }
+        if (byHash >= 0) return byHash
+        return enabled.indexOfFirst { it == cur }
+    }
+
+    /** API 34+ 才有 getLanguageTag；低版本只能退回 locale 串。 */
+    private fun languageTagOf(subtype: InputMethodSubtype): String? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            try { subtype.languageTag } catch (t: Throwable) { null }
+        } else null
+
+    private fun describeSubtype(
+        enabled: List<InputMethodSubtype>, keys: List<String>, idx: Int
+    ): String = if (idx in enabled.indices) {
+        keys[idx] + "#" + Integer.toHexString(enabled[idx].hashCode())
+    } else "<unknown>"
+
+    /** 沿类继承链找方法（运行时类可能是 ROM 的子类，例如 ZuiInputMethodManagerService）。 */
+    private fun findMethod(cls: Class<*>, name: String, vararg params: Class<*>): Method? {
+        var c: Class<*>? = cls
+        while (c != null && c != Any::class.java) {
+            try {
+                return c.getDeclaredMethod(name, *params).apply { isAccessible = true }
+            } catch (e: NoSuchMethodException) {
+                c = c.superclass
+            }
+        }
+        return null
+    }
+
+    /** 沿类继承链找字段。 */
+    private fun findField(cls: Class<*>, name: String): Field? {
+        var c: Class<*>? = cls
+        while (c != null && c != Any::class.java) {
+            try {
+                return c.getDeclaredField(name).apply { isAccessible = true }
+            } catch (e: NoSuchFieldException) {
+                c = c.superclass
+            }
+        }
+        return null
     }
 
     // -----------------------------------------------------------------
@@ -277,7 +459,7 @@ object IMEDispatcher {
         return try {
             val im = getInputManager() ?: return false
             val method = im.javaClass.getMethod("injectInputEvent",
-                android.view.InputEvent::class.java, Int::class.javaPrimitiveType)
+                android.view.InputEvent::class.java, java.lang.Integer.TYPE)
             method.invoke(im, event, cachedInjectMode) != null || true
         } catch (t: Throwable) {
             LogHelper.log(VerboseLevel.ERROR, "IMEDispatcher: injectKeyEvent failed:", t.message)
@@ -298,7 +480,7 @@ object IMEDispatcher {
         return try {
             val im = getInputManager() ?: return false
             val method = im.javaClass.getMethod("injectInputEvent",
-                android.view.InputEvent::class.java, Int::class.javaPrimitiveType)
+                android.view.InputEvent::class.java, java.lang.Integer.TYPE)
             for (e in events) {
                 LogHelper.log(VerboseLevel.INFO,
                     "IMEDispatcher: INJECT_BEFORE",
@@ -382,7 +564,7 @@ object IMEDispatcher {
                 .apply { isAccessible = true }.getInt(ims)
 
             // Get UserData
-            val method = ims.javaClass.getMethod("getUserData", Int::class.javaPrimitiveType)
+            val method = ims.javaClass.getMethod("getUserData", java.lang.Integer.TYPE)
             val userData = method.invoke(ims, userId) ?: return false
 
             // Get mCurInputConnection from UserData (the active IRemoteInputConnection)
@@ -398,12 +580,12 @@ object IMEDispatcher {
             val headerClass = Class.forName(
                 "com.android.internal.inputmethod.InputConnectionCommandHeader",
                 false, cl)
-            val header = headerClass.getConstructor(Int::class.javaPrimitiveType).newInstance(0)
+            val header = headerClass.getConstructor(java.lang.Integer.TYPE).newInstance(0)
 
             // Call IRemoteInputConnection.commitText(header, text, 1)
             inputConn.javaClass.getMethod(
                 "commitText", headerClass, CharSequence::class.java,
-                Int::class.javaPrimitiveType
+                java.lang.Integer.TYPE
             ).invoke(inputConn, header, text, 1)
 
             LogHelper.log(VerboseLevel.INFO,
