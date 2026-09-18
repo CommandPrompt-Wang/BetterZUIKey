@@ -178,9 +178,9 @@ class IMEAdapterActivity : AppCompatActivity() {
         // 删除（右下角，spinner 下面）
         row.tvDelete.setOnClickListener { confirmDelete(profile) }
 
-        // 点击/长按动效：按下缩一点、松手弹回；长按再补一个短脉冲
+        // 水波纹（ripple）所有行都要；缩放的按压反馈只在「使用系统框架」行（叠加长按脉冲）
         row.root.isClickable = true
-        attachPressFeedback(row.root)
+        if (framework) attachPressFeedback(row.root)
         return row.root
     }
 
