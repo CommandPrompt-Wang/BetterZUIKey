@@ -491,6 +491,7 @@
     <string name="subtype_order_hint">拖动以排序。切换语言时将依次轮转。</string>
     <string name="subtype_order_empty">读不到这个输入法的已启用 subtype（或它一个都没启用）</string>
     <string name="subtype_order_reset">恢复框架顺序</string>
+    <string name="subtype_order_refresh_hint">如果您刚刚更改了输入法的语言，可能需要切出此输入法才能正确刷新显示。</string>
     <string name="subtype_order_override">覆盖默认轮转顺序</string>
     <string name="subtype_order_override_note">默认情况下系统框架仅会轮转最近使用的 2 门语言，开启此开关以在多门语言轮转。</string>
     <string name="subtype_order_current_tag">  ← 当前</string>
