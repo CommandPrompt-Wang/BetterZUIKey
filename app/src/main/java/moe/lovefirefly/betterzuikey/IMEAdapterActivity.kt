@@ -155,10 +155,10 @@ class IMEAdapterActivity : AppCompatActivity() {
                 )
                 true
             }
-            // 子 View（名字/包名）会把长按事件吃在自己身上，所以每处都要挂
+            // 只挂卡片：名字/包名是非 clickable 的 TextView ⇒ 触摸本来就会落到卡片上，
+            // 卡片既拿长按又保持 pressed（水波纹正常）。挂了子 View 反而会让子 View 变成
+            // 触摸目标 ⇒ 卡片不进 pressed ⇒ 水波纹消失 ✗
             row.root.setOnLongClickListener(openOrder)
-            row.tvName.setOnLongClickListener(openOrder)
-            row.tvPkg.setOnLongClickListener(openOrder)
         } else {
             row.tilSpin.visibility = View.VISIBLE
             val names = remapBindings.map { getBindingName(it) }
