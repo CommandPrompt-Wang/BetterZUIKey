@@ -340,9 +340,9 @@ public class L1Interceptor  {
 
         // ================================================================
         // IME Enhancement — unified dispatch
-        // imeMasterEnabled && isInputShown → intercept; else pass through
+        // isInputShown → intercept; else pass through
         // ================================================================
-        if (ctx.cfg.imeMasterEnabled && ctx.isAcceptingText()) {
+        if (ctx.isAcceptingText()) {
             LogHelper.log(VerboseLevel.DEBUG, "L1: IME Enhancement active",
                     " imeSwitch=", ctx.cfg.imeSwitchBinding.name(),
                     " langSwitch=", ctx.cfg.languageSwitchBinding.name());

@@ -188,7 +188,6 @@
     <string name="ime_pick_framework_hint">Pick an IME to be driven by the framework</string>
     <string name="ime_pick_remap_hint">Pick an IME whose shortcut should be remapped</string>
     <string name="ime_already_added">That IME is already in this list</string>
-    <string name="ime_enabled">Enable</string>
     <string name="ime_toast">Show Toast on switch</string>
     <string name="ime_switch_label">Switch IME</string>
     <string name="ime_switch_desc">Select physical key combination to switch input method</string>

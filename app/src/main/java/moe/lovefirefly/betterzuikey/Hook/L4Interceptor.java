@@ -121,9 +121,8 @@ public class L4Interceptor  {
                         Config.IMEBinding target = (type == 310)
                                 ? Config.IMEBinding.ALT_SHIFT
                                 : Config.IMEBinding.CTRL_SHIFT;
-                        boolean weHandle = ctx.cfg.imeMasterEnabled
-                                && (ctx.cfg.imeSwitchBinding == target
-                                    || ctx.cfg.languageSwitchBinding == target);
+                        boolean weHandle = ctx.cfg.imeSwitchBinding == target
+                                || ctx.cfg.languageSwitchBinding == target;
                         // Legacy: binding OFF blocks ZUI's default chord action.
                         Config.IMEBinding binding = (type == 310)
                                 ? ctx.cfg.languageSwitchBinding

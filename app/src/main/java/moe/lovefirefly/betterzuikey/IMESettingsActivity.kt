@@ -35,14 +35,6 @@ class IMESettingsActivity : AppCompatActivity() {
 
         val cfg = Config.load()
 
-        // Master switch
-        binding.swEnabled.isChecked = cfg.imeMasterEnabled
-        binding.swEnabled.setOnCheckedChangeListener { _, checked ->
-            cfg.imeMasterEnabled = checked
-            cfg.save()
-            Config.syncToSharedPrefs(this, cfg)
-        }
-
         // Toast switch
         binding.swToast.isChecked = cfg.imeToastEnabled
         binding.swToast.setOnCheckedChangeListener { _, checked ->
@@ -64,7 +56,6 @@ class IMESettingsActivity : AppCompatActivity() {
         }
 
         // Row click: toggle switch / expand dropdown
-        binding.rowImeEnabled.setOnClickListener { binding.swEnabled.toggle() }
         binding.rowImeToast.setOnClickListener { binding.swToast.toggle() }
         binding.rowImeSwitch.setOnClickListener { toggleSpinner(binding.spImeSwitch) }
         binding.rowImeLanguage.setOnClickListener { toggleSpinner(binding.spImeLanguage) }

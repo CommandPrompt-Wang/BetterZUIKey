@@ -334,8 +334,6 @@ public class Config {
     // 十一、输入法增强
     // ================================================================
 
-    /** 输入法增强总开关 */
-    public boolean imeMasterEnabled = true;
     /** 切换输入法/语言时弹出 Toast */
     public boolean imeToastEnabled = true;
     /** 切换输入法绑定的物理按键 */
@@ -885,7 +883,6 @@ public class Config {
         fnCustomProfiles = new java.util.LinkedHashMap<>();
         fnToastEnabled = true;
         // 十二、输入法增强
-        imeMasterEnabled = true;
         imeToastEnabled = true;
         imeSwitchBinding = IMEBinding.FOLLOW_SYSTEM;
         languageSwitchBinding = IMEBinding.FOLLOW_SYSTEM;

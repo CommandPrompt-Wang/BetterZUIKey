@@ -28,31 +28,7 @@
             android:paddingTop="8dp"
             android:paddingBottom="24dp">
 
-            <!-- 总开关 -->
-            <LinearLayout
-                android:id="@+id/row_ime_enabled"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingTop="10dp"
-                android:paddingBottom="10dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?attr/selectableItemBackground">
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/ime_enabled"
-                    android:textAppearance="?attr/textAppearanceBodyLarge" />
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/sw_enabled"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
-            </LinearLayout>
-
-            <!-- 切换时提示 -->
+                        <!-- 切换时提示 -->
             <LinearLayout
                 android:id="@+id/row_ime_toast"
                 android:layout_width="match_parent"
