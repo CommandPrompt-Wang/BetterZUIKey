@@ -488,7 +488,7 @@
     <!-- 框架接管：语言轮转顺序（SubtypeOrderActivity，拖动排序） -->
     <string name="subtype_order_back">← 返回</string>
     <string name="subtype_order_title">轮转顺序 — %s</string>
-    <string name="subtype_order_hint">拖动即可排序：切换快捷键就按这个顺序轮转语言。没列出的语言会自动接在这些后面（不会被跳过）；「*」是没有语言标签的那条 subtype（Gboard 的英文）。</string>
+    <string name="subtype_order_hint">拖动以排序。切换语言时将依次轮转。</string>
     <string name="subtype_order_empty">读不到这个输入法的已启用 subtype（或它一个都没启用）</string>
     <string name="subtype_order_reset">恢复框架顺序</string>
     <string name="subtype_order_current_tag">  ← 当前</string>
