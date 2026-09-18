@@ -133,6 +133,9 @@
             <TextView
                 style="@style/ImeNote"
                 android:text="@string/ime_note_4" />
+            <TextView
+                style="@style/ImeNote"
+                android:text="@string/ime_note_5" />
 
             <!-- ═══ 当前已安装 ═══ -->
             <View
@@ -158,19 +161,6 @@
                 android:layout_height="1dp"
                 android:layout_marginTop="16dp"
                 android:background="?attr/colorOutlineVariant" />
-
-            <TextView
-                android:id="@+id/tv_subtype_order"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingTop="12dp"
-                android:paddingBottom="12dp"
-                android:text="@string/ime_subtype_order"
-                android:textAppearance="?attr/textAppearanceBodyLarge"
-                android:textColor="?attr/colorPrimary"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackground" />
 
             <TextView
                 android:id="@+id/tv_import"
