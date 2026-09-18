@@ -532,9 +532,6 @@
     <string name="ime_err_unknown">未知内部错误</string>
     <string name="ime_err_missing_ime">缺少必填字段：ime</string>
     <string name="ime_err_missing_strategy">缺少必填字段：strategy</string>
-    <string name="ime_err_hook_missing_object">hook 策略缺少 \"hook\" 对象</string>
-    <string name="ime_err_hook_missing_class">hook 策略缺少 \"hook.class\"</string>
-    <string name="ime_err_hook_missing_method">hook 策略缺少 \"hook.method\"</string>
     <string name="ime_err_keyremap_missing_target">keyremap 策略缺少 \"remap-to\"</string>
     <string name="ime_err_unknown_strategy">未知或缺少策略类型</string>
     <string name="ime_import_text_hint">在此粘贴 JSON…</string>

@@ -26,19 +26,6 @@ class ConfigSyncProvider : ContentProvider() {
         /** 配置与 IPC 状态共享的 SharedPreferences 文件名。 */
         const val PREF_FILE = "betterzuikey_config"
 
-        /**
-         * libxposed 框架远端配置的 group 名（**独立于** [PREF_FILE]，别混淆）。
-         *
-         * App 侧通过 `XposedService.getRemotePreferences(group)` 写入，hooked 进程
-         * 通过 `XposedInterface.getRemotePreferences(group)` 只读读取 —— 这是把配置
-         * 送进输入法进程的唯一受支持通道：`ConfigSyncProvider.call()` 有 UID 白名单
-         * （只放行 system_server 与自身），输入法进程不在白名单里。
-         */
-        const val REMOTE_PREF_GROUP = "betterzuikey_remote"
-
-        /** 远端配置里 IME profiles 的 key。 */
-        const val KEY_IME_PROFILES = "ime_profiles"
-
         @JvmField
         val RELOAD_URI: Uri = Uri.parse("content://$AUTHORITY/reload")
         const val METHOD_GET_SYNC = "getSync"
