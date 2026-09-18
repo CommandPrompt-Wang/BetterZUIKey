@@ -20,6 +20,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
 import moe.lovefirefly.betterzuikey.Config.Config
+import moe.lovefirefly.betterzuikey.Utils.LogHelper
+import moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel
 import moe.lovefirefly.betterzuikey.ime.SubtypeRotation
 
 /**
@@ -213,11 +215,17 @@ class SubtypeOrderActivity : AppCompatActivity() {
     private fun load() {
         items.clear()
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        // 按包名找 InputMethodInfo：注册表优先 → 已启用 → 只有当它正好是当前输入法时兜底
         val imi = imm?.inputMethodList?.firstOrNull { it.packageName == imePkg }
+            ?: imm?.enabledInputMethodList?.firstOrNull { it.packageName == imePkg }
+            ?: imm?.currentInputMethodInfo?.takeIf { it.packageName == imePkg }
         val raw = if (imm == null || imi == null) emptyList() else {
             (imm.getEnabledInputMethodSubtypeList(imi, true) ?: emptyList())
         }
         if (raw.isEmpty()) {
+            LogHelper.log(VerboseLevel.WARNING,
+                "SubtypeOrder: no subtypes for ", imePkg,
+                " (imm=", (imm != null).toString(), " imi=", (imi != null).toString(), ")")
             android.widget.Toast.makeText(this, R.string.subtype_order_empty, android.widget.Toast.LENGTH_LONG).show()
             adapter.notifyDataSetChanged()
             return
@@ -233,17 +241,23 @@ class SubtypeOrderActivity : AppCompatActivity() {
             cfg.imeSubtypeOrders?.get(imePkg)?.takeUnless { it.isNullOrBlank() } ?: cfg.imeSubtypeOrder
         )
         SubtypeRotation.buildChain(keys, order).forEach { items.add(entries[it]) }
+        LogHelper.log(VerboseLevel.INFO,
+            "SubtypeOrder: ime=", imePkg,
+            " raw=", raw.size.toString(),
+            " keys=", entries.joinToString("/") { it.key },
+            " order=", order.joinToString("/").ifEmpty { "<framework>" },
+            " current=", currentKey ?: "-")
         adapter.notifyDataSetChanged()
     }
 
     /** 落盘：只写**这个输入法**那份顺序；配置随 IPC 走 ⇒ 下一次按键即生效（不用重启）。 */
     private fun save() {
         if (items.isEmpty()) return
-        cfg.imeSubtypeOrders = LinkedHashMap(cfg.imeSubtypeOrders).apply {
-            put(imePkg, items.joinToString(",") { it.key })
-        }
+        val chain = items.joinToString(",") { it.key }
+        cfg.imeSubtypeOrders = LinkedHashMap(cfg.imeSubtypeOrders).apply { put(imePkg, chain) }
         cfg.save()
         Config.syncToSharedPrefs(this, cfg)
+        LogHelper.log(VerboseLevel.INFO, "SubtypeOrder: saved ", imePkg, " -> ", chain)
     }
 
     // ────────────────────────── 小工具 ──────────────────────────
