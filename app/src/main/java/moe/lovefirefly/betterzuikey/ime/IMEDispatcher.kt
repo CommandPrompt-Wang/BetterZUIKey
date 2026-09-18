@@ -288,9 +288,10 @@ object IMEDispatcher {
         val enabled = getEnabledSubtypes(ims, imeId, userId) ?: return null
         if (enabled.isEmpty()) return null
 
-        val keys = enabled.map {
-            SubtypeRotation.keyOf(languageTagOf(it), it.locale)
-        }
+        // 键 = 语言标签；同一个标签有多个 subtype（搜狗拼音/五笔都是 zh-CN）时自动加 mode 区分
+        val keys = SubtypeRotation.uniqueKeys(
+            enabled.map { SubtypeRotation.keyOf(languageTagOf(it), it.locale) },
+            enabled.map { it.mode ?: "" })
         val curIdx = indexOfCurrentSubtype(ims, userData, enabled)
         val order = SubtypeRotation.parseOrder(subtypeOrderRaw)
         val nextIdx = SubtypeRotation.nextIndex(keys, order, curIdx)

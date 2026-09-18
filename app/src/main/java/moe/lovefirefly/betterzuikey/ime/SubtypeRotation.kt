@@ -48,6 +48,40 @@ object SubtypeRotation {
     @JvmStatic
     fun normalize(tag: String): String = tag.trim().replace('_', '-').lowercase()
 
+    /**
+     * 把**会撞车的键**拆开。
+     *
+     * <p>同一个语言标签可能有多个 subtype：搜狗的"拼音"和"五笔"都是 `zh-CN`
+     * （框架靠 mode 区分）⇒ 键都算成 `zh-cn` 就会撞车（顺序表里出现两个 `zh-cn`，
+     * 界面分不清、当前项也指不准）。
+     *
+     * <p>规则：第一个用基键，后面的加 `#<mode>`；再撞就继续 `#<mode>#n`。
+     * 顺序表里仍可以只写基键 —— [matches] 的主语言兜底会让它认领第一个匹配项。
+     *
+     * @param bases          每个 subtype 的基键（见 [keyOf]），顺序 = 框架给的顺序
+     * @param discriminators 与 bases 一一对应的区分串（传 `InputMethodSubtype.getMode()`）
+     */
+    @JvmStatic
+    fun uniqueKeys(bases: List<String>, discriminators: List<String>): List<String> {
+        val out = ArrayList<String>(bases.size)
+        for (i in bases.indices) {
+            val base = bases[i]
+            var key = base
+            if (out.contains(key)) {
+                val d = discriminators.getOrElse(i) { "" }.trim().lowercase()
+                val stem = if (d.isEmpty()) base else "$base#$d"
+                key = stem
+                var n = 2
+                while (out.contains(key)) {
+                    key = "$stem#$n"
+                    n++
+                }
+            }
+            out.add(key)
+        }
+        return out
+    }
+
     /** 解析配置里的顺序串（逗号 / 空白分隔，忽略空项与重复项）。 */
     @JvmStatic
     fun parseOrder(raw: String?): List<String> {
@@ -91,12 +125,26 @@ object SubtypeRotation {
         val used = BooleanArray(n)
         val chain = ArrayList<Int>(n)
         for (want in order) {
+            // 先精确认领（`zh-cn#wubi` 这种带 mode 的全键要能拿到它自己那条），
+            // 拿不到再按主语言模糊认领（顺序表里只写 `zh-cn` 时的情况）
+            var picked = -1
             for (i in 0 until n) {
-                if (!used[i] && matches(want, keys[i])) {
-                    used[i] = true
-                    chain.add(i)
+                if (!used[i] && keys[i] == want) {
+                    picked = i
                     break
                 }
+            }
+            if (picked < 0) {
+                for (i in 0 until n) {
+                    if (!used[i] && matches(want, keys[i])) {
+                        picked = i
+                        break
+                    }
+                }
+            }
+            if (picked >= 0) {
+                used[picked] = true
+                chain.add(picked)
             }
         }
         for (i in 0 until n) {
