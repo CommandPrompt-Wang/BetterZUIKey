@@ -180,6 +180,7 @@
     <string name="subtype_order_hint">Drag to reorder. The switch key rotates through them in order.</string>
     <string name="subtype_order_empty">No enabled subtypes for this IME (or they can\'t be read)</string>
     <string name="subtype_order_reset">Reset to framework order</string>
+    <string name="subtype_order_refresh_hint">If you just changed the IME\'s languages, you may need to switch away from this IME before the list refreshes correctly.</string>
     <string name="subtype_order_override">Override default rotation order</string>
     <string name="subtype_order_override_note">By default the system framework only rotates between the 2 most recently used languages. Turn this on to rotate through multiple languages.</string>
     <string name="subtype_order_current_tag">  ← current</string>
