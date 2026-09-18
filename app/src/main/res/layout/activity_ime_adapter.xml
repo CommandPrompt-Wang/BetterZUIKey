@@ -158,27 +158,14 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical" />
 
-            <!-- 高级入口（导入 / 恢复内置 / 制作 / 强制更新） -->
+            <!-- 高级入口（恢复内置 / 强制更新） -->
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
                 android:layout_marginTop="16dp"
                 android:background="?attr/colorOutlineVariant" />
 
-            <TextView
-                android:id="@+id/tv_import"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingTop="12dp"
-                android:paddingBottom="12dp"
-                android:text="@string/ime_import_profile"
-                android:textAppearance="?attr/textAppearanceBodyLarge"
-                android:textColor="?attr/colorPrimary"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackground" />
-
-            <TextView
+                        <TextView
                 android:id="@+id/tv_restore_builtins"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -191,20 +178,7 @@
                 android:focusable="true"
                 android:background="?attr/selectableItemBackground" />
 
-            <TextView
-                android:id="@+id/tv_make_profile"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingTop="12dp"
-                android:paddingBottom="12dp"
-                android:text="@string/profile_maker_ime_label_short"
-                android:textAppearance="?attr/textAppearanceBodyLarge"
-                android:textColor="?attr/colorPrimary"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackground" />
-
-            <TextView
+                        <TextView
                 android:id="@+id/tv_force_update"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

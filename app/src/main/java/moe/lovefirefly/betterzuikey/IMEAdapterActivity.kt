@@ -85,17 +85,11 @@ class IMEAdapterActivity : AppCompatActivity() {
         binding.btnAddFramework.setOnClickListener { launchPicker(pickFramework) }
         binding.btnAddRemap.setOnClickListener { launchPicker(pickRemap) }
 
-        binding.tvImport.setOnClickListener {
-            startActivity(Intent(this, IMEImportActivity::class.java))
-        }
         // 恢复内置配置：把 BUILTIN_DEFAULTS upsert 回来（用户自建条目不动）
         binding.tvRestoreBuiltins.setOnClickListener {
             IMEProfileManager.restoreBuiltins(this)
             refresh()
             Toast.makeText(this, getString(R.string.restore_done), Toast.LENGTH_SHORT).show()
-        }
-        binding.tvMakeProfile.setOnClickListener {
-            startActivity(Intent(this, ProfileMakerActivity::class.java))
         }
         binding.tvForceUpdate.setOnClickListener {
             IMEProfileManager.seedBuiltinsIfEmpty(this)
