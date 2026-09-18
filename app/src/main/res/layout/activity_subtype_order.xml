@@ -41,6 +41,17 @@
         android:textColor="?attr/colorOnSurfaceVariant" />
 
     <TextView
+        android:id="@+id/tv_strict_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="32dp"
+        android:paddingEnd="32dp"
+        android:paddingBottom="4dp"
+        android:text="@string/subtype_order_strict_hint"
+        android:textAppearance="?attr/textAppearanceBodySmall"
+        android:textColor="?attr/colorOnSurfaceVariant" />
+
+    <TextView
         android:id="@+id/tv_reset"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
