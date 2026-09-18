@@ -84,25 +84,6 @@ public final class ModuleServiceBridge implements XposedServiceHelper.OnServiceL
      * 所以「App 写、hook 读」是官方设计的单向通道。模块未激活（拿不到 Binder）时
      * 静默失败，返回 false。
      */
-    public static boolean putRemoteString(String group, String key, String value) {
-        XposedService svc = sService;
-        if (svc == null) {
-            Log.w(TAG, "[BRIDGE] putRemoteString(" + group + "/" + key + ") skipped — no service");
-            return false;
-        }
-        try {
-            android.content.SharedPreferences.Editor editor = svc.getRemotePreferences(group).edit();
-            editor.putString(key, value);
-            editor.apply();
-            Log.i(TAG, "[BRIDGE] remote prefs written: " + group + "/" + key
-                    + " len=" + (value != null ? value.length() : -1));
-            return true;
-        } catch (Throwable t) {
-            Log.w(TAG, "[BRIDGE] putRemoteString failed: " + t);
-            return false;
-        }
-    }
-
     @Override
     public void onServiceBind(XposedService service) {
         sService = service;
@@ -117,12 +98,6 @@ public final class ModuleServiceBridge implements XposedServiceHelper.OnServiceL
         boolean apiProtection = (props & XposedService.PROP_RT_API_PROTECTION) != 0;
         Log.i(TAG, "[BRIDGE] Service bound — module ACTIVE, api=" + api
                 + " apiProtection=" + apiProtection);
-        // 激活后补推一次 IME profiles：App 可能在激活前就启动过（那时写入会失败）
-        try {
-            moe.lovefirefly.betterzuikey.ime.IMEProfileManager.pushToRemotePrefs();
-        } catch (Throwable t) {
-            Log.d(TAG, "[BRIDGE] pushToRemotePrefs skipped: " + t.getMessage());
-        }
     }
 
     @Override

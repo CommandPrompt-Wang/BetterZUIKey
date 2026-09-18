@@ -14,7 +14,6 @@ import java.io.File
  *
  * 三种策略：
  * - [Strategy.framework]: 反射 `InputMethodManager.switchToNextInputMethodSubtype()`
- * - [Strategy.hook]: 返回 [HookConfig] 供 MainHook 在 IME 进程中安装 Xposed hook
  * - [Strategy.keyremap]: 注入 `remap-to` 指定的组合键到 IME
  *
  * ## 生命周期
@@ -78,17 +77,16 @@ object IMEProfileManager {
         } catch (t: Throwable) {
             LogHelper.log(VerboseLevel.DEBUG, "$TAG: loadFromSP failed:", t.message)
         }
-        // Fix any null strategies (from old hook-strategy configs)
+        // 旧 hook 策略的条目（枚举已移除 ⇒ strategy 解析成 null）：**直接丢弃**。
+        // 别再"修"成 keyremap —— 那会让一条死配置突然开始注入按键。
         val strays = profiles.values.filter { it.strategy == null }
         for (p in strays) {
             profiles.remove(imeKey(p.ime, null))
-            val fixed = p.copy(strategy = Strategy.keyremap)
-            profiles[imeKey(fixed.ime, fixed.strategy)] = fixed
+            LogHelper.log(VerboseLevel.INFO, "$TAG: dropped legacy profile (hook strategy removed): ",
+                p.ime ?: "?")
         }
         LogHelper.log(VerboseLevel.INFO, "$TAG: loadFromSP — ${profiles.size} profile(s)")
         loadedOnce = true
-        // 同步到框架远端配置：hooked 输入法进程只能通过 libxposed 远端配置拿到 profiles
-        pushProfilesToRemote(toJsonArray())
         // 启动期的 reload 信号由 ConfigSyncProvider.onCreate 负责（它只在队列为空时塞一条）。
         //
         // 这里**不能**再无条件 append：loadFromSP 在一个进程里会被调用多次
@@ -182,7 +180,6 @@ object IMEProfileManager {
             // Signal system_server via delta queue
             appendChange(context, "reload", null)
             // 同步到框架远端配置，供输入法进程读取
-            pushProfilesToRemote(json)
             LogHelper.log(VerboseLevel.INFO, "$TAG: saveToConfig — ${profiles.size} profile(s)")
         } catch (t: Throwable) {
             LogHelper.log(VerboseLevel.WARNING, "$TAG: saveToConfig failed: ${t.message}")
@@ -190,39 +187,6 @@ object IMEProfileManager {
     }
 
     // -----------------------------------------------------------------
-    // 框架远端配置（App 写 / hook 读）
-    // -----------------------------------------------------------------
-
-    /**
-     * 把 profiles 写入 libxposed 框架远端配置。
-     *
-     * hooked 进程里 `XposedInterface.getRemotePreferences()` 只读，App 侧通过
-     * `XposedService.getRemotePreferences()` 写 —— 这是把配置送进输入法进程的
-     * 唯一受支持通道（`ConfigSyncProvider.call()` 的 UID 白名单不放行输入法）。
-     * 模块未激活时静默失败，服务绑定后由 [ModuleServiceBridge.onServiceBind] 补推。
-     */
-    private fun pushProfilesToRemote(json: String) {
-        try {
-            moe.lovefirefly.betterzuikey.ModuleServiceBridge.putRemoteString(
-                moe.lovefirefly.betterzuikey.ConfigSyncProvider.REMOTE_PREF_GROUP,
-                moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_IME_PROFILES,
-                json)
-        } catch (t: Throwable) {
-            LogHelper.log(VerboseLevel.WARNING, "$TAG: pushProfilesToRemote failed: ${t.message}")
-        }
-    }
-
-    /**
-     * 服务绑定 / 手工触发时补推一次远端配置。
-     *
-     * @param force true 时即使尚未从 SP 加载也推送（默认 false，防止用空列表覆盖）
-     */
-    @JvmStatic
-    @JvmOverloads
-    fun pushToRemotePrefs(force: Boolean = false) {
-        if (!loadedOnce && !force) return
-        pushProfilesToRemote(toJsonArray())
-    }
 
     /**
      * 从 JSON 数组字符串加载 profiles（供 system_server 通过 Config IPC 获取）。
@@ -393,13 +357,6 @@ object IMEProfileManager {
                 val remapTo = profile.remapTo ?: return false
                 executeKeyRemapStrategy(remapTo)
             }
-            Strategy.hook -> {
-                // hook 策略在输入法进程（MainHook.onPackageReady → ImeProcessHook）里安装，
-                // system_server 侧只负责配置分发，这里无动作。
-                LogHelper.log(VerboseLevel.INFO,
-                    "$TAG: hook strategy is installed in the IME process, nothing to do here")
-                false
-            }
             null -> false
         }
     }
@@ -567,7 +524,6 @@ object IMEProfileManager {
                     problems += "err_keyremap_missing_target"
             }
             Strategy.framework -> { /* no extra required */ }
-            Strategy.hook -> { /* 锚点在 IME 进程用 DexKit 解析，无可必填字段 */ }
             null -> problems += "err_unknown_strategy"
         }
 

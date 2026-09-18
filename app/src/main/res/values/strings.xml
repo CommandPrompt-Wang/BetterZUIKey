@@ -627,7 +627,4 @@
     <string name="shortcut_metaLongRow_desc">Voice assistant (requires ROW + special keyboard)</string>
     <string name="shortcut_metaHoldNonRow">Meta non-ROW (hold)</string>
     <string name="shortcut_metaHoldNonRow_desc">Continuous language switch (requires non-ROW + special keyboard)</string>
-    <string name="ime_err_hook_missing_object">Hook policy missing \"hook\" object</string>
-    <string name="ime_err_hook_missing_class">Hook policy missing \"hook.class\"</string>
-    <string name="ime_err_hook_missing_method">Hook policy missing \"hook.method\"</string>
 </resources>

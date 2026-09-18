@@ -66,15 +66,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    packaging {
-        jniLibs {
-            // libdexkit.so 要在 hooked 进程（输入法）里从 module APK 解出来再 System.load(absPath)，
-            // 所以必须随 APK 分发并按 ZipEntry 可读。legacy packaging 同时保留
-            // nativeLibraryDir 中有实体文件这条兜底加载路径。
-            useLegacyPackaging = true
-        }
-    }
-
 }
 
 // AGP 9 removed VariantOutput.outputFileName from the public API; the internal
@@ -116,11 +107,6 @@ dependencies {
 
     compileOnly("io.github.libxposed:api:101.0.0")
     implementation("io.github.libxposed:service:101.0.0")
-
-    // DexKit — 运行期 dex 解析。用「混淆器改不了的锚点」（父类/框架 override 名/字符串）
-    // 定位输入法内部类与方法，替代反射遍历声明方法。
-    // 许可：Apache-2.0（Core/ 目录 LGPL-3.0），与本项目 GPL-3.0 兼容。
-    implementation("org.luckypray:dexkit:2.2.0")
 
     // TermuxAm — inject am via app_process bypassing shell UID requirement
     implementation(project(":termuxam:app"))
