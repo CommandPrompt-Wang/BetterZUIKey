@@ -107,9 +107,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         val cfg = Config.load()
         Config.lastLoadError?.let { showWarningBanner(it); Config.lastLoadError = null }
-        if (cfg.updateCheckOnStartup) {
-            Thread { UpdateChecker.check(this, cfg) }.start()
-        }
         appliedDynamicColor = cfg.dynamicColorEnabled
         appliedNightMode = cfg.nightMode
         appliedLocaleTag = cfg.localeOverride
@@ -125,12 +122,35 @@ class MainActivity : AppCompatActivity() {
         binding.viewPager.offscreenPageLimit = 3
 
         // 首次启动 → 显示使用协议对话框
+        // 协议优先级最高：占住闸门，投喂与更新弹窗都排在它后面，避免叠窗
         val prefs = getSharedPreferences("app", MODE_PRIVATE)
         if (!prefs.getBoolean("agreement_shown", false)) {
-            showAgreementDialog(
-                onAccept = { prefs.edit().putBoolean("agreement_shown", true).apply() },
-                canExit = true
-            )
+            ModalDialogGate.enqueueFirst {
+                if (ModalDialogGate.isGone(this)) {
+                    ModalDialogGate.release()
+                } else {
+                    showAgreementDialog(
+                        onAccept = { prefs.edit().putBoolean("agreement_shown", true).apply() },
+                        canExit = true,
+                        onDismiss = { ModalDialogGate.release() }
+                    )
+                }
+            }
+        } else if (SupportDialog.shouldShow(this)) {
+            // 求投喂：每个版本号只提示一次（协议未接受时不弹，避免叠窗）。
+            // 这里同步占住闸门（不 post），保证「检查更新」的弹窗一定排在它后面。
+            ModalDialogGate.enqueueFirst {
+                if (ModalDialogGate.isGone(this)) {
+                    ModalDialogGate.release()
+                } else {
+                    SupportDialog.show(this) { ModalDialogGate.release() }
+                }
+            }
+        }
+
+        // 更新检查最后启动：此时协议/求投喂已占住闸门，更新弹窗会排队等它关闭后再弹
+        if (cfg.updateCheckOnStartup) {
+            Thread { UpdateChecker.check(this, cfg) }.start()
         }
 
         // 调试：长按标题栏 3s 弹出协议对话框（不可退出）
@@ -141,13 +161,24 @@ class MainActivity : AppCompatActivity() {
                         val items = arrayOf(
                             getString(R.string.agreement_title),
                             "Reset Secure Permission Warning",
-                            "Check Update (Force Dialog)"
+                            "Check Update (Force Dialog)",
+                            "Show Support Dialog (Force)",
+                            "Reset Support Prompt Record",
+                            "Reset Dialog Gate"
                         )
                         androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
                             .setTitle("Debug")
                             .setItems(items) { _, which ->
                                 when (which) {
-                                    0 -> showAgreementDialog(onAccept = { }, canExit = false)
+                                    0 -> ModalDialogGate.enqueueFirst {
+                                        if (ModalDialogGate.isGone(this@MainActivity)) {
+                                            ModalDialogGate.release()
+                                        } else {
+                                            showAgreementDialog(
+                                                onAccept = { }, canExit = false,
+                                                onDismiss = { ModalDialogGate.release() })
+                                        }
+                                    }
                                     1 -> {
                                         getSharedPreferences(ConfigSyncProvider.PREF_FILE, MODE_PRIVATE)
                                             .edit().remove("secure_perm_dismissed").apply()
@@ -157,6 +188,24 @@ class MainActivity : AppCompatActivity() {
                                     2 -> {
                                         val cfg = Config.load()
                                         Thread { UpdateChecker.debugForceDialog(this@MainActivity, cfg) }.start()
+                                    }
+                                    3 -> ModalDialogGate.enqueueFirst {
+                                        // 与协议那条同规矩：排队期间 Activity 可能已销毁，别在旧实例上弹窗
+                                        if (ModalDialogGate.isGone(this@MainActivity)) {
+                                            ModalDialogGate.release()
+                                        } else {
+                                            SupportDialog.show(this@MainActivity) { ModalDialogGate.release() }
+                                        }
+                                    }
+                                    4 -> {
+                                        SupportDialog.clearDismissed(this@MainActivity)
+                                        android.widget.Toast.makeText(this@MainActivity,
+                                            "Support prompt record cleared", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                    5 -> {
+                                        ModalDialogGate.reset()
+                                        android.widget.Toast.makeText(this@MainActivity,
+                                            "Dialog gate reset", android.widget.Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             }.show()
@@ -243,7 +292,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     /** 使用协议对话框：首次启动强制阅读帮助文档 */
-    private fun showAgreementDialog(onAccept: () -> Unit, canExit: Boolean) {
+    /**
+     * 使用协议对话框：首次启动强制阅读帮助文档
+     * @param onDismiss 对话框关闭时回调（用于放行 [ModalDialogGate] 里排队的下一个弹窗）
+     */
+    private fun showAgreementDialog(onAccept: () -> Unit, canExit: Boolean,
+                                    onDismiss: (() -> Unit)? = null) {
         val msg = getString(R.string.agreement_body)
 
         val tv = android.widget.TextView(this).apply {
@@ -281,6 +335,7 @@ class MainActivity : AppCompatActivity() {
             .setCancelable(false)
             .create()
 
+        dialog.setOnDismissListener { onDismiss?.invoke() }
         dialog.show()
         dialog.getButton(android.content.DialogInterface.BUTTON_NEGATIVE)
             ?.setTextColor(0xFF_757575.toInt())
