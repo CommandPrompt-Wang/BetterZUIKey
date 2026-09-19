@@ -23,7 +23,7 @@
 
 ---
 
-## 🤔 Why?
+## Why?
 
 Lenovo's ZUXOS comes packed with built-in keyboard shortcuts — Win+D for desktop, Win+Tab for recent tasks, Win+P to toggle PC mode... They make the tablet highly usable for keyboard-centric workflows, even without a mouse.
 
@@ -39,22 +39,37 @@ Plus, many proprietary keys can't be correctly identified or remapped by any key
 
 BetterZUIKey is an [LSPosed](https://github.com/LSPosed/LSPosed) module that intercepts ZUXOS's keyboard shortcut processing chain, letting you independently choose the behavior for each shortcut.
 
-## ✨ Features
+## Features
 
 - **50+ shortcuts, independent control** — Win+letters, Win+function keys, Ctrl/Alt/Shift combos, ZUXOS physical keys, AOSP accessibility keys
 - **5 override modes** — Keep Default / Use ZUX / Use AOSP / Off (pass-through to app) / Block (swallow entirely)
   - Select shortcuts use independent option labels (e.g. Ctrl+Enter: Keep Default / Insert Newline / Pass-through / Block)
-- **Built-in update checker** — Startup auto-check / long-press card to check now; four channels (Auto / GitHub / GitHub Mirror / Personal Mirror)
+- **Built-in update checker** — Startup auto-check / long-press card to check now; four channels (Auto / GitHub / GitHub Mirror / Personal Mirror); release notes are viewable right in the dialog
 - **App templates** — Auto-switch shortcut config when different apps are in the foreground
 - **Virtual Fn key** — Simulate F1–F12 using media keys, with keyboard profile auto-editing, import & export
 - **Keyboard detective** — Built-in scanCode probe to help you map your physical keyboard's Fn-row
 - **Regional adaptation** — Independent override for ROW/CN/KR regional behavior differences
 - **AOSP accessibility keys** — Win+Alt+3~6 for bounce keys / mouse keys / sticky keys / slow keys (via Settings.Secure read/write, bypassing System UI)
-- **IME enhancement** — Customizable key bindings for IME switching / language switching; JSON IME adapter for per-IME language state
+- **IME enhancement** — Customizable key bindings for IME switching / language switching
+  - Switch key options: Ctrl+Shift / Ctrl+Space / Alt+Shift / Right Alt / long-press Meta
+  - **Use System Framework**: language is handed to the system IME framework and **switched by naming a target subtype in a custom rotation order** (long-press an entry to open the drag-to-sort page; the order is saved per input method)
+  - **Remap Shortcut**: remap the key to the IME's own language-switch shortcut
+  - The IME's **internal** behavior (punctuation, auto-pairing, committing, etc.) is handled by its own [component module](#component-modules)
   - Ctrl+Shift / Alt+Shift modifiers always pass through; IME action fires only on a clean release
 - **Internationalization** — In-app language switcher, config changes take effect instantly
 
-## 📐 Architecture
+## Component Modules
+
+Since v1.7.0, BZK no longer hooks IME processes itself (the former DexKit strategy has been removed). Adapting an IME's **internals** is now split into separate LSPosed modules, so each can be adapted and updated on its own schedule:
+
+| Module | Input method | Highlights |
+|--------|--------------|------------|
+| [Gboard Ext](https://github.com/CommandPrompt-Wang/BetterZUIKey-GboardExt) | Gboard | Strict mode (language decided only by the framework), punctuation pipeline, quote/bracket auto-pairing, no commit on Enter in Chinese mode |
+| [Sogou OEM Ext](https://github.com/CommandPrompt-Wang/BetterZUIKey-SougouOEMExt) | Lenovo OEM Sogou IME | **Exposes languages as subtypes**, strict mode, punctuation pipeline, uppercase letters in Chinese mode, quote/bracket auto-pairing |
+
+How to use: check the input method under "IME Enhancement → Input Method Adaptation Management → Use System Framework" so the framework takes over language switching; internal behaviors are then handled by the component module.
+
+## Architecture
 
 ZUXOS's keyboard shortcut dispatch has five layers (L0–L4). BetterZUIKey inserts interception points at 4 of them:
 
@@ -83,7 +98,7 @@ system_server (MainHook)
     └── IMEDispatcher (InputConnection commitText / key injection)
 ```
 
-## 📦 Installation
+## Installation
 
 0. **Prerequisites**: ~~rooted device +~~ [LSPosed](https://github.com/LSPosed/LSPosed) installed, ZUXOS
    - BetterZUIKey can now modify system settings without granting Root access
@@ -94,7 +109,7 @@ system_server (MainHook)
 3. Soft-reboot system_server (Your Root Manager provides a soft reboot — no full device restart needed)
 4. Open the app — the Home page should display `✅ Active`
 
-## 🔧 Building
+## Building
 
 ```bash
 git clone https://github.com/CommandPrompt-Wang/BetterZUIKey.git
@@ -109,7 +124,7 @@ Requires Android Studio + JDK 17 + Android SDK 34+.
 
 > **For developers**: Commits on the `dev` branch prefixed with `[Nightly]` will automatically trigger a CI build and upload the debug artifact.
 
-## 📖 Usage
+## Usage
 
 1. **Shortcuts** — Each shortcut has a card
    - Left toggle: projection of the system switch (if available)
@@ -117,6 +132,7 @@ Requires Android Studio + JDK 17 + Android SDK 34+.
    - Tap to expand the dropdown menu
 2. **Templates** — Create per-app shortcut templates
 3. **Settings** — Master switch, Virtual Fn, IME Enhancement, Termux, appearance, log level, language
+4. **Support prompt** — Shown once on the first launch of each version; tap "Don't show for this version" to skip that version. A new version number prompts once again
 
 For more details, read the built-in help guide under the "Help" card on the Home page.
 
@@ -149,6 +165,17 @@ For **Ctrl + Enter**:
 | **Pass-through** | Always let through to foreground app |
 | **Block** | Consume the event entirely |
 
+### Language Rotation Order
+
+For input methods whose language is taken over by "Use System Framework":
+
+1. Check the input method under "Settings → IME Enhancement → Input Method Adaptation Management → Use System Framework"
+2. **Long-press** that entry to open the "Language Rotation Order" page, then drag to arrange the order you want
+   - The order is **saved per input method**; subtypes sharing one locale tag (e.g. Sogou Pinyin and Wubi both use `zh-CN`) are kept independent
+   - "Reset to framework order" restores the order given by the system
+3. To rotate through more than two languages, turn on "Override default rotation order" on that page
+   - The system framework only rotates between the **2 most recently used languages** by default — that is why this switch exists
+
 ## ⚠️ Disclaimer
 
 This is an Xposed module that directly hooks into the system keyboard input processing chain. Before use:
@@ -158,7 +185,7 @@ This is an Xposed module that directly hooks into the system keyboard input proc
 
 The developer assumes no responsibility for system failures, data loss, or device anomalies caused by using this module.
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 app/src/main/java/moe/lovefirefly/betterzuikey/
@@ -175,6 +202,8 @@ app/src/main/java/moe/lovefirefly/betterzuikey/
 │   ├── KeyInjector.java           # Key injection + modifier matching
 │   ├── ConfigIPCManager.java      # Hook ↔ App IPC
 │   ├── ForegroundTracker.java     # Foreground app tracking (template match)
+│   ├── MetaTrace.java             # Diagnostics: Meta key path trace (off by default)
+│   ├── PassthroughTrace.java      # Diagnostics: pass-through path trace (off by default)
 │   └── HookCompat.java            # libxposed API compatibility wrapper
 ├── Config/
 │   ├── Config.java                # Main config + Gson persistence
@@ -185,12 +214,18 @@ app/src/main/java/moe/lovefirefly/betterzuikey/
 │   ├── FeatureHook.java           # AI agent / file manager redirect
 │   └── RegionProfile.java         # Region enum (legacy Config field)
 ├── ime/
-│   ├── IMEDispatcher.kt           # IME switch strategy dispatch
-│   ├── IMEProfile.kt              # Profile data structures
-│   └── IMEProfileManager.kt       # JSON profile load/match
+│   ├── IMEDispatcher.kt           # IME switch strategy dispatch (framework / remap)
+│   ├── IMEProfile.kt              # Profile data structures + built-in entries
+│   ├── IMEProfileManager.kt       # Profile load/match/persist
+│   └── SubtypeRotation.kt         # Language rotation order (saved per IME)
 ├── TabsFragments.kt               # Home / Shortcuts / Templates / Settings
 ├── ShortcutMeta.kt                # Shortcut card metadata DSL
-├── UpdateChecker.kt               # Update checker (GitHub / personal mirror)
+├── IMEAdapterActivity.kt          # Input method adaptation management (two sections)
+├── IMESettingsActivity.kt         # IME enhancement settings
+├── SubtypeOrderActivity.kt        # Language rotation order drag-to-sort page
+├── UpdateChecker.kt               # Update checker (GitHub / personal mirror) + release notes
+├── SupportDialog.kt               # Support prompt (once per version)
+├── ModalDialogGate.kt             # Startup modal-dialog serial gate
 ├── ConfigSyncProvider.kt          # ContentProvider IPC (app side)
 ├── AppKeyCommand*.kt              # 507/508 / Win long-press command run & edit
 ├── TermuxPermission*.kt           # Termux permission grant

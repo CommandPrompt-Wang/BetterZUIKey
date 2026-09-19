@@ -23,7 +23,7 @@
 
 ---
 
-## 🤔 为啥做这个？
+## 为啥做这个？
 
 联想平板的 ZUXOS 中有大量内置键盘快捷键——Win+D 回桌面、Win+Tab 最近任务、Win+P 切换 PC 模式……极大方便了键盘用户的操作习惯，甚至在没有鼠标的情况下也能高效使用平板。
 
@@ -39,24 +39,39 @@
 
 BetterZUIKey 是一个 [LSPosed](https://github.com/LSPosed/LSPosed) 模块，通过接管 ZUXOS 的键盘快捷键处理链，允许你在每条快捷键 ~~的屎山分支~~ 上独立选择行为。
 
-## ✨ 功能特性
+## 功能特性
 
 - **50+ 快捷键独立控制** — Win+字母、Win+功能键、Ctrl/Alt/Shift 组合、ZUXOS 物理键、AOSP 辅助键
 - **5 种覆写模式** — 保持默认 / 启用 ZUX 实现 / 启用 AOSP 实现 / 关闭（清洗并透传前台 app） / 忽略（彻底吞掉）
   - 部分快捷键使用独立选项标签（如 Ctrl+Enter 四档：跟随系统 / 插入换行 / 透传 / 忽略）
-- **内置更新检查** — 启动时自动检查 / 长按卡片立即检查，四通道可选（自动 / GitHub / GitHub 镜像 / 个人镜像）
+- **内置更新检查** — 启动时自动检查 / 长按卡片立即检查，四通道可选（自动 / GitHub / GitHub 镜像 / 个人镜像）；发现新版本可在弹窗内查看更新日志
 - **应用模板** — 不同 app 前台时自动切换快捷键配置
 - **虚拟 Fn 键** — 用顶部多媒体键模拟 F1~F12，支持键盘 profile 自动编辑、导入导出
   - 内置 scanCode 探测器，帮你映射物理键盘的 Fn 区
 - **隐藏功能启用** — 无视 ROW/CN/KR 区域差异行为，强制启用 Meta 长按→语音助手 等功能
 - **更强的智能键** — 增加「执行命令」功能，内置脚本模板；可与 Termux 集成
-- **输入法增强** — 自定义输入法切换/输入法语言切换快捷键
-  - Ctrl+Shift / Ctrl+Space / Alt+Shift / 右Alt / 长按Meta 可供选择
-  - JSON 输入法适配器按需切换输入法内部语言状态
+- **输入法增强** — 自定义输入法切换 / 输入法语言切换快捷键
+  - 切换键可选 Ctrl+Shift / Ctrl+Space / Alt+Shift / 右Alt / 长按 Meta
+  - **使用系统框架**：由系统输入法框架接管语言，并**按自定义的语言轮转顺序点名切换**（长按条目进入拖动排序页，每个输入法各自排序）
+  - **重映射快捷键**：把按键重映射为该输入法原本的切换键
+  - 输入法**内部**行为（标点、配对、提交等）交给各输入法的[组件模块](#组件模块)处理
   - Ctrl+Shift / Alt+Shift 修饰键始终透传，仅在干净释放时触发
 - **国际化** — 应用内语言切换，配置变更即时生效
 
-## 📐 层次架构
+## 组件模块
+
+自 v1.7.0 起，BZK 不再自己 hook 输入法进程（原 DexKit 策略已移除），输入法**内部**的适配拆成各自独立的 LSPosed 模块，便于按各自的节奏适配与更新。
+
+当前已有的模块：
+
+| 模块 | 适用输入法 | 主要内容 |
+|------|-----------|----------|
+| [Gboard 增强](https://github.com/CommandPrompt-Wang/BetterZUIKey-GboardExt) | Gboard | 严格模式（语言切换只由框架决定）、标点管线、引号 / 括号自动补全、中文态 Enter 不提交 |
+| [搜狗输入法联想版增强](https://github.com/CommandPrompt-Wang/BetterZUIKey-SougouOEMExt) | 联想 OEM 版搜狗输入法 | 把语言**暴露为 subtype**、严格模式、标点管线、中文态大写字母、引号 / 括号自动补全 |
+
+用法：在「输入法增强 → 输入法适配管理 → 使用系统框架」里勾上对应输入法，由框架接管语言切换；需要适配的内部行为则由组件模块负责。
+
+## 层次架构
 
 ZUXOS 的键盘快捷键分发有五层（L0~L4），BetterZUIKey 在其中 4 层都插入了拦截点：
 
@@ -91,7 +106,7 @@ system_server (MainHook)
     └── IMEDispatcher (InputConnection commitText / 按键注入)
 ```
 
-## 📦 模块安装
+## 模块安装
 
 0. **前置条件**：~~已 root +~~ 安装 [LSPosed](https://github.com/LSPosed/LSPosed)、ZUXOS
     - 已实现不给 BetterZUIKey 挂载 Root 也能修改系统设置的功能
@@ -104,7 +119,7 @@ system_server (MainHook)
    - 你可以忽略缺少 Root 权限的提示
    - 更新后如果遇到作用域错误的提示，除了真的选错了外有可能是 IPC 错误，但强烈建议再重启一次。如果仍不可用，请 [提出issue](https://github.com/CommandPrompt-Wang/BetterZUIKey/issues)
 
-## 🔧 开发构建
+## 开发构建
 
 ```bash
 git clone https://github.com/CommandPrompt-Wang/BetterZUIKey.git
@@ -119,7 +134,7 @@ cd BetterZUIKey
 
 > **致开发者**：`dev` 分支提交信息以 `[Nightly]` 开头时，CI 会自动触发 Debug 构建并上传 artifact。
 
-## 📖 使用方法
+## 使用方法
 
 1. **快捷键** — 每条快捷键有一张卡片
    - 左侧开关：系统开关的投射（如果有）
@@ -127,6 +142,7 @@ cd BetterZUIKey
    - 点击展开下拉菜单
 2. **模板** — 创建针对特定应用的快捷键模板
 3. **设置** — 总开关、虚拟 Fn、输入法增强、Termux、外观、日志级别、语言
+4. **求投喂** — 每个版本首次启动时提示一次；点「此版本不再提示」即跳过该版本，升级到新版本号会再提示一次
 
 其余请阅读内置帮助文档，它位于主页的“帮助”卡片中。
 
@@ -163,6 +179,17 @@ cd BetterZUIKey
 | **透传** | 无条件放行给前台应用 |
 | **忽略** | 消费事件，系统和应用都收不到 |
 
+### 语言轮转顺序
+
+用于「使用系统框架」接管语言的输入法：
+
+1. 在「设置 → 输入法增强 → 输入法适配管理 → 使用系统框架」里勾上该输入法
+2. **长按**该条目进入「语言轮转顺序」页，拖动排出想要的切换顺序
+   - 顺序**按输入法分别保存**；多个 subtype 共用同一语言标签（如搜狗拼音 / 五笔都是 `zh-CN`）也各自独立
+   - 「恢复框架顺序」可回到系统原本的顺序
+3. 若要轮转多于两门语言，打开页面上的「覆盖默认轮转顺序」
+   - 系统框架默认只在**最近使用的 2 门语言**之间轮转，这就是需要该开关的原因
+
 ## ⚠️ 免责声明
 
 这是一个 LSPosed 模块，直接 hook 系统键盘输入处理链。使用前请：
@@ -172,7 +199,7 @@ cd BetterZUIKey
 
 开发者不承担因使用本模块造成的系统故障、数据丢失或设备异常的任何责任。
 
-## 📂 项目结构
+## 项目结构
 
 ```
 app/src/main/java/moe/lovefirefly/betterzuikey/
@@ -189,6 +216,8 @@ app/src/main/java/moe/lovefirefly/betterzuikey/
 │   ├── KeyInjector.java           # 按键注入 + 修饰键匹配
 │   ├── ConfigIPCManager.java      # Hook ↔ App IPC
 │   ├── ForegroundTracker.java     # 前台 App 跟踪（模板匹配）
+│   ├── MetaTrace.java             # 诊断：Meta 键路径追踪（默认关）
+│   ├── PassthroughTrace.java      # 诊断：透传路径追踪（默认关）
 │   └── HookCompat.java            # libxposed API 兼容封装
 ├── Config/
 │   ├── Config.java                # 主配置 + Gson 持久化
@@ -199,12 +228,18 @@ app/src/main/java/moe/lovefirefly/betterzuikey/
 │   ├── FeatureHook.java           # AI 代理 / 文件管理器跳转
 │   └── RegionProfile.java         # 区域枚举（Config 遗留字段）
 ├── ime/
-│   ├── IMEDispatcher.kt           # IME 切换策略分发
-│   ├── IMEProfile.kt              # Profile 数据结构
-│   └── IMEProfileManager.kt       # JSON Profile 加载/匹配
+│   ├── IMEDispatcher.kt           # IME 切换策略分发（框架 / 重映射）
+│   ├── IMEProfile.kt              # Profile 数据结构 + 内置条目
+│   ├── IMEProfileManager.kt       # Profile 加载/匹配/持久化
+│   └── SubtypeRotation.kt         # 语言轮转顺序（按输入法分别保存）
 ├── TabsFragments.kt               # 主页 / 快捷键 / 模板 / 设置
 ├── ShortcutMeta.kt                # 快捷键卡片元数据 DSL
-├── UpdateChecker.kt               # 更新检查（GitHub / 个人镜像）
+├── IMEAdapterActivity.kt          # 输入法适配管理（两段式）
+├── IMESettingsActivity.kt         # 输入法增强设置
+├── SubtypeOrderActivity.kt        # 语言轮转顺序拖动排序页
+├── UpdateChecker.kt               # 更新检查（GitHub / 个人镜像）+ 更新日志
+├── SupportDialog.kt               # 求投喂（每版本一次）
+├── ModalDialogGate.kt             # 启动期弹窗串行闸门
 ├── ConfigSyncProvider.kt          # ContentProvider IPC（App 侧）
 ├── AppKeyCommand*.kt              # 507/508 / Win 长按 命令执行与编辑
 ├── TermuxPermission*.kt           # Termux 权限授予
