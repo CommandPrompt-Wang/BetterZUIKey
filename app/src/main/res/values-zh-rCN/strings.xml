@@ -576,4 +576,14 @@
     <string name="update_check_failed_unknown">未知</string>
     <string name="update_check_failed_stack">调用堆栈：%1$s</string>
     <string name="update_ratelimit_hint">触发 API 请求速率限制。\n如果您正在使用代理，请尝试切换节点关闭代理，或者使用"个人镜像"通道</string>
+
+    <!-- ================================================================ -->
+    <!-- 求投喂（赞助 / 关注提示） -->
+    <!-- ================================================================ -->
+    <string name="support_header">关注 CP 喵，\n关注 CP 谢谢喵</string>
+    <string name="support_body"><![CDATA[感谢您下载并使用本插件！<br/>您可以扫描左侧的二维码，在<a href="https://afdian.com/a/CommandPrompt">爱发电</a>为我提供赞助、前去关注<a href="https://github.com/CommandPrompt-Wang">我的 Github 账号</a>，或者访问<a href="https://github.com/CommandPrompt-Wang/BetterZUIKey">仓库页面</a>给这个项目加星以提供进一步支持。]]></string>
+    <string name="support_note">注意：点击“确定”将跳转爱发电页面</string>
+    <string name="support_btn_never">此版本不再提示</string>
+    <string name="support_mascot_desc">角色立绘</string>
+    <string name="support_qr_desc">爱发电二维码</string>
 </resources>

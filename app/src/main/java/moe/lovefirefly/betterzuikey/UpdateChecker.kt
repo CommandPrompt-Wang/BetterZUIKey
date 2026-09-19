@@ -203,21 +203,30 @@ object UpdateChecker {
 
         val msg = ctx.getString(R.string.update_dialog_message, newVer.version)
 
-        AlertDialog.Builder(ctx)
-            .setTitle(ctx.getString(R.string.update_dialog_title))
-            .setMessage(msg)
-            .setView(container)
-            .setPositiveButton(ctx.getString(R.string.update_dialog_confirm)) { _, _ ->
-                startDownload(context, selectedChannel(), newVer.downloadUrl)
+        // 走闸门：若「求投喂」正在显示（或刚关闭还在 500ms 间隔期），这里会排队等它让位
+        ModalDialogGate.enqueue {
+            if (ModalDialogGate.isGone(ctx)) {
+                ModalDialogGate.release()
+                return@enqueue
             }
-            .setNeutralButton(ctx.getString(R.string.update_dialog_ignore)) { _, _ ->
-                cfg.updateCheckOnStartup = false
-                cfg.save()
-                Config.syncToSharedPrefs(ctx, cfg)
-            }
-            .setNegativeButton(ctx.getString(R.string.update_dialog_cancel), null)
-            .setCancelable(true)
-            .show()
+            val dialog = AlertDialog.Builder(ctx)
+                .setTitle(ctx.getString(R.string.update_dialog_title))
+                .setMessage(msg)
+                .setView(container)
+                .setPositiveButton(ctx.getString(R.string.update_dialog_confirm)) { _, _ ->
+                    startDownload(context, selectedChannel(), newVer.downloadUrl)
+                }
+                .setNeutralButton(ctx.getString(R.string.update_dialog_ignore)) { _, _ ->
+                    cfg.updateCheckOnStartup = false
+                    cfg.save()
+                    Config.syncToSharedPrefs(ctx, cfg)
+                }
+                .setNegativeButton(ctx.getString(R.string.update_dialog_cancel), null)
+                .setCancelable(true)
+                .create()
+            dialog.setOnDismissListener { ModalDialogGate.release() }
+            dialog.show()
+        }
     }
 
     /**

@@ -582,4 +582,14 @@
     <string name="shortcut_metaLongRow_desc">Voice assistant (requires ROW + special keyboard)</string>
     <string name="shortcut_metaHoldNonRow">Meta non-ROW (hold)</string>
     <string name="shortcut_metaHoldNonRow_desc">Continuous language switch (requires non-ROW + special keyboard)</string>
+
+    <!-- ================================================================ -->
+    <!-- Support / donation prompt -->
+    <!-- ================================================================ -->
+    <string name="support_header">Follow CP meow,\nthanks for following CP meow</string>
+    <string name="support_body"><![CDATA[Thanks for downloading and using this module! You can scan the QR code on the left to sponsor me on <a href="https://afdian.com/a/CommandPrompt">Afdian</a>, follow <a href="https://github.com/CommandPrompt-Wang">my GitHub account</a>, or visit the <a href="https://github.com/CommandPrompt-Wang/BetterZUIKey">repository page</a> and star the project for further support.]]></string>
+    <string name="support_note">Note: tapping “OK” opens the Afdian page</string>
+    <string name="support_btn_never">Don\'t show for this version</string>
+    <string name="support_mascot_desc">Character artwork</string>
+    <string name="support_qr_desc">Afdian QR code</string>
 </resources>
