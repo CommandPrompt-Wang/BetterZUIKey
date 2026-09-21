@@ -79,6 +79,9 @@ class AppPickerActivity : AppCompatActivity() {
 
     private fun updateCount() {
         binding.tvSelectedCount.text = getString(R.string.app_picker_selected_count, selected.size)
+        // 一个都没选时禁用「完成」：否则点了会被上层当空结果直接丢掉，
+        // 界面上看起来就是"按了没反应"。禁用掉，状态一眼可见。
+        binding.btnDone.isEnabled = selected.isNotEmpty()
     }
 
     // ── Adapter ──
@@ -116,6 +119,11 @@ class AppPickerActivity : AppCompatActivity() {
                 current = app
                 tv.text = app.display()
                 cb.isChecked = selected.contains(app.packageName)
+
+                // 勾选框只显示状态，不许自己吃触摸：它一旦可点，点击就到不了整行，
+                // selected 不会更新，界面却是勾上的（踩过：按完成返回空列表，看起来"没下文"）
+                cb.isClickable = false
+                cb.isFocusable = false
 
                 itemView.setOnClickListener {
                     val pkg = app.packageName
