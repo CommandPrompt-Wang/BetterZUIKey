@@ -83,6 +83,14 @@ data class IMEProfile(
                 name = "Sogou OEM",
                 uuid = "bzuikey-builtin-framework-sogou-oem-0101",
                 enabledRaw = false
+            ),
+            // 微信输入法的框架模式：同上，默认存在、默认关闭。
+            IMEProfile(
+                ime = "com.tencent.wetype",
+                strategy = Strategy.framework,
+                name = "微信输入法",
+                uuid = "bzuikey-builtin-framework-wetype-0103",
+                enabledRaw = false
             )
         )
 
