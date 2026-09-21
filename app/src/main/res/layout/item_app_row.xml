@@ -10,10 +10,15 @@
     android:minHeight="48dp"
     android:background="?attr/selectableItemBackground">
 
+    <!-- 勾选框自己不许吃触摸：它一旦可点，点击就被它吞掉，行的监听器收不到，
+         于是"看着勾上了、selected 还是空的"，按完成等于什么都没选。
+         所以点击一律交给整行（itemView），勾选框只负责显示状态。 -->
     <CheckBox
         android:id="@+id/cb_selected"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:clickable="false"
+        android:focusable="false" />
 
     <TextView
         android:id="@+id/tv_app_name"
