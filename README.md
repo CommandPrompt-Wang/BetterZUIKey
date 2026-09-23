@@ -71,6 +71,8 @@ BetterZUIKey 是一个 [LSPosed](https://github.com/LSPosed/LSPosed) 模块，�
 
 用法：在「输入法增强 → 输入法适配管理 → 使用系统框架」里勾上对应输入法，由框架接管语言切换；需要适配的内部行为则由组件模块负责。
 
+> **如果要新增输入法插件，请提交 [issue](https://github.com/CommandPrompt-Wang/BetterZUIKey/issues/new?template=new-ime-plugin.yml)**（选择「🧩 新增输入法插件」模板）。
+
 ## 层次架构
 
 ZUXOS 的键盘快捷键分发有五层（L0~L4），BetterZUIKey 在其中 4 层都插入了拦截点：
