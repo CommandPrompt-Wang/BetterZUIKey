@@ -69,6 +69,8 @@ Since v1.7.0, BZK no longer hooks IME processes itself (the former DexKit strate
 
 How to use: check the input method under "IME Enhancement → Input Method Adaptation Management → Use System Framework" so the framework takes over language switching; internal behaviors are then handled by the component module.
 
+> **To request a new IME plugin, please submit an [issue](https://github.com/CommandPrompt-Wang/BetterZUIKey/issues/new?template=new-ime-plugin.yml)** (choose the "🧩 New IME Plugin" template).
+
 ## Architecture
 
 ZUXOS's keyboard shortcut dispatch has five layers (L0–L4). BetterZUIKey inserts interception points at 4 of them:

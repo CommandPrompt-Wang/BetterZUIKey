@@ -1,0 +1,43 @@
+name: "🧩 新增输入法插件 / New IME Plugin"
+description: "请求为特定输入法开发适配插件 / Request an adaptation plugin for a specific input method."
+title: "[IME Plugin]: "
+labels: ["enhancement", "triage"]
+body:
+
+  - type: checkboxes
+    attributes:
+      label: "确认 / Confirmation"
+      options:
+        - label: "我已确认本报告没有与已有议题或插件重复 / I confirm this report does not duplicate existing issues or plugins"
+          required: true
+
+  - type: input
+    id: package_name
+    attributes:
+      label: "包名 / Package name"
+      description: "在此输入请求应用的包名 / Enter the package name of the request application here"
+      placeholder: "com.example.package"
+    validations:
+      required: true
+
+  - type: checkboxes
+    attributes:
+      label: "需要弥补的缺陷 / Defects to address"
+      description: "可多选 / Multiple selections allowed"
+      options:
+        - label: "暴露输入法内置语言（subtype）以接轨系统框架 / Expose the IME's built-in languages (subtypes) to the system framework"
+        - label: "引号/括号自动完成 / Quote & bracket auto-pairing"
+        - label: "全角字符修复 / Full-width character fixes"
+        - label: "其它问题（请在下面补充） / Other issues (please specify below)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: other_issues
+    attributes:
+      label: "其它需要修复的问题 / Other issues to fix"
+      description: "一行一个 / One per line"
+      placeholder: |
+        ...
+    validations:
+      required: false
