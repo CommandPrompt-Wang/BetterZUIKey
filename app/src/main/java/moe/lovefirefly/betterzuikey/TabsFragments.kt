@@ -307,14 +307,15 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
     /** RecyclerView Adapter — 48 条静态数据，直接字段访问，不使用反射 */
     inner class ShortcutAdapter : RecyclerView.Adapter<ShortcutAdapter.VH>() {
 
-        /** 所有 Spinner 统一固定最小宽度（px），按全部可能文本的最宽值一次性计算 */
+        /**
+         * 所有 Spinner 统一固定宽度（px），按全部可能文本的最宽值一次性计算。
+         *
+         * <p>全表共用一个值 —— 包括 Win 单按那张「映射到…」卡片。它的文案
+         * （`映射到…（Ctrl+Shift+A）`）比五档长，放不下时按单行省略号截断；
+         * 之前给它单独放宽会让整行跟别的卡片对不齐，得不偿失。
+         */
         private var spinnerFixedMinWidth: Int = 0
 
-        /**
-         * metaSingle 专用宽度：「映射到…（Ctrl+Shift+A）」比五档文案长不少，
-         * 全表统一加宽会挤掉其它卡片的描述文字，所以只给这一张卡放宽。
-         */
-        private var spinnerMapWidth: Int = 0
         /** 当前展开的 Spinner 所在 position，-1 表示无 */
         private var openSpinnerPos = -1
         /** 搜索过滤后的列表 */
@@ -416,20 +417,9 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 // 额外留出 dropdown 图标 + 内边距空间
                 spinnerFixedMinWidth = maxTextW + b.spAction.paddingLeft +
                     b.spAction.paddingRight + 48
-
-                // metaSingle 的「映射到…」卡片另算一个更宽的档位（示例取中等长度的组合键）
-                val mapTextW = maxOf(
-                    MetaSingleUiMode.entries.maxOf {
-                        paint.measureText(it.displayName(ctx)).toInt()
-                    },
-                    paint.measureText(
-                        ctx.getString(R.string.mode_meta_single_map_set, "Ctrl+Shift+A")
-                    ).toInt(),
-                )
-                spinnerMapWidth = mapTextW + b.spAction.paddingLeft +
-                    b.spAction.paddingRight + 48
             }
-            // 固定宽度（不仅是 minWidth），防止 setText 不同文本时宽度抖动
+            // 固定宽度（不仅是 minWidth），防止 setText 不同文本时宽度抖动。
+            // 所有卡片（含 metaSingle）都用这一个值，保证整列对齐。
             applySpinnerWidth(b, spinnerFixedMinWidth)
             return VH(b)
         }
@@ -467,12 +457,8 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 val switchState = ShortcutMeta.getSwitch(cfg, switchKey)
                 val overrideMode = ShortcutMeta.getOverride(cfg, overrideKey)
 
-                // metaSingle 的「映射到…」文案更长，单独放宽它的 Spinner
-                applySpinnerWidth(
-                    b,
-                    if (ShortcutMeta.usesMetaSingleMode(meta.key)) spinnerMapWidth
-                    else spinnerFixedMinWidth
-                )
+                // 宽度在 onCreateViewHolder 里一次性设定，全表统一（含 metaSingle），
+                // 这里不再按卡片改宽度 —— 见 spinnerFixedMinWidth 的注释。
 
                 // ── 始终先清空所有视图状态，防止 RecyclerView 复用残留旧数据 ──
                 b.tvName.text = meta.displayName(requireContext())
