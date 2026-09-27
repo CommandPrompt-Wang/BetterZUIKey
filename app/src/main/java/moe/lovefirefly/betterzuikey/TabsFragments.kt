@@ -864,7 +864,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 b.root.setOnLongClickListener {
                     if (ShortcutMeta.getMetaSingleUiMode(cfg) == MetaSingleUiMode.MAP) {
                         MetaSingleMapDialog.show(
-                            ctx,
+                            ctx, cfg,
                             onCancelled = { notifyItemChanged(pos) },
                             onChanged = { notifyItemChanged(pos) },
                         )
@@ -876,17 +876,15 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                     openSpinnerPos = -1
                     val selected = modes[itemPos]
                     if (selected == MetaSingleUiMode.MAP) {
-                        // 先不落盘，等录制窗口真的设置了目标再切档；
-                        // 取消（或没录到）就回退到进来之前那一档。
-                        val previous = current
+                        // 先不落盘，等录制窗口真的设置了目标再切档。
+                        // 必须把卡片自己的 cfg 传进去（而不是让弹窗 Config.load()）：
+                        // 这里显示的下拉文案读的就是 cfg，另开一份实例存盘会让本卡片
+                        // 继续显示旧档位，并且下一次 cfg.save() 会把刚录好的映射覆盖掉。
                         MetaSingleMapDialog.show(
-                            ctx,
-                            onCancelled = {
-                                ShortcutMeta.setMetaSingleUiMode(cfg, previous)
-                                cfg.save()
-                                Config.syncToSharedPrefs(ctx, cfg)
-                                notifyItemChanged(pos)
-                            },
+                            ctx, cfg,
+                            // 取消不动盘：弹窗只在真的存了的时候才改 cfg，
+                            // 这里重绑一次就把下拉框里被点选中的「映射到…」文案还原了。
+                            onCancelled = { notifyItemChanged(pos) },
                             onChanged = { notifyItemChanged(pos) },
                         )
                         return@setOnItemClickListener
@@ -918,10 +916,33 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
         binding.recycler.adapter = SettingsAdapter(this)
     }
 
+    /** 每次进入本页重新读盘：见 [SettingsAdapter.reload] 的注释。 */
+    override fun onResume() {
+        super.onResume()
+        val rv = view?.findViewById<RecyclerView>(R.id.recycler) ?: return
+        (rv.adapter as? SettingsAdapter)?.reload()
+    }
+
     class SettingsAdapter(private val host: Fragment) : RecyclerView.Adapter<SettingsAdapter.VH>() {
 
         /** 当前展开的 Combo 位置，-1 表示全部收起。卡片点击时用于 toggle。 */
         private var openComboPos = -1
+
+        /**
+         * 本页唯一的那份 Config 实例 —— [items] 里所有读写闭包都指向它。
+         *
+         * <p>**必须每次进页重新加载**（[reload]）：适配器只建一次（ViewPager2 4 页常驻，
+         * `offscreenPageLimit = 3` 让 `onViewCreated` 不会再跑），若一直拿着进页那一刻的
+         * 旧快照，一来本页显示的是旧值，二来 `Config.save()` 写的是**整份** JSON，
+         * 之后在快捷键 / 模板页做的任何修改都会被这一份旧快照悄悄覆盖回去。
+         */
+        private var cfg: Config = Config.load()
+
+        /** 重新读盘并重绑列表（进入设置页时调用）。 */
+        fun reload() {
+            cfg = Config.load()
+            notifyDataSetChanged()
+        }
 
         // ── 卡片类型：Tap=点击跳转, Switch=开关, Combo=下拉多选, SwitchCombo=开关+下拉 ──
         sealed class SettingItem(val label: String, val desc: String = "") {
@@ -978,7 +999,8 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
 
         private val items: List<SettingItem> = run {
             val ctx = host.requireContext()
-            val cfg = Config.load()
+            // 注意：这里**不要**再取局部 cfg —— 直接引用成员 [cfg]，
+            // 这样 getChecked / getCurrentText / onChanged 都在调用时读当前那一份。
             listOf(
                 SettingItem.Switch(ctx.getString(R.string.settings_master_switch), ctx.getString(R.string.settings_master_switch_desc),
                     getChecked = { cfg.zuxKeyboardFuncEnabled },

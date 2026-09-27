@@ -27,8 +27,17 @@ object MetaSingleMapDialog {
      */
     private const val RECORDING_TTL_MS = 10 * 60 * 1000L
 
+    /**
+     * @param cfg 调用方（设置页）正在使用的那一份 Config 实例。
+     *
+     * <p>**必须传进来，不能在这里自己 [Config.load]**：卡片的下拉文案读的就是调用方
+     * 缓存的那一份，另开一份实例去写盘会出现两个问题 ——
+     * 界面上「映射到…」永远显示旧档位；之后调用方任何一次 `cfg.save()` 都会用
+     * 它那份没更新的 `metaSingleMap` 把刚录好的映射覆盖掉。
+     */
     fun show(
         context: Context,
+        cfg: Config,
         onCancelled: () -> Unit = {},
         onChanged: () -> Unit = {},
     ) {
@@ -38,7 +47,7 @@ object MetaSingleMapDialog {
         val btnCancel = view.findViewById<MaterialButton>(R.id.btn_meta_map_cancel)
         val btnSave = view.findViewById<MaterialButton>(R.id.btn_meta_map_save)
 
-        var captured = ShortcutMeta.getMetaSingleMap(Config.load())
+        var captured = ShortcutMeta.getMetaSingleMap(cfg)
         var saved = false
 
         val dialog = AlertDialog.Builder(context)
@@ -95,11 +104,11 @@ object MetaSingleMapDialog {
         btnCancel.setOnClickListener { dialog.dismiss() }
         btnSave.setOnClickListener {
             if (!captured.isSet) return@setOnClickListener
-            val latest = Config.load()
-            ShortcutMeta.setMetaSingleMap(latest, captured)
-            ShortcutMeta.setMetaSingleUiMode(latest, MetaSingleUiMode.MAP)
-            latest.save()
-            Config.syncToSharedPrefs(context, latest)
+            // 直接改写调用方那一份实例：界面下次 bind 读到的就是新值。
+            ShortcutMeta.setMetaSingleMap(cfg, captured)
+            ShortcutMeta.setMetaSingleUiMode(cfg, MetaSingleUiMode.MAP)
+            cfg.save()
+            Config.syncToSharedPrefs(context, cfg)
             LogHelper.log(LogHelper.VerboseLevel.INFO,
                 "MetaSingleMap: saved ", captured.serialize())
             saved = true
