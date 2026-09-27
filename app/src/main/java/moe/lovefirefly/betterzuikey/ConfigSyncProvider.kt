@@ -38,6 +38,18 @@ class ConfigSyncProvider : ContentProvider() {
         const val METHOD_GET_KEYBOARD_DETECT = "getKeyboardDetect"
         const val METHOD_SET_SHORTCUT_RECORDING = "setShortcutRecording"
         const val METHOD_GET_SHORTCUT_RECORDING = "getShortcutRecording"
+        /**
+         * 录制「映射到…」时，模块把在 L0 看到的按键上报回来。
+         *
+         * <p>为什么必须由模块上报：亮度键 / CapsLock / 单独的 Win 这些会被系统或 ZUI
+         * 在到达应用窗口之前吃掉，弹窗的 `OnKeyListener` 永远等不到它们 ——
+         * 只有 L0 能看到全部按键（键盘检测页用的也是这条路）。
+         */
+        const val METHOD_APPEND_RECORDED_KEY = "appendRecordedKey"
+        const val KEY_RECORDED_KEY = "recorded_key"
+        const val KEY_RECORDED_META = "recorded_meta"
+        /** 上报队列（`keyCode,metaState` 每行一条）。App 与 Provider 同进程，直接读即可。 */
+        const val PREF_RECORDED_QUEUE = "recorded_key_queue"
         const val METHOD_RUN_APP_KEY_COMMAND = "runAppKeyCommand"
         const val METHOD_OPEN_APP_KEY_EDITOR = "openAppKeyCommandEditor"
         const val KEY_OPEN_APP_KEY_EDITOR = "open_app_key_editor"
@@ -162,6 +174,26 @@ class ConfigSyncProvider : ContentProvider() {
                 val until = prefs?.getLong(PREF_SHORTCUT_RECORDING, 0L) ?: 0L
                 val active = until > android.os.SystemClock.elapsedRealtime()
                 Bundle().apply { putBoolean(KEY_SHORTCUT_RECORDING, active) }
+            }
+            METHOD_APPEND_RECORDED_KEY -> {
+                // 每次按键一条，量很小（弹窗每 50ms drain 一次）。
+                // 这里只做最轻的读改写，避免阻塞 L0 的输入线程。
+                val kc = extras?.getInt(KEY_RECORDED_KEY, 0) ?: 0
+                val meta = extras?.getInt(KEY_RECORDED_META, 0) ?: 0
+                val prefs = context?.getSharedPreferences(
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
+                if (kc != 0 && prefs != null) {
+                    val old = prefs.getString(PREF_RECORDED_QUEUE, "") ?: ""
+                    val entry = "$kc,$meta"
+                    val next = when {
+                        // 兜底：弹窗没在 drain（异常退出）时不让队列无限长
+                        old.isEmpty() -> entry
+                        old.length > 4096 -> entry
+                        else -> "$old\n$entry"
+                    }
+                    prefs.edit().putString(PREF_RECORDED_QUEUE, next).apply()
+                }
+                null
             }
             METHOD_RUN_APP_KEY_COMMAND -> {
                 val script = extras?.getString(KEY_APP_KEY_SCRIPT) ?: return@call null

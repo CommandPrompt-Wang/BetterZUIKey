@@ -40,7 +40,12 @@ public class L0Interceptor  {
 
         // 设置页正在录制「映射到…」：模块和 ZUI 全都不处理、不消费，
         // 让按键原样落到弹窗的输入框（否则录不到已被占用的组合）。
+        // 同时把这一路看到的键上报给弹窗 —— 亮度键 / CapsLock / 单独的 Win
+        // 会被系统或 ZUI 在到达应用窗口前吃掉，只有这里看得到。
         if (ctx.isShortcutRecording()) {
+            if (down && repeatCount == 0) {
+                ctx.configIPC.appendRecordedKey(keyCode, event.getMetaState());
+            }
             param.setResult(false);
             return;
         }

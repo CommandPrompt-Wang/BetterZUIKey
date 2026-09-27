@@ -1,5 +1,6 @@
 package moe.lovefirefly.betterzuikey
 
+import android.view.KeyEvent
 import moe.lovefirefly.betterzuikey.Config.Config
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -85,6 +86,20 @@ class MetaSingleMapTest {
         assertTrue(cfg.metaSingleMapEnabled)
         assertEquals(MetaSingleUiMode.MAP, ShortcutMeta.getMetaSingleUiMode(cfg))
         assertEquals(29, ShortcutMeta.getMetaSingleMap(cfg).keyCode)
+    }
+
+    @Test
+    fun keyName_usesFriendlyNamesForModifiersAndBrightness() {
+        // 单独把 Win / Ctrl / Shift 映射成一个键是支持的需求，
+        // 名字不该显示成 MetaLeft / CtrlRight。
+        // （只断言显式命名的分支：其余走 KeyEvent.keyCodeToString，JVM 单测里没有实现）
+        assertEquals("Ctrl", MetaKeyMap.keyName(KeyEvent.KEYCODE_CTRL_LEFT))
+        assertEquals("Ctrl", MetaKeyMap.keyName(KeyEvent.KEYCODE_CTRL_RIGHT))
+        assertEquals("Shift", MetaKeyMap.keyName(KeyEvent.KEYCODE_SHIFT_LEFT))
+        assertEquals("Alt", MetaKeyMap.keyName(KeyEvent.KEYCODE_ALT_LEFT))
+        assertEquals("Win", MetaKeyMap.keyName(KeyEvent.KEYCODE_META_LEFT))
+        assertEquals("Brightness+", MetaKeyMap.keyName(KeyEvent.KEYCODE_BRIGHTNESS_UP))
+        assertEquals("Brightness-", MetaKeyMap.keyName(KeyEvent.KEYCODE_BRIGHTNESS_DOWN))
     }
 
     @Test

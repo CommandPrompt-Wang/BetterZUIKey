@@ -181,6 +181,30 @@ public class ConfigIPCManager {
     }
 
     /**
+     * 录制「映射到…」时，把模块在 L0 看到的按键上报给 App 的录制弹窗。
+     *
+     * <p>亮度键 / CapsLock / 单独的 Win 这类键在到达应用窗口之前就被系统或 ZUI 吃掉，
+     * 弹窗自己的按键监听永远等不到；L0 能看到全部按键，所以由模块补上这一路。
+     * 只报「第一次按下」，弹窗那边按 keyCode 去重（窗口能收到的键它自己会处理）。
+     */
+    public void appendRecordedKey(int keyCode, int metaState) {
+        try {
+            if (mConfigResolver == null) return;
+            android.os.Bundle extras = new android.os.Bundle();
+            extras.putInt(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_RECORDED_KEY, keyCode);
+            extras.putInt(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_RECORDED_META, metaState);
+            mConfigResolver.call(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.METHOD_APPEND_RECORDED_KEY,
+                    null, extras);
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.DEBUG, "appendRecordedKey failed:", e.getMessage());
+        }
+    }
+
+    /**
      * Run a smart-key shell script in the module app process via ContentProvider IPC.
      * Default execution uses {@code /system/bin/sh -c}; {@code root=true} uses {@code su -c}.
      */

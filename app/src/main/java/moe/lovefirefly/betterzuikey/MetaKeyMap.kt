@@ -76,25 +76,19 @@ data class MetaKeyMap(
             }
         }
 
-        /** 修饰键本身不能单独作为映射目标。 */
-        @JvmStatic
-        fun isModifierKey(keyCode: Int): Boolean = when (keyCode) {
-            KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_SHIFT_RIGHT,
-            KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_CTRL_RIGHT,
-            KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.KEYCODE_ALT_RIGHT,
-            KeyEvent.KEYCODE_META_LEFT, KeyEvent.KEYCODE_META_RIGHT,
-            KeyEvent.KEYCODE_NUM_LOCK, KeyEvent.KEYCODE_CAPS_LOCK,
-            KeyEvent.KEYCODE_SCROLL_LOCK, KeyEvent.KEYCODE_FUNCTION,
-            -> true
-            else -> false
-        }
-
         /**
          * 友好的键名：**能打出字符的键就显示那个字符**（`.` 而不是 `PERIOD`），
          * 其余用 Android 的键码名去掉 `KEYCODE_` 前缀并转成 `SomeName`。
          */
         fun keyName(keyCode: Int): String {
             when (keyCode) {
+                // 修饰键：单独映射成它们时别显示成 CtrlLeft / MetaRight
+                KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_CTRL_RIGHT -> return "Ctrl"
+                KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_SHIFT_RIGHT -> return "Shift"
+                KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.KEYCODE_ALT_RIGHT -> return "Alt"
+                KeyEvent.KEYCODE_META_LEFT, KeyEvent.KEYCODE_META_RIGHT -> return "Win"
+                KeyEvent.KEYCODE_BRIGHTNESS_UP -> return "Brightness+"
+                KeyEvent.KEYCODE_BRIGHTNESS_DOWN -> return "Brightness-"
                 KeyEvent.KEYCODE_SPACE -> return "Space"
                 KeyEvent.KEYCODE_PERIOD -> return "."
                 KeyEvent.KEYCODE_COMMA -> return ","

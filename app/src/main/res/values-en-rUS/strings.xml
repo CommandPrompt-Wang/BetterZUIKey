@@ -289,13 +289,13 @@
     <!-- Win single-press "Map to…" mode -->
     <string name="mode_meta_single_map_unset">Map to… (not set)</string>
     <string name="mode_meta_single_map_set">Map to… (%1$s)</string>
-    <string name="dialog_meta_single_map_title">Map Win single-press</string>
-    <string name="dialog_meta_single_map_hint">Press the key or combo to map. A tap on Esc / Backspace records that key itself; long-press Esc to cancel, long-press Backspace to clear.</string>
+    <string name="dialog_meta_single_map_title">Map shortcut</string>
+    <string name="dialog_meta_single_map_hint">Long-press Esc to cancel, long-press Backspace to clear.</string>
     <string name="dialog_meta_single_map_waiting">Press a key…</string>
     <string name="dialog_meta_single_map_clear">Clear</string>
     <string name="dialog_meta_single_map_save">OK</string>
     <string name="dialog_meta_single_map_cancel">Cancel</string>
-    <string name="dialog_meta_single_map_help">When Win is single-pressed, send the key or combo set here to the app instead.\nE.g. set it to Esc to make Win act as Esc, or Ctrl+C as a hotkey.\n\nAny single key and Ctrl / Shift / Alt combos are supported.</string>
+    <string name="dialog_meta_single_map_help">Press the shortcut. Single keys and combos are supported.</string>
 
     <!-- Ctrl+Enter custom mode labels -->
     <string name="mode_ctrl_enter_follow_system">Keep Default</string>
@@ -418,7 +418,7 @@
     <string name="shortcut_printScreenLong">Print Screen (long)</string>
     <string name="shortcut_printScreenLong_desc">Full screen screenshot</string>
     <string name="shortcut_metaSingle">%1$s (short press)</string>
-    <string name="shortcut_metaSingle_desc">Start menu\n⚠ Setting to Block also disables Meta long-press (voice assistant / IME switching)\nChoose "Map to…" to replace a Win tap with any key or combo</string>
+    <string name="shortcut_metaSingle_desc">Start menu\n⚠ Setting to Block also disables Meta long-press (voice assistant / IME switching)</string>
     <string name="shortcut_metaShortRow">Meta ROW (short press)</string>
     <string name="shortcut_metaShortRow_desc">Switch language (requires ROW + special keyboard)</string>
     <string name="shortcut_metaLongRow">Meta ROW (long press)</string>
