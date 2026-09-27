@@ -59,8 +59,6 @@ object MetaSingleMapDialog {
         val btnSave = view.findViewById<MaterialButton>(R.id.btn_meta_map_save)
 
         var captured = ShortcutMeta.getMetaSingleMap(cfg)
-        /** 进窗时原本就有映射 —— 空值保存时用它决定「撤回」还是落到「关闭」。 */
-        val hadMapping = captured.isSet
         var saved = false
 
         val dialog = AlertDialog.Builder(context)
@@ -153,22 +151,15 @@ object MetaSingleMapDialog {
         btnCancel.setOnClickListener { dialog.dismiss() }
         btnSave.setOnClickListener {
             if (!captured.isSet) {
-                // 空值也要有确定的行为，不能"点了没反应"：
-                //  · 本来就有映射 → 撤回（cfg 一动不动，旧映射保留，等价于取消）
-                //  · 本来就没映射 → 落到「关闭」，别停在「映射到…（未设置）」
-                //    这种看着生效、实际什么都不做的档位
-                if (hadMapping) {
-                    LogHelper.log(LogHelper.VerboseLevel.INFO,
-                        "MetaSingleMap: empty save → keep previous mapping")
-                    dialog.dismiss()   // saved 保持 false ⇒ onCancelled ⇒ 重绑回旧值
-                    return@setOnClickListener
-                }
+                // 空值保存 = 把映射清掉，档位落到「关闭」。
+                // 不做「撤回旧映射」：按了清除再确定却把旧值变回来太反直觉；
+                // 也不该停在「映射到…（未设置）」这种看着生效、实际什么都不做的档位。
                 ShortcutMeta.setMetaSingleMap(cfg, MetaKeyMap.UNSET)
                 ShortcutMeta.setMetaSingleUiMode(cfg, MetaSingleUiMode.OFF)
                 cfg.save()
                 Config.syncToSharedPrefs(context, cfg)
                 LogHelper.log(LogHelper.VerboseLevel.INFO,
-                    "MetaSingleMap: empty save → fallback to OFF")
+                    "MetaSingleMap: empty save → clear + OFF")
                 saved = true
                 dialog.dismiss()
                 return@setOnClickListener

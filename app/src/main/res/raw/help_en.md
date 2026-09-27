@@ -114,7 +114,7 @@ The physical Win **down** is withheld by the module; what happens is decided on 
 
 Picking this option opens a capture dialog: whatever key or combo you press is recorded (**any single key and any `Ctrl` / `Shift` / `Alt` combo are accepted** — unlike IME Enhancement, a modifier is not required). `Esc` / `Backspace` can themselves be the target: a tap records that key, while long-press `Esc` cancels and long-press `Backspace` clears. The dialog swallows every key while recording, so nothing leaks to the system.
 
-Collapsed, the dropdown shows just the key (e.g. `Ctrl+A`); the "Map to…" wording only appears in the expanded list. Pressing OK with an empty box keeps the existing mapping if there was one, and otherwise falls back to "Off" — it never leaves you in a "Map to… (not set)" state that looks active but does nothing.
+Collapsed, the dropdown shows just the key (e.g. `Ctrl+A`); the "Map to…" wording only appears in the expanded list. Pressing OK with an empty box clears the mapping and drops the card to "Off" (the same as picking "Off" in the list) — it never leaves a "Map to… (not set)" state that looks active but does nothing.
 
 | What you actually did | Foreground app receives | System |
 |-----------------------|-------------------------|--------|
