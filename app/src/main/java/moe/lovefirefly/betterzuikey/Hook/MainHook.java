@@ -134,6 +134,12 @@ public class MainHook extends XposedModule {
             LogHelper.log(VerboseLevel.INFO, "Installing L3 hook (PhoneWindowManager)...");
             hookL3_PhoneWindowManager();
 
+            LogHelper.log(VerboseLevel.INFO, "Installing KeyGestureController hook...");
+            hookKeyGestureController();
+
+            LogHelper.log(VerboseLevel.INFO, "Installing PhoneWindowManager system-keys hook...");
+            hookPhoneWindowManagerSystemKeys();
+
             LogHelper.log(VerboseLevel.INFO, "Installing L2 debug hook...");
             hookL2_DebugInterceptBeforeDispatching();
             if (MetaTrace.isTraceOnly()) {
@@ -619,6 +625,112 @@ public class MainHook extends XposedModule {
         }
         LogHelper.log(VerboseLevel.WARNING,
                 "L3 hook: PhoneWindowManager not found, AOSP shortcuts cannot be blocked");
+    }
+
+    /**
+     * 放行 Meta 的关键：AOSP {@code KeyGestureController} 对 keyCode 117/118 硬编码消费
+     * （DOWN 记账、UP 合成 type=21 → 开始菜单/程序坞）。不把这个消费点按下去，
+     * 模块在 L0/L1 无论怎么 consume + 重新注入都没用 —— 注入的 Meta 同样会被它吃掉，
+     * 这就是之前「要么吞了 keydown、要么漏了 keyup」的根因。
+     *
+     * <p>这里只在 metaSingle == OFF（放行）时把该方法结果强制为 false：
+     * 既不当作系统手势、也不合成事件，物理 Meta DOWN/UP 便自然派发给前台应用。
+     * Win+字母 等组合的 keyCode 不是 117/118，仍走系统快捷键表正常消费。
+     */
+    private void hookKeyGestureController() {
+        try {
+            Class<?> kgc = HookCompat.findClass(
+                    "com.android.server.input.KeyGestureController", mClassLoader);
+            if (kgc == null) {
+                LogHelper.log(VerboseLevel.WARNING,
+                        "KeyGestureController not found; Meta passthrough unavailable");
+                return;
+            }
+            HookCompat.hookMethod(
+                    this, kgc, "interceptSystemKeysAndShortcuts",
+                    new HookCompat.HookCallback() {
+                        @Override
+                        protected void beforeHookedMethod(HookCompat.HookParam param) {
+                            Object raw = param.args.length > 1 ? param.args[1] : null;
+                            if (!(raw instanceof KeyEvent)) return;
+                            KeyEvent event = (KeyEvent) raw;
+                            int keyCode = event.getKeyCode();
+                            if (keyCode != KeyEvent.KEYCODE_META_LEFT
+                                    && keyCode != KeyEvent.KEYCODE_META_RIGHT) {
+                                return;
+                            }
+                            ctx.checkConfigChanged();
+                            if (ctx.isMetaIntercepted()) {
+                                param.setResult(false);
+                                MetaTrace.decision("KGC", "pass Meta",
+                                        event.getAction() == KeyEvent.ACTION_DOWN ? "DOWN" : "UP");
+                            }
+                        }
+                    },
+                    IBinder.class, KeyEvent.class);
+            LogHelper.log(VerboseLevel.INFO,
+                    "KeyGestureController hook installed (interceptSystemKeysAndShortcuts)");
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR,
+                    "KeyGestureController hook failed:", t.getMessage());
+        }
+    }
+
+    /**
+     * 放行 Meta 的第二个必拆点：AOSP {@code PhoneWindowManager.interceptSystemKeysAndShortcuts()}。
+     *
+     * <p>该方法尾部等价于：
+     * <pre>
+     *   if ((event.getMetaState() &amp; KeyEvent.META_META_ON) != 0) {
+     *       return true;   // 消费：不派发给前台应用
+     *   }
+     *   return false;
+     * </pre>
+     * 也就是「只要 Win 处于按下状态，这个事件就不给应用」。Meta 自身的 DOWN/UP 的
+     * metaState 同样带着 {@code META_META_ON}，所以物理 Meta 会被它整条吞掉 ——
+     * 这才是「KeyGestureController 已经放行、应用却仍然收不到」的根因。
+     *
+     * <p>这里只对 keyCode 117/118 把结果强制为 false。{@code Win+字母} 的 keyCode
+     * 不是 Meta 键（且这类组合在 {@code KeyGestureController} 就已被 Type 1/300+ 消费，
+     * 根本走不到这里），因此不受影响。
+     */
+    private void hookPhoneWindowManagerSystemKeys() {
+        try {
+            HookCompat.hookMethod(
+                    this, "com.android.server.policy.PhoneWindowManager", mClassLoader,
+                    "interceptSystemKeysAndShortcuts",
+                    new HookCompat.HookCallback() {
+                        @Override
+                        protected void beforeHookedMethod(HookCompat.HookParam param) {
+                            Object raw = param.args.length > 1 ? param.args[1] : null;
+                            if (!(raw instanceof KeyEvent)) return;
+                            KeyEvent event = (KeyEvent) raw;
+                            int keyCode = event.getKeyCode();
+                            if (keyCode != KeyEvent.KEYCODE_META_LEFT
+                                    && keyCode != KeyEvent.KEYCODE_META_RIGHT) {
+                                return;
+                            }
+                            ctx.checkConfigChanged();
+                            String phase = event.getAction() == KeyEvent.ACTION_DOWN ? "DOWN" : "UP";
+                            if (ctx.isMetaIntercepted()) {
+                                param.setResult(false);
+                                MetaTrace.decision("PWM", "pass Meta", phase,
+                                        " metaState=0x",
+                                        Integer.toHexString(event.getMetaState()));
+                            } else {
+                                MetaTrace.decision("PWM", "consume Meta", phase,
+                                        " metaState=0x",
+                                        Integer.toHexString(event.getMetaState()));
+                            }
+                        }
+                    },
+                    IBinder.class, KeyEvent.class);
+            LogHelper.log(VerboseLevel.INFO,
+                    "PhoneWindowManager.interceptSystemKeysAndShortcuts hook installed");
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR,
+                    "PhoneWindowManager system-keys hook failed:", t.getMessage());
+        }
     }
 
     private void hookL2_DebugInterceptBeforeDispatching() {

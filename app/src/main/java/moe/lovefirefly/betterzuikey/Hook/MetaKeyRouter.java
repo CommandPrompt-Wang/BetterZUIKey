@@ -4,6 +4,7 @@ import android.view.KeyEvent;
 
 import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Config.Config.IMEBinding;
+import moe.lovefirefly.betterzuikey.MetaKeyMap;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 
@@ -26,6 +27,9 @@ public class MetaKeyRouter {
         int keyCode = event.getKeyCode();
         if (keyCode != KeyEvent.KEYCODE_META_LEFT
                 && keyCode != KeyEvent.KEYCODE_META_RIGHT) {
+            return;
+        }
+        if (ctx.isSyntheticMetaTap(event)) {
             return;
         }
         int scanCode = event.getScanCode();
@@ -64,9 +68,11 @@ public class MetaKeyRouter {
         // IME long-press (500ms) fires on ALL keyboards — ZUI handles voice
         // natively, not IME switching. Voice timer (2s) only on non-zuiMeta
         // keyboards; zuiMeta ones rely on our hook of mLaunchAssistantRunnable.
+        // 放行模式绕过了 ZUI 的 Meta 处理，zuiMeta 键盘也必须由模块自己武装，
+        // 否则语音助手的 2s 长按会整个失效。
         if (imeWinActive) {
             armModuleLongPress(true, event);
-        } else if (!zuiMeta) {
+        } else if (!zuiMeta || ctx.isMetaIntercepted()) {
             armModuleLongPress(false, event);
         }
     }
@@ -85,10 +91,16 @@ public class MetaKeyRouter {
         if (event.getAction() != KeyEvent.ACTION_UP || event.getRepeatCount() != 0) {
             return false;
         }
+        if (ctx.isSyntheticMetaTap(event)) {
+            return false;
+        }
         int scanCode = event.getScanCode();
         if (scanCode == 0) {
             MetaTrace.decision("Router", "skip UP sc=0");
             return false;
+        }
+        if (ctx.isMetaIntercepted()) {
+            return consumePassthroughUp(param, event);
         }
 
         Config.OverrideMode metaSingle = ctx.ra("metaSingle", ctx.cfg.overrideMetaSingle);
@@ -190,6 +202,55 @@ public class MetaKeyRouter {
         return true;
     }
 
+    /**
+     * 放行 / 映射模式（{@code metaSingle = 关闭 | 映射到…}）的 UP 决策。
+     * <p>
+     * 物理 DOWN 已在 L1 被扣押，所以这里必须消费物理 UP（否则应用会收到一个没有
+     * DOWN 的孤立 UP，修饰键状态就卡住了）。是否把 Win 交给前台应用取决于这一轮
+     * 到底是「单按」还是「组合键」：
+     * <ul>
+     *   <li>独立单击（未长按 / 未被 Fn 映射 / 期间没有别的键按下）→ 按模式决定：
+     *       <b>关闭</b>注入一对合成的 Meta DOWN/UP（等价于把 Win 单击放行给应用）；
+     *       <b>映射到…</b>改为注入配置好的按键 / 组合键（Win 单击被替换掉）；</li>
+     *   <li>Win+字母（{@link HookContext#noteWinComboDuringMetaSession} 已置
+     *       {@code winComboUsed}）/ 长按已触发 / Fn 映射过 → 应用完全看不到 Win，
+     *       组合键对应用保持原子（否则远端桌面会把 Win 当独立按键 → 弹开始菜单）。</li>
+     * </ul>
+     */
+    private boolean consumePassthroughUp(HookCompat.HookParam param, KeyEvent event) {
+        boolean standalone = ctx.metaSession.active
+                && ctx.metaSession.isShortPress()
+                && !ctx.metaSession.longFired
+                && !ctx.metaSession.fnMapped
+                && !ctx.metaSession.winComboUsed;
+        ctx.fnKeyManager.cancelWinLongPressTimer();
+        ctx.cancelZuiAssistantTimer();
+        if (standalone) {
+            if (ctx.isMetaMapped()) {
+                MetaKeyMap map = MetaKeyMap.parse(ctx.cfg.metaSingleMap);
+                MetaTrace.decision("Router", "mapped UP → inject mapped key",
+                        " kc=", String.valueOf(map.getKeyCode()),
+                        " ctrl=", String.valueOf(map.getCtrl()),
+                        " shift=", String.valueOf(map.getShift()),
+                        " alt=", String.valueOf(map.getAlt()));
+                ctx.armRemapInject();
+                KeyInjector.injectCombo(map, ctx.metaSession.deviceId);
+            } else {
+                MetaTrace.decision("Router", "passthrough UP → inject Meta tap",
+                        " kc=", String.valueOf(event.getKeyCode()));
+                KeyInjector.injectMetaTap(event);
+            }
+        } else {
+            MetaTrace.decision("Router", "passthrough UP → swallow Win",
+                    " combo=", String.valueOf(ctx.metaSession.winComboUsed),
+                    " long=", String.valueOf(ctx.metaSession.longFired),
+                    " fn=", String.valueOf(ctx.metaSession.fnMapped));
+        }
+        ctx.metaSession.clear();
+        param.setResult(true);
+        return true;
+    }
+
     private void armModuleLongPress(boolean imeWinActive, KeyEvent event) {
         android.os.Handler looperSource = ctx.resolvePolicyHandler();
         if (imeWinActive) {
@@ -241,7 +302,8 @@ public class MetaKeyRouter {
             return;
         }
         Config.OverrideMode mode = getWinLongOverride();
-        if (mode == Config.OverrideMode.ZUI) {
+        if (mode == Config.OverrideMode.ZUI
+                || (ctx.isMetaIntercepted() && mode == Config.OverrideMode.FOLLOW_SYSTEM)) {
             MetaTrace.decision("Router", "module long → voice");
             PassthroughTrace.noteMsg("Router", "voice timer fired → launchVoiceAssistant");
             LogHelper.log(VerboseLevel.INFO, "MetaRouter: module long → voice (2s fired)");
@@ -255,6 +317,10 @@ public class MetaKeyRouter {
             return false;
         }
         ctx.checkConfigChanged();
+        if (ctx.isMetaIntercepted()) {
+            MetaTrace.decision("Assistant", "passthrough/mapped → suppress long-press");
+            return true;
+        }
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled) {
             return false;
         }
@@ -306,7 +372,11 @@ public class MetaKeyRouter {
 
     private boolean isWinLongTimerEnabled() {
         if (isWinLongUseCommand()) return true;
-        return getWinLongOverride() == Config.OverrideMode.ZUI;
+        Config.OverrideMode mode = getWinLongOverride();
+        if (mode == Config.OverrideMode.ZUI) return true;
+        // 放行 / 映射模式绕过了 ZUI 自己针对 Meta 的长按处理，「保持默认」必须由模块
+        // 复刻系统默认行为（长按 → 语音助手），否则语音助手会整个消失。
+        return ctx.isMetaIntercepted() && mode == Config.OverrideMode.FOLLOW_SYSTEM;
     }
 
     private boolean isImeWinActive() {

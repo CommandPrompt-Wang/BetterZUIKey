@@ -52,6 +52,25 @@ enum class WinLongPressUiMode {
 }
 
 /**
+ * Win 单按卡片 UI 六档模式 —— 在标准五档之外多一档「映射到…」。
+ *
+ * <p>`MAP` 的文案是动态的（要带上当前映射目标），所以 [displayName] 只给兜底值，
+ * 实际显示由设置页用 [MetaKeyMap.optionLabel] 生成。
+ */
+enum class MetaSingleUiMode {
+    FOLLOW_SYSTEM, ZUI, AOSP, OFF, BLOCK, MAP;
+
+    fun displayName(context: Context): String = when (this) {
+        FOLLOW_SYSTEM -> context.getString(R.string.mode_follow_system)
+        ZUI -> context.getString(R.string.mode_zui)
+        AOSP -> context.getString(R.string.mode_aosp)
+        OFF -> context.getString(R.string.mode_off)
+        BLOCK -> context.getString(R.string.mode_block)
+        MAP -> context.getString(R.string.mode_meta_single_map_unset)
+    }
+}
+
+/**
  * 快捷方式元数据 — UI 渲染所需信息。
  *
  * @param key             主 Config 字段 key（如 "winUp"）
@@ -62,7 +81,7 @@ enum class WinLongPressUiMode {
  * @param hasAosp         有 AOSP 原生实现
  * @param hasSystemSwitch 系统设置有 GUI 开关
  * @param showAospOption  Whether to show AOSP as a selectable option in the dropdown.
- * @param showOffOption  Whether to show OFF (passthrough) in the dropdown. metaSingle excludes it.
+ * @param showOffOption  Whether to show OFF (passthrough) in the dropdown.
  * @param showSwitch      Whether to show the switch control.
  * @param cardClick       卡片点击行为。默认 AUTO
  * @param onSpinSelectedNonDefault Spinner 选中非默认项时的附加行为。
@@ -112,7 +131,7 @@ data class ShortcutMeta(
                 groupKeys = listOf("winRight")),
 
             // ═══ Win (Meta) 单键 ═══
-            ShortcutMeta("metaSingle",       R.string.shortcut_metaSingle,       R.string.shortcut_metaSingle_desc,       hasZui = true,  hasAosp = true, hasSystemSwitch = false, showOffOption = false),
+            ShortcutMeta("metaSingle",       R.string.shortcut_metaSingle,       R.string.shortcut_metaSingle_desc,       hasZui = true,  hasAosp = true, hasSystemSwitch = false),
             ShortcutMeta("winLongPress",     R.string.shortcut_winLongPress,     R.string.shortcut_winLongPress_desc,     hasZui = true,  hasSystemSwitch = false,
                 showOffOption = false, showAospOption = false,
                 onSpinSelectedNonDefault = OnSpinSelectedNonDefault.NOTHING),
@@ -185,6 +204,39 @@ data class ShortcutMeta(
                 }
             }
         }
+
+        /** Win 单按：六档模式（标准五档 + 映射到…）。 */
+        fun getMetaSingleUiMode(cfg: Config): MetaSingleUiMode = when {
+            cfg.metaSingleMapEnabled -> MetaSingleUiMode.MAP
+            cfg.overrideMetaSingle == Config.OverrideMode.BLOCK -> MetaSingleUiMode.BLOCK
+            cfg.overrideMetaSingle == Config.OverrideMode.OFF -> MetaSingleUiMode.OFF
+            cfg.overrideMetaSingle == Config.OverrideMode.AOSP -> MetaSingleUiMode.AOSP
+            cfg.overrideMetaSingle == Config.OverrideMode.ZUI -> MetaSingleUiMode.ZUI
+            else -> MetaSingleUiMode.FOLLOW_SYSTEM
+        }
+
+        fun setMetaSingleUiMode(cfg: Config, mode: MetaSingleUiMode) {
+            // 只有 MAP 打开映射开关；其余档位一律关掉，保证两套状态互斥
+            cfg.metaSingleMapEnabled = mode == MetaSingleUiMode.MAP
+            when (mode) {
+                MetaSingleUiMode.MAP -> Unit   // 保留 overrideMetaSingle 原值，便于取消时回退
+                MetaSingleUiMode.BLOCK -> cfg.overrideMetaSingle = Config.OverrideMode.BLOCK
+                MetaSingleUiMode.OFF -> cfg.overrideMetaSingle = Config.OverrideMode.OFF
+                MetaSingleUiMode.AOSP -> cfg.overrideMetaSingle = Config.OverrideMode.AOSP
+                MetaSingleUiMode.ZUI -> cfg.overrideMetaSingle = Config.OverrideMode.ZUI
+                MetaSingleUiMode.FOLLOW_SYSTEM -> cfg.overrideMetaSingle = Config.OverrideMode.FOLLOW_SYSTEM
+            }
+        }
+
+        /** Win 单按的映射目标；未设置时返回 [MetaKeyMap.UNSET]。 */
+        fun getMetaSingleMap(cfg: Config): MetaKeyMap = MetaKeyMap.parse(cfg.metaSingleMap)
+
+        fun setMetaSingleMap(cfg: Config, map: MetaKeyMap) {
+            cfg.metaSingleMap = map.serialize()
+        }
+
+        /** 该 card 是否使用专属的六档下拉（而非通用 OverrideMode 下拉）。 */
+        fun usesMetaSingleMode(key: String): Boolean = key == "metaSingle"
 
         fun getAppKeyMode(cfg: Config, key: String): Config.AppKeyMode = when (key) {
             "keyApp1" -> cfg.app1Mode
@@ -358,10 +410,7 @@ data class ShortcutMeta(
             "keyTpUp" -> cfg.overrideTpUp; "keyScreenLock" -> cfg.overrideScreenLock
             "printScreenShort" -> cfg.overridePrintScreenShort
             "printScreenLong" -> cfg.overridePrintScreenLong
-            "metaSingle" -> {
-                val v = cfg.overrideMetaSingle
-                if (v == Config.OverrideMode.OFF) Config.OverrideMode.BLOCK else v
-            }
+            "metaSingle" -> cfg.overrideMetaSingle
             "winLongPress" -> if (cfg.winLongUseCommand) {
                 Config.OverrideMode.ZUI
             } else {
@@ -411,8 +460,7 @@ data class ShortcutMeta(
                 "keyTpUp" -> cfg.overrideTpUp = value; "keyScreenLock" -> cfg.overrideScreenLock = value
                 "printScreenShort" -> cfg.overridePrintScreenShort = value
                 "printScreenLong" -> cfg.overridePrintScreenLong = value
-                "metaSingle" -> cfg.overrideMetaSingle =
-                    if (value == Config.OverrideMode.OFF) Config.OverrideMode.BLOCK else value
+                "metaSingle" -> cfg.overrideMetaSingle = value
                 "winLongPress" -> @Suppress("REDUNDANT_ELSE") when (value) {
                     Config.OverrideMode.BLOCK, Config.OverrideMode.OFF -> {
                         cfg.winLongUseCommand = false

@@ -75,14 +75,6 @@ public class ConfigResolver {
                 mode = globalValue;
             }
         }
-        return normalizeMetaSingle(key, mode);
-    }
-
-    /** metaSingle no longer supports OFF (passthrough); legacy OFF → BLOCK. */
-    private static Config.OverrideMode normalizeMetaSingle(String key, Config.OverrideMode mode) {
-        if ("metaSingle".equals(key) && mode == Config.OverrideMode.OFF) {
-            return Config.OverrideMode.BLOCK;
-        }
         return mode;
     }
 

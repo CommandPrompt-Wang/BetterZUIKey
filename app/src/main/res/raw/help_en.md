@@ -96,6 +96,34 @@ Also has its own options (not the five modes above):
 
 If IME Enhancement binds Win long-press to switching while accepting text, IME switch (500ms) takes priority; the table above applies when not accepting text.
 
+**Special case: Win single-press set to Off (pass-through)**
+
+The physical Win **down** is withheld by the module; what happens is decided on release:
+
+| What you actually did | Foreground app receives | System |
+|-----------------------|-------------------------|--------|
+| Quick tap on Win | A restored Meta down/up pair | Dock does not open |
+| Win + letter (e.g. `Win+E`) | Only the letter, **no** Win | ZUI shortcut handled as usual |
+| Long-press Win | Nothing | Per the "Win long-press" table above |
+
+> The down is withheld because a standalone tap can only be told apart from a Win inside a combo on release; withholding guarantees the Win in a combo never leaks to the app as an isolated press (a remote desktop would otherwise treat it as a standalone Start-menu click).
+>
+> Also, in pass-through mode the module bypasses ZUI's own Meta handling, so **Keep default** in the table above is emulated by the module (long-press → voice assistant).
+
+**Special case: Win single-press set to "Map to…"**
+
+Picking this option opens a capture dialog: whatever key or combo you press is recorded (**any single key and any `Ctrl` / `Shift` / `Alt` combo are accepted** — unlike IME Enhancement, a modifier is not required). `Backspace` clears, `Esc` cancels.
+
+| What you actually did | Foreground app receives | System |
+|-----------------------|-------------------------|--------|
+| Quick tap on Win | The configured key / combo (Win is **replaced**) | Dock does not open |
+| Win + letter (e.g. `Win+E`) | Only the letter, **no** Win | ZUI shortcut handled as usual |
+| Long-press Win | Nothing | Per the "Win long-press" table above |
+
+For example, set it to `Esc` to make a Win tap act as `Esc`, or `Ctrl+C` to make it a copy shortcut. The mapped modifiers are injected as **real key events** in sequence, so continuous operations that require holding Ctrl (Ctrl+drag in a remote desktop) still work.
+
+> While recording, the module temporarily hands off **all** keys — otherwise combos already claimed by the module (like `Ctrl+Shift+T`) could never be captured. That hand-off expires after 10 minutes, so a crash of the app mid-recording cannot leave the module permanently unresponsive.
+
 **Special case: Ctrl + Enter**
 
 Also uses independent options (not the standard five-mode table):

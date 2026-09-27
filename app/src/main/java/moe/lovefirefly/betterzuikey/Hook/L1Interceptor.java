@@ -31,6 +31,15 @@ public class L1Interceptor  {
             return;
         }
 
+        // 设置页录制「映射到…」中：不消费任何键，让它们进到弹窗的输入框
+        if (ctx.isShortcutRecording()) {
+            param.setResult(false);
+            return;
+        }
+
+        // 模块自己为「映射到…」注入的组合键：整体放行，避免二次消费
+        if (ctx.isRemapInjecting((KeyEvent) param.args[0])) return;
+
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
 
@@ -409,6 +418,28 @@ public class L1Interceptor  {
         // Meta key — DOWN only at L1 (UP handled at L0 beforeQueueing)
         if (keyCode == KeyEvent.KEYCODE_META_LEFT
                 || keyCode == KeyEvent.KEYCODE_META_RIGHT) {
+            // 放行模式注入的合成 Meta 点击：跳过 ZUI、原样放行
+            if (ctx.isSyntheticMetaTap(event)) {
+                param.setResult(false);
+                return;
+            }
+            // 放行模式（metaSingle == OFF）：ZUI 不处理 Meta（含 ROW 键盘 787345 的
+            // 切语言注入）。物理 DOWN 在这里**扣押**（应用看不到），因为此时还不知道
+            // 这是一次「单按 Win」还是「Win+字母组合键」；判定放到 L0 的 UP 上做——
+            // 期间若来了新键，noteWinComboDuringMetaSession() 会置 winComboUsed，
+            // UP 时就不再放行，避免组合键里的 Win 被应用当成独立按键。
+            if (ctx.isMetaIntercepted()) {
+                if (down) {
+                    new MetaKeyRouter(ctx).routeDownL1(event, param);
+                    if (!param.isReturnEarly()) {
+                        param.setResult(true);   // 扣押
+                        MetaTrace.decision("L1", "Meta passthrough → withhold DOWN");
+                    }
+                } else {
+                    param.setResult(false);
+                }
+                return;
+            }
             MetaTrace.event("L1", event, ctx);
             boolean consumedBefore = param.isReturnEarly();
             MetaKeyRouter router = new MetaKeyRouter(ctx);

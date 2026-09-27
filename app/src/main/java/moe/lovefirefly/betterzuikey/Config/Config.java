@@ -213,6 +213,18 @@ public class Config {
     /** Win 短按 开始菜单 (type=21) */
     public OverrideMode overrideMetaSingle = OverrideMode.FOLLOW_SYSTEM;
 
+    /**
+     * Win 单按：映射到指定按键 / 组合键。
+     * true → 独立单击 Win 时向应用注入 {@link #metaSingleMap}，忽略 {@link #overrideMetaSingle}。
+     * 与「忽略 Win 长按」同构：本字段是 {@code metaSingle} 卡片的第六档「映射到…」。
+     */
+    public boolean metaSingleMapEnabled = false;
+    /**
+     * Win 单按的映射目标。格式 {@code "keyCode:shift:ctrl:alt"}，例：
+     * {@code "29:1:1:0"} = Ctrl+Shift+A。空串 = 未设置。
+     */
+    public String metaSingleMap = "";
+
     /** Win 长按（非输入态）；输入态由输入法增强 WIN 绑定接管。与输入法增强 WIN 互斥 */
     /** FOLLOW_SYSTEM=透传由系统决定；ZUI=模块接管语音助手；BLOCK=忽略 */
     public OverrideMode overrideWinLongPress = OverrideMode.FOLLOW_SYSTEM;
@@ -573,8 +585,8 @@ public class Config {
         // 迁移旧配置：FORCED_ON/FO→ON/OFF（不再灰显）
         migrateSwitchStates(cfg);
 
-        // metaSingle 不再支持 OFF（透传）；旧 OFF → BLOCK 并写回
-        migrateMetaSingleOffToBlock(cfg);
+        // 注意：metaSingle 的 OFF 已恢复为「放行给应用」(passthrough)，
+        // 不再迁移到 BLOCK —— 见 HookContext.isMetaPassthrough()。
         migrateAppKeyModes(cfg);
         migrateWinLongPressConfig(cfg);
 
@@ -598,30 +610,6 @@ public class Config {
             }
         }
         if (changed) cfg.save();
-    }
-
-    /** metaSingle no longer supports OFF (passthrough); migrate stored OFF → BLOCK. */
-    private static void migrateMetaSingleOffToBlock(Config cfg) {
-        boolean changed = false;
-        if (cfg.overrideMetaSingle == OverrideMode.OFF) {
-            cfg.overrideMetaSingle = OverrideMode.BLOCK;
-            changed = true;
-        }
-        if (cfg.templates != null) {
-            for (KeyTemplate t : cfg.templates) {
-                if (t.overrides == null) continue;
-                PerKeyOverride ov = t.overrides.get("metaSingle");
-                if (ov != null && ov.overrideMode == OverrideMode.OFF) {
-                    ov.overrideMode = OverrideMode.BLOCK;
-                    changed = true;
-                }
-            }
-        }
-        if (changed) {
-            LogHelper.log(LogHelper.VerboseLevel.INFO,
-                    "Config: migrated metaSingle OFF → BLOCK");
-            cfg.save();
-        }
     }
 
     /** app1/app2LongPressOverride → app1/app2Mode（一次性语义映射） */
@@ -844,6 +832,8 @@ public class Config {
         switchCapsLock = SwitchState.ON;            overrideCapsLock = OverrideMode.OFF;
         overrideMetaSingle = OverrideMode.FOLLOW_SYSTEM;
         overrideWinLongPress = OverrideMode.FOLLOW_SYSTEM;
+        metaSingleMapEnabled = false;
+        metaSingleMap = "";
         winLongUseCommand = false;
         winLongCommand = "";
         configRevision = 2;

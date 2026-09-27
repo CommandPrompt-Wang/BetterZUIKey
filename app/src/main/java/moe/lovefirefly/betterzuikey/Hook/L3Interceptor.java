@@ -24,6 +24,9 @@ public class L3Interceptor  {
             return;
         }
 
+        // 录制「映射到…」中：手势层也不处理
+        if (ctx.isShortcutRecording()) return;
+
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
 
@@ -104,7 +107,10 @@ public class L3Interceptor  {
                         if (MetaTrace.isTraceOnly()) {
                             break;
                         }
-                        if (metaOverride == Config.OverrideMode.BLOCK) {
+                        if (metaOverride == Config.OverrideMode.BLOCK
+                                || metaOverride == Config.OverrideMode.OFF) {
+                            // BLOCK: 消费；OFF(放行): 不应再出现 type=21（KeyGestureController
+                            // 已放行），这里兜底阻止任何残留的开始菜单手势。
                             MetaTrace.decision("L3", "BLOCK type=21", metaOverride.name());
                             param.setResult(null);
                             return;

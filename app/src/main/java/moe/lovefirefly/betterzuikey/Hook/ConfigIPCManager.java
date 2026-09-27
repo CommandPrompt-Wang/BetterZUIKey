@@ -163,6 +163,23 @@ public class ConfigIPCManager {
         }
     }
 
+    /** Read the「映射到…」shortcut-recording flag via ContentProvider (app → system_server). */
+    public boolean isShortcutRecording() {
+        try {
+            if (mConfigResolver == null) return false;
+            Bundle result = mConfigResolver.call(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.METHOD_GET_SHORTCUT_RECORDING,
+                    null, null);
+            if (result == null) return false;
+            return result.getBoolean(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_SHORTCUT_RECORDING, false);
+        } catch (Exception e) {
+            LogHelper.log(VerboseLevel.DEBUG, "isShortcutRecording failed:", e.getMessage());
+            return false;
+        }
+    }
+
     /**
      * Run a smart-key shell script in the module app process via ContentProvider IPC.
      * Default execution uses {@code /system/bin/sh -c}; {@code root=true} uses {@code su -c}.
