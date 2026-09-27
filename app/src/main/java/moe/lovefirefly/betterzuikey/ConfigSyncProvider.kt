@@ -50,6 +50,12 @@ class ConfigSyncProvider : ContentProvider() {
         const val KEY_RECORDED_META = "recorded_meta"
         /** 上报队列（`keyCode,metaState` 每行一条）。App 与 Provider 同进程，直接读即可。 */
         const val PREF_RECORDED_QUEUE = "recorded_key_queue"
+
+        /**
+         * 录制标志的**硬上限**。弹窗自己用的是 10 分钟；这里再夹一道 15 分钟，
+         * 让任何离谱的未来值（调试手写、旧版本残留）都无法把模块永久卡在录制状态。
+         */
+        private const val MAX_RECORD_MS = 15 * 60 * 1000L
         const val METHOD_RUN_APP_KEY_COMMAND = "runAppKeyCommand"
         const val METHOD_OPEN_APP_KEY_EDITOR = "openAppKeyCommandEditor"
         const val KEY_OPEN_APP_KEY_EDITOR = "open_app_key_editor"
@@ -162,7 +168,14 @@ class ConfigSyncProvider : ContentProvider() {
             METHOD_SET_SHORTCUT_RECORDING -> {
                 // 存的是「截止时刻」(elapsedRealtime) 而不是布尔：App 若在录制中崩溃/被杀，
                 // 标志会自己过期，不会让模块永久性地停止处理快捷键。
-                val until = extras?.getLong(KEY_SHORTCUT_RECORDING, 0L) ?: 0L
+                //
+                // 夹一层上限：截止时刻最多只允许到「现在 + MAX_RECORD_MS」。
+                // TTL 这套本来就是为了防呆，结果一个离谱的未来值（调试时手写、
+                // 旧版本残留…）照样能把模块永久卡在「一直在录键」——
+                // 那种状态下 L0 对每个键都放行 + 走一次 IPC，等于把整个快捷键体系关掉。
+                val now = android.os.SystemClock.elapsedRealtime()
+                val raw = extras?.getLong(KEY_SHORTCUT_RECORDING, 0L) ?: 0L
+                val until = raw.coerceIn(0L, now + MAX_RECORD_MS)
                 context?.getSharedPreferences(
                     PREF_FILE, android.content.Context.MODE_PRIVATE)
                     ?.edit()?.putLong(PREF_SHORTCUT_RECORDING, until)?.commit()
@@ -172,7 +185,12 @@ class ConfigSyncProvider : ContentProvider() {
                 val prefs = context?.getSharedPreferences(
                     PREF_FILE, android.content.Context.MODE_PRIVATE)
                 val until = prefs?.getLong(PREF_SHORTCUT_RECORDING, 0L) ?: 0L
-                val active = until > android.os.SystemClock.elapsedRealtime()
+                val now = android.os.SystemClock.elapsedRealtime()
+                // 上限之外的未来值一律不算数，并顺手清掉
+                val active = until > now && until <= now + MAX_RECORD_MS
+                if (until != 0L && !active) {
+                    prefs?.edit()?.putLong(PREF_SHORTCUT_RECORDING, 0L)?.apply()
+                }
                 Bundle().apply { putBoolean(KEY_SHORTCUT_RECORDING, active) }
             }
             METHOD_APPEND_RECORDED_KEY -> {
