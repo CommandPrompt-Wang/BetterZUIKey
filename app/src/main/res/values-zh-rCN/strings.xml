@@ -290,6 +290,17 @@
     <string name="mode_off">关闭</string>
     <string name="mode_block">忽略</string>
 
+    <!-- Win 单按「映射到…」模式 -->
+    <string name="mode_meta_single_map_unset">映射到…（未设置）</string>
+    <string name="mode_meta_single_map_set">映射到…（%1$s）</string>
+    <string name="dialog_meta_single_map_title">映射 Win 单按</string>
+    <string name="dialog_meta_single_map_hint">按下要映射的键或组合键。Backspace 清除，Esc 取消。</string>
+    <string name="dialog_meta_single_map_waiting">请按键…</string>
+    <string name="dialog_meta_single_map_clear">清除</string>
+    <string name="dialog_meta_single_map_save">确定</string>
+    <string name="dialog_meta_single_map_cancel">取消</string>
+    <string name="dialog_meta_single_map_help">Win 单按时，改为向应用发送这里设置的键或组合键。\n例如设为 Esc 可让 Win 单按当 Esc 用；设为 Ctrl+C 可作为快捷键。\n\n支持任意单键与 Ctrl / Shift / Alt 组合。</string>
+
     <!-- Ctrl+Enter 自定义模式标签 -->
     <string name="mode_ctrl_enter_follow_system">跟随系统</string>
     <string name="mode_ctrl_enter_newline">插入换行</string>
@@ -411,7 +422,7 @@
     <string name="shortcut_printScreenLong">Print Screen 长按</string>
     <string name="shortcut_printScreenLong_desc">全屏截图</string>
     <string name="shortcut_metaSingle">%1$s 单按</string>
-    <string name="shortcut_metaSingle_desc">开始菜单\n⚠ 设为忽略后，长按功能（语音助手 / 输入法切换）同样不可用</string>
+    <string name="shortcut_metaSingle_desc">开始菜单\n⚠ 设为忽略后，长按功能（语音助手 / 输入法切换）同样不可用\n设为「映射到…」可把 Win 单按替换成任意键或组合键</string>
     <string name="shortcut_metaShortRow">Meta ROW 短按</string>
     <string name="shortcut_metaShortRow_desc">切换语言（需 ROW+特殊键盘）</string>
     <string name="shortcut_metaLongRow">Meta ROW 长按</string>

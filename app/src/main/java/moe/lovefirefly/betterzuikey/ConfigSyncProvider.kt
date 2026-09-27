@@ -36,6 +36,8 @@ class ConfigSyncProvider : ContentProvider() {
         const val METHOD_ESC_CHECK_RESULT = "escCheckResult"
         const val METHOD_SET_KEYBOARD_DETECT = "setKeyboardDetect"
         const val METHOD_GET_KEYBOARD_DETECT = "getKeyboardDetect"
+        const val METHOD_SET_SHORTCUT_RECORDING = "setShortcutRecording"
+        const val METHOD_GET_SHORTCUT_RECORDING = "getShortcutRecording"
         const val METHOD_RUN_APP_KEY_COMMAND = "runAppKeyCommand"
         const val METHOD_OPEN_APP_KEY_EDITOR = "openAppKeyCommandEditor"
         const val KEY_OPEN_APP_KEY_EDITOR = "open_app_key_editor"
@@ -44,11 +46,13 @@ class ConfigSyncProvider : ContentProvider() {
         const val KEY_BOOT_TIME_APP = "boot_time_app"
         const val KEY_ESC_RESULT = "esc_check_result"
         const val KEY_KEYBOARD_DETECT = "keyboard_detect_active"
+        const val KEY_SHORTCUT_RECORDING = "shortcut_recording_until"
         const val KEY_APP_KEY_SCRIPT = "app_key_script"
         const val KEY_APP_KEY_ROOT = "app_key_root"
         const val KEY_APP_KEY_SINGLETON = "app_key_singleton"
         const val KEY_APP_KEY_TIMEOUT_MIN = "app_key_timeout_min"
         private const val PREF_KEYBOARD_DETECT = "keyboard_detect_active"
+        private const val PREF_SHORTCUT_RECORDING = "shortcut_recording_until"
     }
 
     override fun onCreate(): Boolean {
@@ -142,6 +146,22 @@ class ConfigSyncProvider : ContentProvider() {
                     PREF_FILE, android.content.Context.MODE_PRIVATE)
                 val active = prefs?.getBoolean(PREF_KEYBOARD_DETECT, false) ?: false
                 Bundle().apply { putBoolean(KEY_KEYBOARD_DETECT, active) }
+            }
+            METHOD_SET_SHORTCUT_RECORDING -> {
+                // 存的是「截止时刻」(elapsedRealtime) 而不是布尔：App 若在录制中崩溃/被杀，
+                // 标志会自己过期，不会让模块永久性地停止处理快捷键。
+                val until = extras?.getLong(KEY_SHORTCUT_RECORDING, 0L) ?: 0L
+                context?.getSharedPreferences(
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
+                    ?.edit()?.putLong(PREF_SHORTCUT_RECORDING, until)?.commit()
+                null
+            }
+            METHOD_GET_SHORTCUT_RECORDING -> {
+                val prefs = context?.getSharedPreferences(
+                    PREF_FILE, android.content.Context.MODE_PRIVATE)
+                val until = prefs?.getLong(PREF_SHORTCUT_RECORDING, 0L) ?: 0L
+                val active = until > android.os.SystemClock.elapsedRealtime()
+                Bundle().apply { putBoolean(KEY_SHORTCUT_RECORDING, active) }
             }
             METHOD_RUN_APP_KEY_COMMAND -> {
                 val script = extras?.getString(KEY_APP_KEY_SCRIPT) ?: return@call null

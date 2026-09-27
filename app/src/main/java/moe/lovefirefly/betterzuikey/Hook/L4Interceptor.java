@@ -24,6 +24,9 @@ public class L4Interceptor  {
             return;
         }
 
+        // 录制「映射到…」中：手势层也不处理
+        if (ctx.isShortcutRecording()) return;
+
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
 
@@ -152,8 +155,9 @@ public class L4Interceptor  {
                         if (MetaTrace.isTraceOnly()) {
                             break;
                         }
-                        if (override == Config.OverrideMode.BLOCK) {
-                            MetaTrace.decision("L4", "BLOCK type=21", "BLOCK");
+                        if (override == Config.OverrideMode.BLOCK
+                                || override == Config.OverrideMode.OFF) {
+                            MetaTrace.decision("L4", "BLOCK type=21", override.name());
                             param.setResult(-1);
                             return;
                         }

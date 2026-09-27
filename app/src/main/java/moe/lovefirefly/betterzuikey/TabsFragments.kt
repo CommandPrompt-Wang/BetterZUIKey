@@ -309,6 +309,12 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
 
         /** 所有 Spinner 统一固定最小宽度（px），按全部可能文本的最宽值一次性计算 */
         private var spinnerFixedMinWidth: Int = 0
+
+        /**
+         * metaSingle 专用宽度：「映射到…（Ctrl+Shift+A）」比五档文案长不少，
+         * 全表统一加宽会挤掉其它卡片的描述文字，所以只给这一张卡放宽。
+         */
+        private var spinnerMapWidth: Int = 0
         /** 当前展开的 Spinner 所在 position，-1 表示无 */
         private var openSpinnerPos = -1
         /** 搜索过滤后的列表 */
@@ -350,6 +356,16 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                         WinLongPressUiMode.ZUI -> filterModeZUI
                         WinLongPressUiMode.BLOCK -> filterModeBLOCK
                         WinLongPressUiMode.CUSTOM -> filterModeZUI
+                    }
+                } else if (cfg != null && ShortcutMeta.usesMetaSingleMode(meta.key)) {
+                    // 「映射到…」归到「非默认」那一档（ZUI），与 Win 长按的「执行命令…」同规矩
+                    when (ShortcutMeta.getMetaSingleUiMode(cfg)) {
+                        MetaSingleUiMode.FOLLOW_SYSTEM -> filterModeDefault
+                        MetaSingleUiMode.ZUI -> filterModeZUI
+                        MetaSingleUiMode.AOSP -> filterModeAOSP
+                        MetaSingleUiMode.OFF -> filterModeOFF
+                        MetaSingleUiMode.BLOCK -> filterModeBLOCK
+                        MetaSingleUiMode.MAP -> filterModeZUI
                     }
                 } else if (cfg != null && ShortcutMeta.usesAppKeyMode(meta.key)) {
                     val appMode = ShortcutMeta.getAppKeyMode(cfg, meta.key)
@@ -400,22 +416,40 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 // 额外留出 dropdown 图标 + 内边距空间
                 spinnerFixedMinWidth = maxTextW + b.spAction.paddingLeft +
                     b.spAction.paddingRight + 48
+
+                // metaSingle 的「映射到…」卡片另算一个更宽的档位（示例取中等长度的组合键）
+                val mapTextW = maxOf(
+                    MetaSingleUiMode.entries.maxOf {
+                        paint.measureText(it.displayName(ctx)).toInt()
+                    },
+                    paint.measureText(
+                        ctx.getString(R.string.mode_meta_single_map_set, "Ctrl+Shift+A")
+                    ).toInt(),
+                )
+                spinnerMapWidth = mapTextW + b.spAction.paddingLeft +
+                    b.spAction.paddingRight + 48
             }
             // 固定宽度（不仅是 minWidth），防止 setText 不同文本时宽度抖动
-            b.spAction.minWidth = spinnerFixedMinWidth
-            b.spAction.maxWidth = spinnerFixedMinWidth
-            b.spAction.dropDownWidth = spinnerFixedMinWidth
+            applySpinnerWidth(b, spinnerFixedMinWidth)
+            return VH(b)
+        }
+
+        /** 固定 Spinner / TextInputLayout 宽度，防止 setText 不同文本时宽度抖动。 */
+        private fun applySpinnerWidth(b: ItemShortcutRowBinding, width: Int) {
+            if (width <= 0) return
+            b.spAction.minWidth = width
+            b.spAction.maxWidth = width
+            b.spAction.dropDownWidth = width
             b.spAction.layoutParams?.let { lp ->
-                lp.width = spinnerFixedMinWidth
+                lp.width = width
                 b.spAction.layoutParams = lp
             }
             // 同时约束外层 TextInputLayout
-            b.tilAction.minWidth = spinnerFixedMinWidth
+            b.tilAction.minWidth = width
             b.tilAction.layoutParams?.let { lp ->
-                lp.width = spinnerFixedMinWidth
+                lp.width = width
                 b.tilAction.layoutParams = lp
             }
-            return VH(b)
         }
 
         override fun onBindViewHolder(holder: VH, position: Int) {
@@ -432,6 +466,13 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 val overrideKey = if (isCtrlCard) "ctrlSlash" else meta.key
                 val switchState = ShortcutMeta.getSwitch(cfg, switchKey)
                 val overrideMode = ShortcutMeta.getOverride(cfg, overrideKey)
+
+                // metaSingle 的「映射到…」文案更长，单独放宽它的 Spinner
+                applySpinnerWidth(
+                    b,
+                    if (ShortcutMeta.usesMetaSingleMode(meta.key)) spinnerMapWidth
+                    else spinnerFixedMinWidth
+                )
 
                 // ── 始终先清空所有视图状态，防止 RecyclerView 复用残留旧数据 ──
                 b.tvName.text = meta.displayName(requireContext())
@@ -455,10 +496,15 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 b.root.setOnClickListener(null)
                 b.root.setOnLongClickListener(null)
 
-                // ── Win 长按：四档 Spin；智能键：三档 Spin ──
+                // ── Win 长按：四档 Spin；Win 单按：六档 Spin；智能键：三档 Spin ──
                 if (meta.key == "winLongPress") {
                     b.swEnabled.visibility = View.GONE
                     bindWinLongSpin(meta, cfg, b, pos)
+                    return
+                }
+                if (ShortcutMeta.usesMetaSingleMode(meta.key)) {
+                    b.swEnabled.visibility = View.GONE
+                    bindMetaSingleSpin(meta, cfg, b, pos)
                     return
                 }
                 if (ShortcutMeta.usesAppKeyMode(meta.key)) {
@@ -771,6 +817,86 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                             notifyItemChanged(pos)
                         }
                     }
+                }
+            }
+
+            /**
+             * Win 单按：六档 Spin（标准五档 + 映射到…）。
+             *
+             * <p>「映射到…」那一项的文案要带上当前映射目标，所以不能直接用
+             * [MetaSingleUiMode.displayName]，得逐项现算。
+             */
+            private fun bindMetaSingleSpin(
+                meta: ShortcutMeta,
+                cfg: Config,
+                b: ItemShortcutRowBinding,
+                pos: Int
+            ) {
+                val ctx = requireContext()
+                val modes = MetaSingleUiMode.entries
+
+                fun labelOf(mode: MetaSingleUiMode): String = when (mode) {
+                    MetaSingleUiMode.MAP -> ShortcutMeta.getMetaSingleMap(cfg).optionLabel(ctx)
+                    else -> mode.displayName(ctx)
+                }
+
+                val current = ShortcutMeta.getMetaSingleUiMode(cfg)
+
+                b.spAction.setAdapter(null)
+                b.spAction.setAdapter(
+                    ArrayAdapter(ctx, R.layout.dropdown_item_wrap, modes.map { labelOf(it) })
+                )
+                b.spAction.threshold = Int.MAX_VALUE
+                b.spAction.setText(labelOf(current), false)
+                b.spAction.isEnabled = true
+                b.tilAction.isEnabled = true
+                b.tilAction.visibility = View.VISIBLE
+
+                b.root.setOnClickListener {
+                    if (openSpinnerPos == pos) {
+                        openSpinnerPos = -1
+                        return@setOnClickListener
+                    }
+                    b.spAction.showDropDown()
+                    openSpinnerPos = pos
+                }
+                // 长按：已经是映射模式时直接重开录制窗口（与 Win 长按的「执行命令…」一致）
+                b.root.setOnLongClickListener {
+                    if (ShortcutMeta.getMetaSingleUiMode(cfg) == MetaSingleUiMode.MAP) {
+                        MetaSingleMapDialog.show(
+                            ctx,
+                            onCancelled = { notifyItemChanged(pos) },
+                            onChanged = { notifyItemChanged(pos) },
+                        )
+                    }
+                    true
+                }
+
+                b.spAction.setOnItemClickListener { _, _, itemPos, _ ->
+                    openSpinnerPos = -1
+                    val selected = modes[itemPos]
+                    if (selected == MetaSingleUiMode.MAP) {
+                        // 先不落盘，等录制窗口真的设置了目标再切档；
+                        // 取消（或没录到）就回退到进来之前那一档。
+                        val previous = current
+                        MetaSingleMapDialog.show(
+                            ctx,
+                            onCancelled = {
+                                ShortcutMeta.setMetaSingleUiMode(cfg, previous)
+                                cfg.save()
+                                Config.syncToSharedPrefs(ctx, cfg)
+                                notifyItemChanged(pos)
+                            },
+                            onChanged = { notifyItemChanged(pos) },
+                        )
+                        return@setOnItemClickListener
+                    }
+                    ShortcutMeta.setMetaSingleUiMode(cfg, selected)
+                    cfg.save()
+                    Config.syncToSharedPrefs(ctx, cfg)
+                    b.spAction.setText(selected.displayName(ctx), false)
+                    LogHelper.log(LogHelper.VerboseLevel.INFO,
+                        "Meta single mode: ", selected.name)
                 }
             }
         }

@@ -8,6 +8,7 @@ import moe.lovefirefly.betterzuikey.Hook.HookCompat;
 
 import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Config.ConfigResolver;
+import moe.lovefirefly.betterzuikey.MetaKeyMap;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import moe.lovefirefly.betterzuikey.ime.IMEDispatcher;
 import moe.lovefirefly.betterzuikey.ime.IMEProfile;
@@ -43,6 +44,48 @@ public class HookContext {
 
     /** Meta UP must not open Start Menu (Win was used as modifier). Cleared on next Meta DOWN. */
     public volatile boolean metaSuppressStartMenu = false;
+
+    /**
+     * True if this Meta event is the synthetic "single press" tap injected by
+     * {@code metaSingle = OFF} (&quot;放行&quot;) mode.
+     * <p>
+     * Injected events are normalized by InputDispatcher to {@code deviceId = -1};
+     * physical events always carry a real device id. This makes the check fully
+     * structural — no timing window, so a quick tap followed by a real
+     * {@code Win+X} combo can never be misclassified (which would leak the Win
+     * key into the combo).
+     */
+    public boolean isSyntheticMetaTap(KeyEvent event) {
+        return event != null && event.getDeviceId() < 0;
+    }
+
+    // ----------------------------------------------------------------
+    //  「映射到…」注入守卫
+    // ----------------------------------------------------------------
+
+    /** 模块自己注入的映射按键的放行截止时刻（uptimeMillis）；0 = 未武装。 */
+    private volatile long remapInjectUntil = 0L;
+
+    /** 在 {@code KeyInjector.injectCombo()} 之前调用，给注入的事件开一个放行窗口。 */
+    public void armRemapInject() {
+        remapInjectUntil = android.os.SystemClock.uptimeMillis() + 300L;
+    }
+
+    /**
+     * 是否为模块自己为「映射到…」注入的按键。
+     *
+     * <p>注入的事件会再次流经 L0/L1，必须整体放行 —— 否则映射出来的组合键会被
+     * 模块自己的快捷键表再消费一次（例如把 Win 映射成 Ctrl+Shift+T，反而触发了
+     * 触控板开关）。
+     *
+     * <p>判据用 {@code deviceId < 0}（InputDispatcher 对注入事件的归一化结果，
+     * 物理键盘永远是正数），再叠一个 300ms 的短窗口，真实按键不会误伤。
+     */
+    public boolean isRemapInjecting(KeyEvent event) {
+        long until = remapInjectUntil;
+        if (until == 0L || android.os.SystemClock.uptimeMillis() > until) return false;
+        return event != null && event.getDeviceId() < 0;
+    }
 
     /** UP cleanup after 507/508 was blocked on DOWN. */
     public volatile int appKeyPendingBlockUp = 0;
@@ -228,6 +271,59 @@ public class HookContext {
 
     public Config.OverrideMode ra(String key, Config.OverrideMode global) {
         return resolver.effectiveAction(global, key);
+    }
+
+    /**
+     * metaSingle == OFF → 真·放行（passthrough）。
+     *
+     * <p>含义：模块和框架都不消费 Meta，物理 DOWN/UP 原样派发给前台应用，
+     * 不弹出开始菜单/程序坞。
+     *
+     * <p>为什么需要 {@code MainHook} 里的 KeyGestureController hook：
+     * AOSP {@code KeyGestureController.interceptSystemKeysAndShortcuts()} 对
+     * keyCode 117/118 是<b>硬编码</b>消费（DOWN 记账、UP 生成 type=21 →
+     * {@code triggerShowAllApps}）。它位于 L1 之后、且注入事件也会被它吃掉，
+     * 所以只靠模块在 L0/L1 放行/重注入都不可能把 Meta 送到应用。
+     * 必须在 KeyGestureController 处一并放行。
+     *
+     * <p>还需要 {@code MainHook.hookPhoneWindowManagerSystemKeys()}：
+     * {@code PhoneWindowManager.interceptSystemKeysAndShortcuts()} 的尾部是
+     * {@code (metaState & META_META_ON) != 0 → return true}，即「Win 按下时事件不给应用」。
+     * Meta 键自身的 metaState 就带 {@code META_META_ON}，所以即使 KGC 已放行，
+     * 它仍会把物理 Meta 吞掉 —— 这是「放行了但应用还是收不到」的根因。
+     */
+    public boolean isMetaPassthrough() {
+        if (cfg == null || !cfg.zuxKeyboardFuncEnabled) return false;
+        Config.OverrideMode resolved = ra("metaSingle", cfg.overrideMetaSingle);
+        // 模板（profile）显式覆写了 metaSingle 时以模板为准：映射是卡片级设置，
+        // 模板只能表达标准五档，所以模板说「关闭」就真的是放行。
+        if (cfg.metaSingleMapEnabled && resolved == cfg.overrideMetaSingle) return false;
+        return resolved == Config.OverrideMode.OFF;
+    }
+
+    /**
+     * metaSingle == 映射到… → 独立单击 Win 时，改为向应用注入映射的按键 / 组合键。
+     *
+     * <p>与放行模式共用同一套「扣押 DOWN、UP 再决定」的骨架，区别只在最后发什么：
+     * 放行发一对还原后的 Meta，映射发 {@link Config#metaSingleMap 指定的组合键}。
+     * 映射目标为空时不算数（回落给系统，避免出现「Win 单按什么都不做」的死状态）。
+     */
+    public boolean isMetaMapped() {
+        if (cfg == null || !cfg.zuxKeyboardFuncEnabled) return false;
+        if (!cfg.metaSingleMapEnabled) return false;
+        if (!MetaKeyMap.parse(cfg.metaSingleMap).isSet()) return false;
+        // 同上：模板显式覆写了标准五档时，映射让位
+        return ra("metaSingle", cfg.overrideMetaSingle) == cfg.overrideMetaSingle;
+    }
+
+    /**
+     * Meta 是否被模块接管 —— 关闭（放行）或 映射到…。
+     *
+     * <p>这两种模式都需要：绕过 ZUI 对 Meta 的原生处理（KGC / PWM / L0 / L1 全部跳过），
+     * 把物理 DOWN 扣押起来，等到 UP 时再决定放行原样 Meta 还是发送映射目标。
+     */
+    public boolean isMetaIntercepted() {
+        return isMetaPassthrough() || isMetaMapped();
     }
 
     // ----------------------------------------------------------------
@@ -514,6 +610,32 @@ public class HookContext {
             keyboardDetectCacheTime = now;
         }
         return keyboardDetectCached;
+    }
+
+    // ----------------------------------------------------------------
+    //  Shortcut recording — 设置页「映射到…」正在录键
+    // ----------------------------------------------------------------
+
+    private static final long RECORD_CACHE_MS = 100L;
+    private volatile boolean shortcutRecordingCached = false;
+    private long shortcutRecordCacheTime = 0L;
+
+    /**
+     * 设置页正在录制快捷键 → 模块对**所有**按键都撒手：不拦截、不映射、不消费，
+     * 让按键原样落到前台 Activity。
+     *
+     * <p>必须如此，否则录不到「已经被模块占用的组合」：比如想录 Ctrl+Shift+T，
+     * 模块会在 L1 先把它当触控板开关消费掉，弹窗里永远等不到这个键。
+     * （与 {@link #isDetectMode()} 的区别：那个是<b>消费</b>掉按键防止误输入，
+     * 这个必须<b>放行</b>，因为弹窗里的输入框要真的收到按键。）
+     */
+    public boolean isShortcutRecording() {
+        long now = SystemClock.uptimeMillis();
+        if (now - shortcutRecordCacheTime >= RECORD_CACHE_MS) {
+            shortcutRecordingCached = configIPC.isShortcutRecording();
+            shortcutRecordCacheTime = now;
+        }
+        return shortcutRecordingCached;
     }
 
     // ----------------------------------------------------------------
