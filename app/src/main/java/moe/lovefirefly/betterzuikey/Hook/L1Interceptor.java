@@ -31,9 +31,10 @@ public class L1Interceptor  {
             return;
         }
 
-        // 设置页录制「映射到…」中：不消费任何键，让它们进到弹窗的输入框
+        // 设置页录制「映射到…」中：与 L0 一样一律消费，别让按键漏到应用/系统
+        // （L0 已经消费了，这里是兜底：个别路径可能绕过 beforeQueueing）
         if (ctx.isShortcutRecording()) {
-            param.setResult(false);
+            param.setResult(true);
             return;
         }
 

@@ -38,17 +38,27 @@ public class L0Interceptor  {
             return;
         }
 
-        // 设置页正在录制「映射到…」：模块和 ZUI 全都不处理、不消费，
-        // 让按键原样落到弹窗的输入框（否则录不到已被占用的组合）。
-        // 同时把这一路看到的键上报给弹窗 —— 亮度键 / CapsLock / 单独的 Win
-        // 会被系统或 ZUI 在到达应用窗口前吃掉，只有这里看得到。
+        // 设置页正在录制「映射到…」：模块**全权接管**这一段时间的按键。
+        //
+        // 之所以要消费而不是放行：亮度 / 音量 / toggle 这类键按下去本身就有
+        // 副作用（真的会改亮度、改音量、切窗口），录制时不该发生。
+        // 代价是窗口收不到按键 —— 所以弹窗完全靠这一路上报重建：
+        // 只报「第一次按下」和「抬起」，弹窗靠这两条区分短按与长按。
+        //
+        // Win 本身不报：它就是触发键，映射成自己没有意义。
         if (ctx.isShortcutRecording()) {
-            if (down && repeatCount == 0) {
+            boolean isMeta = keyCode == KeyEvent.KEYCODE_META_LEFT
+                    || keyCode == KeyEvent.KEYCODE_META_RIGHT;
+            // 只报「第一次按下」与真正的抬起；ACTION_MULTIPLE 之类一律不报，
+            // 否则会被弹窗当成抬起、把长按提前掐断。
+            boolean isUp = event.getAction() == KeyEvent.ACTION_UP;
+            if (!isMeta && ((down && repeatCount == 0) || isUp)) {
                 LogHelper.log(LogHelper.VerboseLevel.DEBUG, "L0 record kc=",
-                        String.valueOf(keyCode));
-                ctx.configIPC.appendRecordedKey(keyCode, event.getMetaState());
+                        String.valueOf(keyCode), down ? " D" : " U");
+                ctx.configIPC.appendRecordedKey(
+                        keyCode, event.getScanCode(), event.getMetaState(), down ? 0 : 1);
             }
-            param.setResult(false);
+            param.setResult(true);
             return;
         }
 

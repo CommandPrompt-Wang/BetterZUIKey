@@ -18,6 +18,14 @@ data class MetaKeyMap(
     val shift: Boolean = false,
     val ctrl: Boolean = false,
     val alt: Boolean = false,
+    /**
+     * 原始扫描码；普通按键为 0（不参与回放）。
+     *
+     * <p>ZUI 的顶行虚拟键（500/501/503/504/507…）重新注入时必须带上它自己那套
+     * scanCode，否则 ZUI 认不出来 —— 见 FnKeyManager 里那句
+     * “re-injected event loses scanCode → ZUI custom keys break”。
+     */
+    val scanCode: Int = 0,
 ) {
     /** keyCode == 0 表示「未设置」。 */
     val isSet: Boolean get() = keyCode > 0
@@ -30,6 +38,7 @@ data class MetaKeyMap(
         append(':').append(if (shift) 1 else 0)
         append(':').append(if (ctrl) 1 else 0)
         append(':').append(if (alt) 1 else 0)
+        append(':').append(scanCode)
     }
 
     /** 人类可读，如 `Ctrl+Shift+A`、`PageDown`。 */
@@ -65,7 +74,7 @@ data class MetaKeyMap(
          * 它自己现在是主键，不再是修饰键。
          */
         @JvmStatic
-        fun of(keyCode: Int, metaState: Int): MetaKeyMap {
+        fun of(keyCode: Int, metaState: Int, scanCode: Int = 0): MetaKeyMap {
             val selfBit = when (keyCode) {
                 KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_CTRL_RIGHT -> KeyEvent.META_CTRL_ON
                 KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_SHIFT_RIGHT -> KeyEvent.META_SHIFT_ON
@@ -78,6 +87,7 @@ data class MetaKeyMap(
                 shift = (meta and KeyEvent.META_SHIFT_ON) != 0,
                 ctrl = (meta and KeyEvent.META_CTRL_ON) != 0,
                 alt = (meta and KeyEvent.META_ALT_ON) != 0,
+                scanCode = scanCode.coerceAtLeast(0),
             )
         }
 
@@ -95,6 +105,8 @@ data class MetaKeyMap(
                     shift = f[1].trim() != "0",
                     ctrl = f.size > 2 && f[2].trim() != "0",
                     alt = f.size > 3 && f[3].trim() != "0",
+                    // 第 5 段是 scanCode；老格式只有 4 段，缺省 0
+                    scanCode = if (f.size > 4) f[4].trim().toIntOrNull() ?: 0 else 0,
                 )
             } catch (t: Throwable) {
                 UNSET

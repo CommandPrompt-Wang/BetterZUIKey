@@ -48,12 +48,15 @@ class ConfigSyncProvider : ContentProvider() {
         const val METHOD_APPEND_RECORDED_KEY = "appendRecordedKey"
         const val KEY_RECORDED_KEY = "recorded_key"
         const val KEY_RECORDED_META = "recorded_meta"
-        /** 上报队列（`keyCode,metaState` 每行一条）。App 与 Provider 同进程，直接读即可。 */
+        const val KEY_RECORDED_SCAN = "recorded_scan"
+        /** 0 = ACTION_DOWN，1 = ACTION_UP。 */
+        const val KEY_RECORDED_ACTION = "recorded_action"
+        /** 上报队列（`keyCode,scanCode,metaState,action` 每行一条）。App 与 Provider 同进程，直接读即可。 */
         const val PREF_RECORDED_QUEUE = "recorded_key_queue"
 
         /**
-         * 录制标志的**硬上限**。弹窗自己用的是 10 分钟；这里再夹一道 15 分钟，
-         * 让任何离谱的未来值（调试手写、旧版本残留）都无法把模块永久卡在录制状态。
+         * 录制标志的**硬上限**。弹窗用的是短租约（几秒一次心跳续期），
+         * 这里再夹一道 15 分钟，让任何离谱的未来值都卡不住模块。
          */
         private const val MAX_RECORD_MS = 15 * 60 * 1000L
         const val METHOD_RUN_APP_KEY_COMMAND = "runAppKeyCommand"
@@ -198,11 +201,13 @@ class ConfigSyncProvider : ContentProvider() {
                 // 这里只做最轻的读改写，避免阻塞 L0 的输入线程。
                 val kc = extras?.getInt(KEY_RECORDED_KEY, 0) ?: 0
                 val meta = extras?.getInt(KEY_RECORDED_META, 0) ?: 0
+                val scan = extras?.getInt(KEY_RECORDED_SCAN, 0) ?: 0
+                val action = extras?.getInt(KEY_RECORDED_ACTION, 0) ?: 0
                 val prefs = context?.getSharedPreferences(
                     PREF_FILE, android.content.Context.MODE_PRIVATE)
                 if (kc != 0 && prefs != null) {
                     val old = prefs.getString(PREF_RECORDED_QUEUE, "") ?: ""
-                    val entry = "$kc,$meta"
+                    val entry = "$kc,$scan,$meta,$action"
                     val next = when {
                         // 兜底：弹窗没在 drain（异常退出）时不让队列无限长
                         old.isEmpty() -> entry

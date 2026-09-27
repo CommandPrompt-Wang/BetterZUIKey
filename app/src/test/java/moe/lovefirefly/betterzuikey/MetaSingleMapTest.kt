@@ -22,16 +22,30 @@ class MetaSingleMapTest {
 
     @Test
     fun serializeParse_roundTrips() {
-        // Ctrl+Shift+A：KEYCODE_A = 29
-        assertEquals("29:1:1:0", MetaKeyMap(29, shift = true, ctrl = true).serialize())
+        // Ctrl+Shift+A：KEYCODE_A = 29；第 5 段是 scanCode
+        assertEquals("29:1:1:0:0", MetaKeyMap(29, shift = true, ctrl = true).serialize())
 
-        val m = MetaKeyMap.parse("29:1:1:0")
+        val m = MetaKeyMap.parse("29:1:1:0:0")
         assertEquals(29, m.keyCode)
         assertTrue(m.shift)
         assertTrue(m.ctrl)
         assertFalse(m.alt)
         assertTrue(m.isSet)
         assertTrue(m.hasModifier)
+    }
+
+    @Test
+    fun scanCode_roundTrips_andOldFourFieldFormatStillParses() {
+        // ZUI 顶行虚拟键要连 scanCode 一起存/回放（500 = 最大化，scanCode 0xf0）
+        val zui = MetaKeyMap(500, scanCode = 0xf0)
+        assertEquals("500:0:0:0:240", zui.serialize())
+        assertEquals(0xf0, MetaKeyMap.parse(zui.serialize()).scanCode)
+
+        // 老格式（只有 4 段）必须照旧可读，scanCode 缺省 0
+        val legacy = MetaKeyMap.parse("29:1:1:0")
+        assertEquals(29, legacy.keyCode)
+        assertTrue(legacy.shift)
+        assertEquals(0, legacy.scanCode)
     }
 
     @Test
@@ -62,7 +76,7 @@ class MetaSingleMapTest {
 
         val restored = Config.fromJson(Config.toJson(cfg))
         assertTrue(restored.metaSingleMapEnabled)
-        assertEquals("29:1:1:0", restored.metaSingleMap)
+        assertEquals("29:1:1:0:0", restored.metaSingleMap)
         assertEquals(MetaSingleUiMode.MAP, ShortcutMeta.getMetaSingleUiMode(restored))
         assertEquals(29, ShortcutMeta.getMetaSingleMap(restored).keyCode)
     }
@@ -78,7 +92,7 @@ class MetaSingleMapTest {
         ShortcutMeta.setMetaSingleUiMode(cfg, MetaSingleUiMode.BLOCK)
         assertFalse(cfg.metaSingleMapEnabled)
         assertEquals(Config.OverrideMode.BLOCK, cfg.overrideMetaSingle)
-        assertEquals("29:0:1:0", cfg.metaSingleMap)
+        assertEquals("29:0:1:0:0", cfg.metaSingleMap)
         assertEquals(MetaSingleUiMode.BLOCK, ShortcutMeta.getMetaSingleUiMode(cfg))
 
         // 再切回 MAP：不用重录，目标还在

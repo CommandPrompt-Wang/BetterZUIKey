@@ -183,18 +183,24 @@ public class ConfigIPCManager {
     /**
      * 录制「映射到…」时，把模块在 L0 看到的按键上报给 App 的录制弹窗。
      *
-     * <p>亮度键 / CapsLock / 单独的 Win 这类键在到达应用窗口之前就被系统或 ZUI 吃掉，
-     * 弹窗自己的按键监听永远等不到；L0 能看到全部按键，所以由模块补上这一路。
-     * 只报「第一次按下」，弹窗那边按 keyCode 去重（窗口能收到的键它自己会处理）。
+     * <p>录制期间模块是<b>全权接管</b>（L0/L1 直接消费），按键到不了应用窗口，
+     * 所以弹窗完全靠这一路上报重建：只报「第一次按下」和「抬起」，
+     * 弹窗靠这两条区分短按与长按（短按录键，长按 Esc/退格 = 取消/清除）。
+     *
+     * @param action 0 = ACTION_DOWN，1 = ACTION_UP
      */
-    public void appendRecordedKey(int keyCode, int metaState) {
+    public void appendRecordedKey(int keyCode, int scanCode, int metaState, int action) {
         try {
             if (mConfigResolver == null) return;
             android.os.Bundle extras = new android.os.Bundle();
             extras.putInt(
                     moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_RECORDED_KEY, keyCode);
             extras.putInt(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_RECORDED_SCAN, scanCode);
+            extras.putInt(
                     moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_RECORDED_META, metaState);
+            extras.putInt(
+                    moe.lovefirefly.betterzuikey.ConfigSyncProvider.KEY_RECORDED_ACTION, action);
             mConfigResolver.call(
                     moe.lovefirefly.betterzuikey.ConfigSyncProvider.RELOAD_URI,
                     moe.lovefirefly.betterzuikey.ConfigSyncProvider.METHOD_APPEND_RECORDED_KEY,

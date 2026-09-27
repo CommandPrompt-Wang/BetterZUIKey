@@ -260,8 +260,11 @@ public final class KeyInjector {
             acc |= metaBitOf(mods[i]);
             injectKeyDown(mods[i], acc, deviceId);
         }
-        injectKeyDown(keyCode, acc, deviceId);
-        injectKeyUp(keyCode, acc, deviceId);
+        // 主键带上录制时的原始 scanCode：ZUI 的顶行虚拟键（500/501/503/504/507…）
+        // 认的正是它自己那套 scanCode，丢掉 ZUI 就不认（见 FnKeyManager 的注释）。
+        final int scanCode = map.getScanCode();
+        injectKeyDown(keyCode, acc, deviceId, scanCode);
+        injectKeyUp(keyCode, acc, deviceId, scanCode);
         for (int i = n - 1; i >= 0; i--) {
             injectKeyUp(mods[i], acc, deviceId);
             acc &= ~metaBitOf(mods[i]);
