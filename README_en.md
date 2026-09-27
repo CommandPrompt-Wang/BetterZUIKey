@@ -55,7 +55,6 @@ BetterZUIKey is an [LSPosed](https://github.com/LSPosed/LSPosed) module that int
   - **Use System Framework**: language is handed to the system IME framework and **switched by naming a target subtype in a custom rotation order** (long-press an entry to open the drag-to-sort page; the order is saved per input method)
   - **Remap Shortcut**: remap the key to the IME's own language-switch shortcut
   - The IME's **internal** behavior (punctuation, auto-pairing, committing, etc.) is handled by its own [component module](#component-modules)
-  - Ctrl+Shift / Alt+Shift modifiers always pass through; IME action fires only on a clean release
 - **Internationalization** — In-app language switcher, config changes take effect instantly
 
 ## Component Modules
@@ -158,6 +157,8 @@ For the two **Smart Keys** (507/508):
 
 Long-press the **card** to jump to the system shortcut settings.
 
+- Meta long-press also gained a Run Command option
+
 For **Ctrl + Enter**:
 
 | Mode | Effect |
@@ -166,6 +167,9 @@ For **Ctrl + Enter**:
 | **Insert Newline** | Intercept Ctrl+Enter, commit `\n` to app |
 | **Pass-through** | Always let through to foreground app |
 | **Block** | Consume the event entirely |
+
+Of particular note: most apps neither expect nor can handle a bare Meta press, so **Off** is meaningless most of the time. One workaround is **Map to…**: set `` Ctrl+Alt+` `` as `Win` on the remote machine, then map `Win` → `` Ctrl+Alt+` `` here — a press on the local Win then registers remotely.
+ - Which is also a good moment to use app templates
 
 ### Language Rotation Order
 
