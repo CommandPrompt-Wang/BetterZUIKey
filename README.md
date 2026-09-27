@@ -251,6 +251,30 @@ app/src/main/java/moe/lovefirefly/betterzuikey/
 └── ...                            # Activities、LocaleHelper、Utils 等
 ```
 
+## 关于 BetterZUIKey 的转载与衍生分发
+
+BetterZUIKey 以 GNU GPLv3 发布。欢迎依 GPLv3 转载、镜像、修改和再分发，包括商业分发。请遵守 GPLv3，尤其注意：
+
+1. 分发目标代码时，按 GPLv3 提供对应完整源码，或提供 GPLv3 认可的源码获取方式，如从**同一网络位置**提供源码（而不是仅仅提供软件安装包/给出模糊的用户名）；
+
+2. 保留版权声明、许可证文本和免责声明；
+
+3. 修改版须显著标明修改内容与日期；可以添加修改者署名，但不得删除或篡改原作者信息，不得冒充原创；
+
+4. 不得附加 GPLv3 之外的额外限制。
+
+以上仅为提醒，完整条款以仓库 LICENSE 为准，此处不构成额外许可条件。
+
+我注意到部分第三方转载或改版未附源码、未保留许可证/版权声明，甚至删除原作者信息。这些做法不符合 GPLv3。仅未注明出处而保留版权与许可证的，未必单独违反 GPLv3，但亦不符合开源社区之惯例。不论动机如何，请尊重作者的付出，以正确科学的方式支持你所关注的项目。
+
+如果你计划长期或短期镜像、分发，或对项目有新的请求（如本地化翻译、bug 反馈、功能请求等），或要基于本项目继续开发，欢迎通过 Issue、PR 或 [B 站私信](https://space.bilibili.com/437547189)（Command_Prompt）告诉我。联系不是许可条件，不联系也不影响你依 GPLv3 享有的权利；但你的参与会让我更有动力。B 站私信不一定能及时回复，正式事项建议优先通过 Issue。
+
+最近学业繁忙，更新可能延迟，AIGC 比重亦会增大。即便如此，设计、审查、测试和维护亦有投入，token 也并非零开销。欢迎提交 [Issue](https://github.com/CommandPrompt-Wang/BetterZUIKey/issues)、[PR](https://github.com/CommandPrompt-Wang/BetterZUIKey/pulls)，或给仓库加星、[赞助](https://afdian.com/a/CommandPrompt)支持。
+
+以下是我的爱发电二维码：
+
+<p align="center"><img src="https://raw.githubusercontent.com/CommandPrompt-Wang/BetterZUIKey/main/app/src/main/res/drawable/ic_aifadian.png" width="80" alt="爱发电 / Afdian"></p>
+
 ## 📄 许可证
 
 GPL-3.0 © 2025–2026 [CommandPrompt-Wang](https://github.com/CommandPrompt-Wang)
