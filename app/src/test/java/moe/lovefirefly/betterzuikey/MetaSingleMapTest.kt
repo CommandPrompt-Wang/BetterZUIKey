@@ -88,15 +88,14 @@ class MetaSingleMapTest {
     }
 
     @Test
-    fun flagWithoutTarget_reportsMapMode_butTargetStaysUnset() {
-        // 手改配置才可能出现的组合：开关开着、目标为空。
-        // 界面照实显示「映射到…（未设置）」，而 hook 侧靠 isSet() 判定
-        // 不生效、回落给系统 —— 不会变成「Win 单按什么都不做」的死状态。
-        // 正常路径下录制窗口不允许保存没有目标的映射（确定键置灰），所以这只是兜底。
+    fun flagWithoutTarget_fallsBackToOff() {
+        // 开关开着、目标为空（手改配置才会出现）：不能停在「映射到…（未设置）」
+        // 这种看着生效、实际什么都不做的档位 —— 按「关闭」算。
+        // 正常路径下录制窗口也不允许把空值存成 MAP。
         val cfg = Config()
         cfg.metaSingleMapEnabled = true
         cfg.metaSingleMap = ""
-        assertEquals(MetaSingleUiMode.MAP, ShortcutMeta.getMetaSingleUiMode(cfg))
+        assertEquals(MetaSingleUiMode.OFF, ShortcutMeta.getMetaSingleUiMode(cfg))
         assertFalse(ShortcutMeta.getMetaSingleMap(cfg).isSet)
     }
 }

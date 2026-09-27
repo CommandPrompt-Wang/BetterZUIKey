@@ -290,7 +290,7 @@
     <string name="mode_meta_single_map_unset">Map to… (not set)</string>
     <string name="mode_meta_single_map_set">Map to… (%1$s)</string>
     <string name="dialog_meta_single_map_title">Map Win single-press</string>
-    <string name="dialog_meta_single_map_hint">Press the key or combo to map. Backspace clears, Esc cancels.</string>
+    <string name="dialog_meta_single_map_hint">Press the key or combo to map. A tap on Esc / Backspace records that key itself; long-press Esc to cancel, long-press Backspace to clear.</string>
     <string name="dialog_meta_single_map_waiting">Press a key…</string>
     <string name="dialog_meta_single_map_clear">Clear</string>
     <string name="dialog_meta_single_map_save">OK</string>

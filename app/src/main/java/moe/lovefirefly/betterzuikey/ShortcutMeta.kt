@@ -207,7 +207,11 @@ data class ShortcutMeta(
 
         /** Win 单按：六档模式（标准五档 + 映射到…）。 */
         fun getMetaSingleUiMode(cfg: Config): MetaSingleUiMode = when {
-            cfg.metaSingleMapEnabled -> MetaSingleUiMode.MAP
+            // 「映射到…」必须真有目标才算数：开关开着但目标为空是「看着生效、
+            // 实际什么都不做」的死状态，按「关闭」算（并见 Config 里的迁移）
+            cfg.metaSingleMapEnabled && MetaKeyMap.parse(cfg.metaSingleMap).isSet ->
+                MetaSingleUiMode.MAP
+            cfg.metaSingleMapEnabled -> MetaSingleUiMode.OFF
             cfg.overrideMetaSingle == Config.OverrideMode.BLOCK -> MetaSingleUiMode.BLOCK
             cfg.overrideMetaSingle == Config.OverrideMode.OFF -> MetaSingleUiMode.OFF
             cfg.overrideMetaSingle == Config.OverrideMode.AOSP -> MetaSingleUiMode.AOSP

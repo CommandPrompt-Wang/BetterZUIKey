@@ -2,9 +2,13 @@ package moe.lovefirefly.betterzuikey
 
 import android.content.Context
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.view.KeyEvent
 import android.view.LayoutInflater
+import android.view.ViewConfiguration
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.button.MaterialButton
 import moe.lovefirefly.betterzuikey.Config.Config
@@ -13,11 +17,18 @@ import moe.lovefirefly.betterzuikey.Utils.LogHelper
 /**
  * Win 单按「映射到…」的录制窗口。
  *
- * <p>UI 参考 WeTypeExt 的快捷键窗口（标题 + 提示 + 一个只用来捕获按键的框 + 取消/确定），
+ * <p>UI 参考 WeTypeExt 的快捷键窗口（标题 + 提示 + 一个只用来显示的框 + 取消/确定），
  * 但限制宽松得多：**任何单键和组合键都收**，不像那边要求必须带修饰键。
  *
  * <p>录不到已经被模块占用的组合（比如 Ctrl+Shift+T）是个真问题，所以弹窗一出现就会
  * 通过 ContentProvider 通知 system_server「先别处理快捷键」，关掉再恢复。
+ *
+ * <h3>按键拦截</h3>
+ * 挂在 [AlertDialog.setOnKeyListener] 上，并且**一律返回 true 全吞**。这是
+ * `Dialog.dispatchKeyEvent` 问的第一站 —— 比挂在输入框的 `onKeyDown` 彻底：
+ * 按键不会再被按钮焦点、弹窗自身的返回逻辑（`Dialog.onKeyDown` → `onBackPressed`）
+ * 或焦点导航吃掉，也不会漏给系统。与键盘检测页
+ * `KeyboardDetectActivity.dispatchKeyEvent` 里那句 `return true` 是同一个思路。
  */
 object MetaSingleMapDialog {
 
@@ -42,12 +53,14 @@ object MetaSingleMapDialog {
         onChanged: () -> Unit = {},
     ) {
         val view = LayoutInflater.from(context).inflate(R.layout.dialog_meta_single_map, null)
-        val field = view.findViewById<ShortcutCaptureEditText>(R.id.et_meta_map_capture)
+        val field = view.findViewById<TextView>(R.id.tv_meta_map_capture)
         val btnClear = view.findViewById<MaterialButton>(R.id.btn_meta_map_clear)
         val btnCancel = view.findViewById<MaterialButton>(R.id.btn_meta_map_cancel)
         val btnSave = view.findViewById<MaterialButton>(R.id.btn_meta_map_save)
 
         var captured = ShortcutMeta.getMetaSingleMap(cfg)
+        /** 进窗时原本就有映射 —— 空值保存时用它决定「撤回」还是落到「关闭」。 */
+        val hadMapping = captured.isSet
         var saved = false
 
         val dialog = AlertDialog.Builder(context)
@@ -55,46 +68,82 @@ object MetaSingleMapDialog {
             .create()
 
         fun refresh() {
-            field.setText(
-                if (captured.isSet) captured.displayName()
-                else context.getString(R.string.dialog_meta_single_map_waiting)
-            )
-            btnSave.isEnabled = captured.isSet
+            field.text = if (captured.isSet) captured.displayName()
+            else context.getString(R.string.dialog_meta_single_map_waiting)
         }
         refresh()
 
-        field.captureListener = { event ->
-            when {
-                event.keyCode == KeyEvent.KEYCODE_ESCAPE
-                        || event.keyCode == KeyEvent.KEYCODE_BACK -> {
-                    if (event.action == KeyEvent.ACTION_DOWN) dialog.dismiss()
-                    true
-                }
-                event.keyCode == KeyEvent.KEYCODE_DEL -> {
-                    // Backspace = 清除；只认第一次 DOWN，免得长按连清
-                    if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
-                        captured = MetaKeyMap.UNSET
-                        refresh()
+        // ── 录键 ────────────────────────────────────────────────────────────
+        // Esc / 退格 既要能「录成映射目标」，又要保留「取消 / 清除」——
+        // 只能靠长按区分：短按录键，长按才做那两件事。
+        val handler = Handler(Looper.getMainLooper())
+        val longPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
+        var pendingKey = 0
+        var pendingMeta = 0
+        var longPressFired = false
+        var longPressRunnable: Runnable? = null
+
+        fun stopLongPressTimer() {
+            longPressRunnable?.let(handler::removeCallbacks)
+            longPressRunnable = null
+            pendingKey = 0
+            longPressFired = false
+        }
+
+        fun record(keyCode: Int, metaState: Int) {
+            captured = MetaKeyMap(
+                keyCode = keyCode,
+                shift = (metaState and KeyEvent.META_SHIFT_ON) != 0,
+                ctrl = (metaState and KeyEvent.META_CTRL_ON) != 0,
+                alt = (metaState and KeyEvent.META_ALT_ON) != 0,
+            )
+            refresh()
+        }
+
+        fun handleKey(event: KeyEvent) {
+            val kc = event.keyCode
+            val isDown = event.action == KeyEvent.ACTION_DOWN
+            when (kc) {
+                // 返回键：始终立即取消（不作为映射目标）
+                KeyEvent.KEYCODE_BACK -> if (isDown) dialog.dismiss()
+
+                // Esc / 退格：短按录成该键本身，长按分别是 取消 / 清除
+                KeyEvent.KEYCODE_ESCAPE, KeyEvent.KEYCODE_DEL -> when (event.action) {
+                    KeyEvent.ACTION_DOWN -> if (event.repeatCount == 0) {
+                        // 记住按下那一刻的修饰位：抬起时再读 metaState 可能已经松开修饰键了
+                        pendingKey = kc
+                        pendingMeta = event.metaState
+                        longPressFired = false
+                        val r = Runnable {
+                            longPressFired = true
+                            if (kc == KeyEvent.KEYCODE_ESCAPE) {
+                                dialog.dismiss()             // 长按 Esc = 取消
+                            } else {
+                                captured = MetaKeyMap.UNSET  // 长按退格 = 清除（留在窗内）
+                                refresh()
+                            }
+                        }
+                        longPressRunnable = r
+                        handler.postDelayed(r, longPressTimeout)
                     }
-                    true
-                }
-                else -> {
-                    if (event.action == KeyEvent.ACTION_DOWN
-                        && event.repeatCount == 0
-                        && !MetaKeyMap.isModifierKey(event.keyCode)
-                    ) {
-                        val meta = event.metaState
-                        captured = MetaKeyMap(
-                            keyCode = event.keyCode,
-                            shift = (meta and KeyEvent.META_SHIFT_ON) != 0,
-                            ctrl = (meta and KeyEvent.META_CTRL_ON) != 0,
-                            alt = (meta and KeyEvent.META_ALT_ON) != 0,
-                        )
-                        refresh()
+                    KeyEvent.ACTION_UP -> if (kc == pendingKey) {
+                        val fired = longPressFired
+                        val meta = pendingMeta
+                        stopLongPressTimer()
+                        if (!fired) record(kc, meta)   // 只有短按才录
                     }
-                    true
+                }
+
+                else -> if (isDown && event.repeatCount == 0 && !MetaKeyMap.isModifierKey(kc)) {
+                    stopLongPressTimer()
+                    record(kc, event.metaState)
                 }
             }
+        }
+
+        dialog.setOnKeyListener { _, _, event ->
+            handleKey(event)
+            true   // 全吞：一个按键都不漏给弹窗自身或系统
         }
 
         btnClear.setOnClickListener {
@@ -103,7 +152,27 @@ object MetaSingleMapDialog {
         }
         btnCancel.setOnClickListener { dialog.dismiss() }
         btnSave.setOnClickListener {
-            if (!captured.isSet) return@setOnClickListener
+            if (!captured.isSet) {
+                // 空值也要有确定的行为，不能"点了没反应"：
+                //  · 本来就有映射 → 撤回（cfg 一动不动，旧映射保留，等价于取消）
+                //  · 本来就没映射 → 落到「关闭」，别停在「映射到…（未设置）」
+                //    这种看着生效、实际什么都不做的档位
+                if (hadMapping) {
+                    LogHelper.log(LogHelper.VerboseLevel.INFO,
+                        "MetaSingleMap: empty save → keep previous mapping")
+                    dialog.dismiss()   // saved 保持 false ⇒ onCancelled ⇒ 重绑回旧值
+                    return@setOnClickListener
+                }
+                ShortcutMeta.setMetaSingleMap(cfg, MetaKeyMap.UNSET)
+                ShortcutMeta.setMetaSingleUiMode(cfg, MetaSingleUiMode.OFF)
+                cfg.save()
+                Config.syncToSharedPrefs(context, cfg)
+                LogHelper.log(LogHelper.VerboseLevel.INFO,
+                    "MetaSingleMap: empty save → fallback to OFF")
+                saved = true
+                dialog.dismiss()
+                return@setOnClickListener
+            }
             // 直接改写调用方那一份实例：界面下次 bind 读到的就是新值。
             ShortcutMeta.setMetaSingleMap(cfg, captured)
             ShortcutMeta.setMetaSingleUiMode(cfg, MetaSingleUiMode.MAP)
@@ -116,6 +185,7 @@ object MetaSingleMapDialog {
         }
 
         dialog.setOnDismissListener {
+            stopLongPressTimer()   // 别让挂起的计时器在关窗后再动 cfg
             setRecording(context, false)
             // 没录到目标就不算数：回到进来之前那一档，避免出现
             // 「映射到…（未设置）」这种看着生效、实际什么都不做的状态。
@@ -124,7 +194,6 @@ object MetaSingleMapDialog {
 
         dialog.show()
         setRecording(context, true)
-        field.requestFocus()
     }
 
     /** 告知模块：录制期间对任何按键都撒手（见 {@code HookContext.isShortcutRecording}）。 */

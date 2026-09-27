@@ -310,9 +310,9 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
         /**
          * 所有 Spinner 统一固定宽度（px），按全部可能文本的最宽值一次性计算。
          *
-         * <p>全表共用一个值 —— 包括 Win 单按那张「映射到…」卡片。它的文案
-         * （`映射到…（Ctrl+Shift+A）`）比五档长，放不下时按单行省略号截断；
-         * 之前给它单独放宽会让整行跟别的卡片对不齐，得不偿失。
+         * <p>全表共用一个值 —— 包括 Win 单按那张卡片：它**收起的框里只写快捷键本身**
+         * （`Ctrl+Shift+A`），不写「映射到…」那层壳（壳只出现在展开的下拉里），
+         * 所以按五档文案量出来的这个宽度也够用。之前给它单独放宽，整行会跟别的卡片对不齐。
          */
         private var spinnerFixedMinWidth: Int = 0
 
@@ -821,8 +821,15 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 val ctx = requireContext()
                 val modes = MetaSingleUiMode.entries
 
-                fun labelOf(mode: MetaSingleUiMode): String = when (mode) {
+                // 展开的下拉：保留带说明的「映射到…（Ctrl+A）」，挑的时候看得明白
+                fun optionLabelOf(mode: MetaSingleUiMode): String = when (mode) {
                     MetaSingleUiMode.MAP -> ShortcutMeta.getMetaSingleMap(cfg).optionLabel(ctx)
+                    else -> mode.displayName(ctx)
+                }
+                // 收起的框：只写快捷键本身，不写「映射到…」那层壳
+                fun fieldLabelOf(mode: MetaSingleUiMode): String = when (mode) {
+                    MetaSingleUiMode.MAP -> ShortcutMeta.getMetaSingleMap(cfg).displayName()
+                        .ifEmpty { mode.displayName(ctx) }
                     else -> mode.displayName(ctx)
                 }
 
@@ -830,10 +837,10 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
 
                 b.spAction.setAdapter(null)
                 b.spAction.setAdapter(
-                    ArrayAdapter(ctx, R.layout.dropdown_item_wrap, modes.map { labelOf(it) })
+                    ArrayAdapter(ctx, R.layout.dropdown_item_wrap, modes.map { optionLabelOf(it) })
                 )
                 b.spAction.threshold = Int.MAX_VALUE
-                b.spAction.setText(labelOf(current), false)
+                b.spAction.setText(fieldLabelOf(current), false)
                 b.spAction.isEnabled = true
                 b.tilAction.isEnabled = true
                 b.tilAction.visibility = View.VISIBLE

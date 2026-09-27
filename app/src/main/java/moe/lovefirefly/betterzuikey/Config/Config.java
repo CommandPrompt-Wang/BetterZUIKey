@@ -1,6 +1,7 @@
 package moe.lovefirefly.betterzuikey.Config;
 
 import moe.lovefirefly.betterzuikey.BuildConfig;
+import moe.lovefirefly.betterzuikey.MetaKeyMap;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import moe.lovefirefly.betterzuikey.Region.RegionProfile;
 
@@ -589,6 +590,7 @@ public class Config {
         // 不再迁移到 BLOCK —— 见 HookContext.isMetaPassthrough()。
         migrateAppKeyModes(cfg);
         migrateWinLongPressConfig(cfg);
+        migrateMetaSingleMap(cfg);
 
         // State sync is handled at boot by system_server (MainHook).
         // App process does NOT read Settings.System — see ipc-contentprovider.md.
@@ -666,6 +668,21 @@ public class Config {
                     "Config: migrated winLongPress → override + command flag");
             cfg.save();
         }
+    }
+
+    /**
+     * metaSingleMapEnabled 开着但映射目标为空 → 「映射到…（未设置）」这种
+     * 看着生效、实际什么都不做的死状态。归一到「关闭」，并清掉空目标。
+     */
+    private static void migrateMetaSingleMap(Config cfg) {
+        if (!cfg.metaSingleMapEnabled) return;
+        if (MetaKeyMap.parse(cfg.metaSingleMap).isSet()) return;
+        cfg.metaSingleMapEnabled = false;
+        cfg.overrideMetaSingle = OverrideMode.OFF;
+        cfg.metaSingleMap = "";
+        LogHelper.log(LogHelper.VerboseLevel.INFO,
+                "Config: metaSingleMap empty → fallback to OFF");
+        cfg.save();
     }
 
     private static boolean migrateOneAppKeyMode(OverrideMode legacy,
