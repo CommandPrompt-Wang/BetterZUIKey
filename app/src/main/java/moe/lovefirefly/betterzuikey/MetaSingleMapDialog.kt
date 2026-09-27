@@ -90,12 +90,7 @@ object MetaSingleMapDialog {
         }
 
         fun record(keyCode: Int, metaState: Int) {
-            captured = MetaKeyMap(
-                keyCode = keyCode,
-                shift = (metaState and KeyEvent.META_SHIFT_ON) != 0,
-                ctrl = (metaState and KeyEvent.META_CTRL_ON) != 0,
-                alt = (metaState and KeyEvent.META_ALT_ON) != 0,
-            )
+            captured = MetaKeyMap.of(keyCode, metaState)
             refresh()
         }
 
@@ -120,7 +115,11 @@ object MetaSingleMapDialog {
                         kc == KeyEvent.KEYCODE_DEL ||
                         kc == KeyEvent.KEYCODE_BACK -> Unit
                     kc in windowKeys -> Unit
-                    else -> record(kc, meta)
+                    else -> {
+                        LogHelper.log(LogHelper.VerboseLevel.DEBUG,
+                            "MetaSingleMap: module reported kc=", kc.toString())
+                        record(kc, meta)
+                    }
                 }
             }
         }

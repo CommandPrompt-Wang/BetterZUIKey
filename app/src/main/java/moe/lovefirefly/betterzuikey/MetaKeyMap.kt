@@ -56,6 +56,31 @@ data class MetaKeyMap(
     companion object {
         val UNSET = MetaKeyMap(0)
 
+        /**
+         * 从一次按键事件构造映射目标。
+         *
+         * <p>[keyCode] 自己若是修饰键，要把**它自身那一位**从 [metaState] 里剔掉：
+         * 单按 Ctrl 时事件的 metaState 就带着 `META_CTRL_ON`（Ctrl 键把自己那位置上了），
+         * 不剔就会变成「Ctrl+Ctrl」这种荒唐显示，语义上也不对 ——
+         * 它自己现在是主键，不再是修饰键。
+         */
+        @JvmStatic
+        fun of(keyCode: Int, metaState: Int): MetaKeyMap {
+            val selfBit = when (keyCode) {
+                KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_CTRL_RIGHT -> KeyEvent.META_CTRL_ON
+                KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_SHIFT_RIGHT -> KeyEvent.META_SHIFT_ON
+                KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.KEYCODE_ALT_RIGHT -> KeyEvent.META_ALT_ON
+                else -> 0
+            }
+            val meta = metaState and selfBit.inv()
+            return MetaKeyMap(
+                keyCode = keyCode,
+                shift = (meta and KeyEvent.META_SHIFT_ON) != 0,
+                ctrl = (meta and KeyEvent.META_CTRL_ON) != 0,
+                alt = (meta and KeyEvent.META_ALT_ON) != 0,
+            )
+        }
+
         /** 解析 `serialize()` 的产物；任何异常/残缺一律回落到「未设置」。 */
         @JvmStatic
         fun parse(raw: String?): MetaKeyMap {

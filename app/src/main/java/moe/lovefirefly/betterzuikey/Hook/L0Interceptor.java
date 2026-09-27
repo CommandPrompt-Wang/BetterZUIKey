@@ -44,6 +44,8 @@ public class L0Interceptor  {
         // 会被系统或 ZUI 在到达应用窗口前吃掉，只有这里看得到。
         if (ctx.isShortcutRecording()) {
             if (down && repeatCount == 0) {
+                LogHelper.log(LogHelper.VerboseLevel.DEBUG, "L0 record kc=",
+                        String.valueOf(keyCode));
                 ctx.configIPC.appendRecordedKey(keyCode, event.getMetaState());
             }
             param.setResult(false);

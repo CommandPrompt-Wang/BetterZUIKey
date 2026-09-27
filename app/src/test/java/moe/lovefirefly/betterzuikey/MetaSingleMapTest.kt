@@ -89,6 +89,29 @@ class MetaSingleMapTest {
     }
 
     @Test
+    fun of_stripsTheModifierBitOfTheKeyItself() {
+        // 单按 Ctrl：事件 metaState 天然带 META_CTRL_ON，不剔掉就显示成「Ctrl+Ctrl」
+        val ctrl = MetaKeyMap.of(KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.META_CTRL_ON)
+        assertEquals(KeyEvent.KEYCODE_CTRL_LEFT, ctrl.keyCode)
+        assertFalse(ctrl.ctrl)
+        assertFalse(ctrl.hasModifier)
+
+        assertFalse(MetaKeyMap.of(KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.META_SHIFT_ON).shift)
+        assertFalse(MetaKeyMap.of(KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.META_ALT_ON).alt)
+
+        // 组合键照旧：主键是 A，Ctrl 那一位要留着
+        val ctrlA = MetaKeyMap.of(KeyEvent.KEYCODE_A, KeyEvent.META_CTRL_ON)
+        assertEquals(KeyEvent.KEYCODE_A, ctrlA.keyCode)
+        assertTrue(ctrlA.ctrl)
+
+        // Ctrl+Shift 同按：主键是 Shift，只剔掉它自己那一位，Ctrl 留下
+        val ctrlShift = MetaKeyMap.of(
+            KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON)
+        assertTrue(ctrlShift.ctrl)
+        assertFalse(ctrlShift.shift)
+    }
+
+    @Test
     fun keyName_usesFriendlyNamesForModifiersAndBrightness() {
         // 单独把 Win / Ctrl / Shift 映射成一个键是支持的需求，
         // 名字不该显示成 MetaLeft / CtrlRight。
