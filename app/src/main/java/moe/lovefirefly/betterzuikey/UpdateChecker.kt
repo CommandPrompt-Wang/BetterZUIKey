@@ -18,6 +18,7 @@ import io.noties.markwon.Markwon
 import io.noties.markwon.ext.tables.TablePlugin
 import io.noties.markwon.linkify.LinkifyPlugin
 import moe.lovefirefly.betterzuikey.Config.Config
+import moe.lovefirefly.betterzuikey.Utils.LogHelper
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -86,14 +87,23 @@ object UpdateChecker {
             Config.UpdateChannel.GITHUB2 -> checkGitHub2()
             Config.UpdateChannel.PERSONAL -> checkPersonal()
         }
+        // 取「最新发布」的日志要联网，必须在**后台线程**做。
+        // 调用方虽然是在 Thread 里进来的，但下面的 runOnUi 会把块切到主线程 ——
+        // 之前 fetchLatestNoteQuietly 写在 runOnUi 里面，主线程联网被
+        // NetworkOnMainThreadException 吞掉，日志永远是 null（弹窗里什么都没有）。
+        val latestNote = if (result is Result.Latest) {
+            fetchLatestNoteQuietly(cfg.updateChannel)
+        } else {
+            null
+        }
         runOnUi(context) {
             when (result) {
                 is Result.Latest -> {
                     // 伪装：把当前版本当作"新版本"弹出对话框。
-                    // 顺便把"最新发布"的真实更新日志一起取来，方便在没新版本时也能验证日志展示。
+                    // 顺带附上"最新发布"的真实更新日志，方便在没新版本时也能查看日志。
                     showUpdateDialog(context, cfg,
                         Result.NewVersion(BuildConfig.VERSION_NAME, "",
-                            releaseNote = fetchLatestNoteQuietly(cfg.updateChannel)))
+                            releaseNote = latestNote))
                 }
                 is Result.NewVersion -> {
                     showUpdateDialog(context, cfg, result)
@@ -661,22 +671,39 @@ object UpdateChecker {
     /**
      * 调试用：不管版本新旧，直接把对应通道"最新发布"的更新日志取来。
      *
-     * <p>仅在 {@link #debugForceDialog} 里调用（那条路径本身就在后台线程）。
+     * <p>仅在 {@link #debugForceDialog} 里调用，**必须在后台线程执行**（要联网）。
      * 任何失败都返回 null，不影响对话框弹出。
+     *
+     * <p>AUTO 与 {@link #checkAuto} 同规矩：GitHub 两个通道依次失败（国内常见：
+     * api.github.com 不通或限流 403）就回退到个人镜像 —— 否则版本能查到、日志却永远是空的。
      */
     private fun fetchLatestNoteQuietly(channel: Config.UpdateChannel): String? {
-        return try {
-            when (channel) {
-                Config.UpdateChannel.PERSONAL ->
-                    fetchReleaseNote(JSONObject(httpGet(PERSONAL_API)))
-                else -> {
-                    val api = if (channel == Config.UpdateChannel.GITHUB2) GITHUB2_API else GITHUB1_API
-                    JSONObject(httpGet(api)).optString("body", "").takeIf { it.isNotBlank() }
-                }
-            }
-        } catch (e: Exception) {
-            null
+        val order = when (channel) {
+            Config.UpdateChannel.AUTO -> listOf(
+                Config.UpdateChannel.GITHUB1,
+                Config.UpdateChannel.GITHUB2,
+                Config.UpdateChannel.PERSONAL,
+            )
+            else -> listOf(channel)
         }
+        for (c in order) {
+            val note = try {
+                when (c) {
+                    Config.UpdateChannel.PERSONAL ->
+                        fetchReleaseNote(JSONObject(httpGet(PERSONAL_API)))
+                    else -> {
+                        val api = if (c == Config.UpdateChannel.GITHUB2) GITHUB2_API else GITHUB1_API
+                        JSONObject(httpGet(api)).optString("body", "").takeIf { it.isNotBlank() }
+                    }
+                }
+            } catch (e: Exception) {
+                LogHelper.log(LogHelper.VerboseLevel.DEBUG,
+                    "fetchLatestNoteQuietly(", c.name, ") failed:", e.message)
+                null
+            }
+            if (!note.isNullOrBlank()) return note
+        }
+        return null
     }
 
     /**
