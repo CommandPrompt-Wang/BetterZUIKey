@@ -143,13 +143,15 @@ class TemplateEditorActivity : AppCompatActivity() {
                 // ── Override mode filter (template override or global fallback) ──
                 val ov = template.get(meta.key)
                 val isInherit = ov == null || ov.isInherit()
+                val useMap = ov?.useMap == true
                 val mode = ov?.overrideMode ?: ShortcutMeta.getOverride(globalCfg, meta.key)
+                // 「映射到…」与全局页同规矩，归到「非默认(ZUI)」那一档
                 val modeOk = (filterModeInherit && isInherit) ||
-                             (filterModeDefault && !isInherit && (mode == Config.OverrideMode.FOLLOW_SYSTEM || mode == Config.OverrideMode.ZUI)) ||
-                             (filterModeAOSP && !isInherit && mode == Config.OverrideMode.AOSP) ||
-                             (filterModeZUI && !isInherit && mode == Config.OverrideMode.ZUI) ||
-                             (filterModeOFF && !isInherit && mode == Config.OverrideMode.OFF) ||
-                             (filterModeBLOCK && !isInherit && mode == Config.OverrideMode.BLOCK)
+                             (filterModeDefault && !isInherit && !useMap && (mode == Config.OverrideMode.FOLLOW_SYSTEM || mode == Config.OverrideMode.ZUI)) ||
+                             (filterModeAOSP && !isInherit && !useMap && mode == Config.OverrideMode.AOSP) ||
+                             (filterModeZUI && !isInherit && (mode == Config.OverrideMode.ZUI || useMap)) ||
+                             (filterModeOFF && !isInherit && !useMap && mode == Config.OverrideMode.OFF) ||
+                             (filterModeBLOCK && !isInherit && !useMap && mode == Config.OverrideMode.BLOCK)
                 modeOk
             }
             openSpinnerPos = -1
@@ -163,11 +165,22 @@ class TemplateEditorActivity : AppCompatActivity() {
             if (spinnerFixedMinWidth == 0) {
                 val ctx = parent.context
                 val paint = b.spAction.paint
-                val modeMaxW = Config.OverrideMode.entries.maxOf {
-                    paint.measureText(it.displayName(ctx)).toInt()
-                }
-                val inheritMaxW = Config.OverrideMode.entries.maxOf {
-                    paint.measureText(ctx.getString(R.string.editor_inherit_global, it.displayName(ctx))).toInt()
+                // 所有卡片可能出现的标签（通用五档 + 三张专属卡的档位 + 映射目标）
+                // 映射目标的文案里带着录到的组合键（可能很长，还有 Ctrl(L) 这种侧别），
+                // 所以把本模板已录的全部目标也算进来，避免新录的键被截断
+                val mapLabels = (listOf(ShortcutMeta.getMetaSingleMap(globalCfg).optionLabel(ctx)) +
+                        template.overrides.values
+                            .mapNotNull { it.mapTarget }
+                            .filter { it.isNotBlank() }
+                            .map { MetaKeyMap.parse(it).optionLabel(ctx) })
+                val allLabels = Config.OverrideMode.entries.map { it.displayName(ctx) } +
+                        Config.AppKeyMode.entries.map { it.displayName(ctx) } +
+                        WinLongPressUiMode.entries.map { it.displayName(ctx) } +
+                        MetaSingleUiMode.entries.map { it.displayName(ctx) } +
+                        mapLabels
+                val modeMaxW = allLabels.maxOf { paint.measureText(it).toInt() }
+                val inheritMaxW = allLabels.maxOf {
+                    paint.measureText(ctx.getString(R.string.editor_inherit_global, it)).toInt()
                 }
                 // 额外留出 dropdown 图标 + 内边距
                 spinnerFixedMinWidth = maxOf(modeMaxW, inheritMaxW) +
@@ -192,9 +205,23 @@ class TemplateEditorActivity : AppCompatActivity() {
             holder.bind(filtered[position], position)
         }
 
+        /** 与主界面同规矩：哪些档位对这张卡可用（AOSP 还要看 showAospOption）。 */
+        private fun availableModes(meta: ShortcutMeta): List<Config.OverrideMode> =
+            Config.OverrideMode.entries.filter {
+                it.isAvailable(meta)
+                    && (it != Config.OverrideMode.AOSP || meta.showAospOption)
+            }
+
+        /** 档位文案：卡片自定义标签优先（Ctrl+Enter 的「换行 / 透传」等，与主界面一致）。 */
+        private fun modeLabel(meta: ShortcutMeta, mode: Config.OverrideMode): String =
+            meta.overrideModeLabels?.get(mode)
+                ?.let { this@TemplateEditorActivity.getString(it) }
+                ?: mode.displayName(this@TemplateEditorActivity)
+
         inner class VH(private val b: ItemShortcutRowBinding) : RecyclerView.ViewHolder(b.root) {
             fun bind(meta: ShortcutMeta, pos: Int) {
-                val key = meta.key
+                // ctrlCard 与主界面同规矩：下拉写的是 ctrlSlash（Ctrl 长按那个开关在模板里不出现）
+                val key = if (meta.key == "ctrlCard") "ctrlSlash" else meta.key
                 val ov = template.get(key)
 
                 // 全局默认值（使用 ShortcutMeta 直接字段访问，避免反射）
@@ -215,27 +242,21 @@ class TemplateEditorActivity : AppCompatActivity() {
                 // 隐藏 Switch — 系统开关由全局控制
                 b.swEnabled.visibility = View.GONE
 
-                val actions = Config.OverrideMode.entries
-                    .filter { it.isAvailable(meta) }
-                    .toMutableList()
-                val ctx = this@TemplateEditorActivity
-                val actionLabels = actions.map { it.displayName(ctx) }.toMutableList()
-                // 加 "继承全局（实际值）" 选项
-                actionLabels.add(0, ctx.getString(R.string.editor_inherit_global, gAction.displayName(ctx)))
-                b.spAction.isFocusable = true
-                b.spAction.isFocusableInTouchMode = true
-                b.spAction.setAdapter(ArrayAdapter(
-                    this@TemplateEditorActivity,
-                    R.layout.dropdown_item_wrap,
-                    actionLabels
-                ))
+                // 卡片专属档位：与全局页同构，但多一项「继承全局」，且写进模板覆写
+                when {
+                    meta.key == "winLongPress" -> { bindWinLongSpin(key, b, pos); return }
+                    ShortcutMeta.usesMetaSingleMode(meta.key) -> { bindMetaSingleSpin(key, b, pos); return }
+                    ShortcutMeta.usesAppKeyMode(meta.key) -> { bindAppKeySpin(key, b, pos); return }
+                }
 
-                // 选中值：覆写则选原值，否则显示继承的全局值
-                b.spAction.setText(
-                    if (isOverride) effOverride.displayName(ctx)
-                    else ctx.getString(R.string.editor_inherit_global, gAction.displayName(ctx)),
-                    false
-                )
+                val ctx = this@TemplateEditorActivity
+                val actions = availableModes(meta)
+                val actionLabels = actions.map { modeLabel(meta, it) }.toMutableList()
+                // 加 "继承全局（实际值）" 选项
+                val inheritLabel = ctx.getString(R.string.editor_inherit_global, modeLabel(meta, gAction))
+                actionLabels.add(0, inheritLabel)
+                setupSpin(b, pos, actionLabels,
+                    if (isOverride) modeLabel(meta, effOverride) else inheritLabel)
 
                 // 卡片点击行为（模板编辑器无 Switch，由 meta.cardClick 统一控制）
                 val resolvedClick = meta.cardClick.resolve(hasSpinner = true, hasSwitch = false)
@@ -258,22 +279,234 @@ class TemplateEditorActivity : AppCompatActivity() {
                 b.spAction.setOnItemClickListener { _, _, itemPos, _ ->
                     openSpinnerPos = -1
                     if (itemPos == 0) {
-                        // "继承全局" — 清除覆写
                         template.overrides.remove(key)
                     } else {
-                        val act = Config.OverrideMode.entries.filter { it.isAvailable(meta) }[itemPos - 1]
-                        ensureOverride(key).overrideMode = act
+                        val o = ensureOverride(key)
+                        // 走通用档位时清掉专属字段，避免残留（专属卡不会走到这里）
+                        o.useMap = null
+                        o.mapTarget = null
+                        o.useCommand = null
+                        o.appKeyMode = null
+                        o.overrideMode = actions[itemPos - 1]
                     }
                     dirty = true
                     notifyItemChanged(adapterPosition)
                 }
             }
 
+            /** 通用：装配下拉（首项固定是「继承全局」） */
+            private fun setupSpin(
+                b: ItemShortcutRowBinding,
+                pos: Int,
+                labels: List<String>,
+                selectedText: String,
+            ) {
+                b.spAction.isFocusable = true
+                b.spAction.isFocusableInTouchMode = true
+                b.spAction.setAdapter(null)
+                b.spAction.setAdapter(ArrayAdapter(
+                    this@TemplateEditorActivity, R.layout.dropdown_item_wrap, labels))
+                b.spAction.threshold = Int.MAX_VALUE
+                b.spAction.setText(selectedText, false)
+                b.spAction.isEnabled = true
+                b.tilAction.isEnabled = true
+                b.tilAction.visibility = View.VISIBLE
+                b.root.setOnClickListener {
+                    if (openSpinnerPos == pos) {
+                        openSpinnerPos = -1
+                        return@setOnClickListener
+                    }
+                    b.spAction.showDropDown()
+                    openSpinnerPos = pos
+                }
+            }
+
+            private fun editCommand(key: String, pos: Int) {
+                AppKeyCommandDialog.show(
+                    this@TemplateEditorActivity,
+                    AppKeyCommandDialog.TemplateStore(this@TemplateEditorActivity, template, key),
+                ) {
+                    dirty = true
+                    notifyItemChanged(pos)
+                }
+            }
+
+            /** Win 长按：继承 + 四档（含「执行命令…」，命令写进模板） */
+            private fun bindWinLongSpin(key: String, b: ItemShortcutRowBinding, pos: Int) {
+                val ctx = this@TemplateEditorActivity
+                val ov = template.get(key)
+                val modes = WinLongPressUiMode.entries
+                val globalMode = ShortcutMeta.getWinLongPressUiMode(globalCfg)
+                val current = when {
+                    ov?.useCommand == true -> WinLongPressUiMode.CUSTOM
+                    ov?.overrideMode == Config.OverrideMode.BLOCK -> WinLongPressUiMode.BLOCK
+                    ov?.overrideMode == Config.OverrideMode.ZUI -> WinLongPressUiMode.ZUI
+                    ov?.overrideMode == Config.OverrideMode.FOLLOW_SYSTEM -> WinLongPressUiMode.FOLLOW_SYSTEM
+                    else -> null
+                }
+                val labels = listOf(ctx.getString(R.string.editor_inherit_global, globalMode.displayName(ctx))) +
+                        modes.map { it.displayName(ctx) }
+                setupSpin(b, pos, labels, current?.displayName(ctx) ?: labels[0])
+                b.root.setOnLongClickListener {
+                    if (current == WinLongPressUiMode.CUSTOM) editCommand(key, pos)
+                    true
+                }
+                b.spAction.setOnItemClickListener { _, _, itemPos, _ ->
+                    openSpinnerPos = -1
+                    if (itemPos == 0) {
+                        template.overrides.remove(key)
+                    } else {
+                        val sel = modes[itemPos - 1]
+                        val o = ensureOverride(key)
+                        o.appKeyMode = null
+                        when (sel) {
+                            WinLongPressUiMode.CUSTOM -> {
+                                o.useCommand = true
+                                o.overrideMode = null
+                            }
+                            WinLongPressUiMode.BLOCK -> {
+                                o.useCommand = false
+                                o.overrideMode = Config.OverrideMode.BLOCK
+                            }
+                            WinLongPressUiMode.ZUI -> {
+                                o.useCommand = false
+                                o.overrideMode = Config.OverrideMode.ZUI
+                            }
+                            WinLongPressUiMode.FOLLOW_SYSTEM -> {
+                                o.useCommand = false
+                                o.overrideMode = Config.OverrideMode.FOLLOW_SYSTEM
+                            }
+                        }
+                        if (sel == WinLongPressUiMode.CUSTOM) editCommand(key, pos)
+                    }
+                    dirty = true
+                    notifyItemChanged(pos)
+                }
+            }
+
+            /** 智能键：继承 + 三档（跟随系统 / 忽略 / 执行命令…），命令写进模板 */
+            private fun bindAppKeySpin(key: String, b: ItemShortcutRowBinding, pos: Int) {
+                val ctx = this@TemplateEditorActivity
+                val ov = template.get(key)
+                val modes = Config.AppKeyMode.entries
+                val globalMode = ShortcutMeta.getAppKeyMode(globalCfg, key)
+                val current = when {
+                    ov?.appKeyMode != null -> ov.appKeyMode
+                    ov?.overrideMode == Config.OverrideMode.BLOCK
+                            || ov?.overrideMode == Config.OverrideMode.OFF -> Config.AppKeyMode.BLOCK
+                    ov?.overrideMode != null -> Config.AppKeyMode.FOLLOW_SYSTEM
+                    else -> null
+                }
+                val labels = listOf(ctx.getString(R.string.editor_inherit_global, globalMode.displayName(ctx))) +
+                        modes.map { it.displayName(ctx) }
+                setupSpin(b, pos, labels, current?.displayName(ctx) ?: labels[0])
+                // 长按与主界面一致：打开系统里的智能键设置
+                b.root.setOnLongClickListener {
+                    AppKeySystemSettingsLauncher.open(ctx, key)
+                    true
+                }
+                b.spAction.setOnItemClickListener { _, _, itemPos, _ ->
+                    openSpinnerPos = -1
+                    if (itemPos == 0) {
+                        template.overrides.remove(key)
+                    } else {
+                        val sel = modes[itemPos - 1]
+                        val o = ensureOverride(key)
+                        o.appKeyMode = sel
+                        o.overrideMode = null
+                        o.useCommand = null
+                        if (sel == Config.AppKeyMode.CUSTOM) editCommand(key, pos)
+                    }
+                    dirty = true
+                    notifyItemChanged(pos)
+                }
+            }
+
+            /** Win 单按：继承 + 六档（含「映射到…」，目标**模板独立**） */
+            private fun bindMetaSingleSpin(key: String, b: ItemShortcutRowBinding, pos: Int) {
+                val ctx = this@TemplateEditorActivity
+                val ov = template.get(key)
+                val modes = MetaSingleUiMode.entries
+                val globalMode = ShortcutMeta.getMetaSingleUiMode(globalCfg)
+                val current = when {
+                    ov?.useMap == true -> MetaSingleUiMode.MAP
+                    ov?.overrideMode == Config.OverrideMode.BLOCK -> MetaSingleUiMode.BLOCK
+                    ov?.overrideMode == Config.OverrideMode.OFF -> MetaSingleUiMode.OFF
+                    ov?.overrideMode == Config.OverrideMode.AOSP -> MetaSingleUiMode.AOSP
+                    ov?.overrideMode == Config.OverrideMode.ZUI -> MetaSingleUiMode.ZUI
+                    ov?.overrideMode == Config.OverrideMode.FOLLOW_SYSTEM -> MetaSingleUiMode.FOLLOW_SYSTEM
+                    else -> null
+                }
+                // 「映射到…」的两种文案与主界面一致：
+                //   展开的下拉 = 「映射到…（Ctrl+A）」（挑的时候看得明白）
+                //   收起的框   = 只写快捷键本身，不写「映射到…」那层壳
+                fun optionLabelOf(mode: MetaSingleUiMode, target: String?): String = when (mode) {
+                    MetaSingleUiMode.MAP ->
+                        MetaKeyMap.parse(target ?: globalCfg.metaSingleMap).optionLabel(ctx)
+                    else -> mode.displayName(ctx)
+                }
+                fun fieldLabelOf(mode: MetaSingleUiMode, target: String?): String = when (mode) {
+                    MetaSingleUiMode.MAP -> MetaKeyMap.parse(target ?: globalCfg.metaSingleMap)
+                        .displayName().ifEmpty { mode.displayName(ctx) }
+                    else -> mode.displayName(ctx)
+                }
+                val labels = listOf(ctx.getString(R.string.editor_inherit_global,
+                        optionLabelOf(globalMode, globalCfg.metaSingleMap))) +
+                        modes.map { optionLabelOf(it, ov?.mapTarget) }
+                val selectedText = when {
+                    current == null -> labels[0]
+                    else -> fieldLabelOf(current, ov?.mapTarget)
+                }
+                setupSpin(b, pos, labels, selectedText)
+                b.root.setOnLongClickListener {
+                    if (current == MetaSingleUiMode.MAP) editMap(key, pos)
+                    true
+                }
+                b.spAction.setOnItemClickListener { _, _, itemPos, _ ->
+                    openSpinnerPos = -1
+                    if (itemPos == 0) {
+                        template.overrides.remove(key)
+                    } else {
+                        val sel = modes[itemPos - 1]
+                        if (sel == MetaSingleUiMode.MAP) {
+                            editMap(key, pos)
+                        } else {
+                            val o = ensureOverride(key)
+                            o.useMap = null
+                            o.mapTarget = null
+                            o.overrideMode = when (sel) {
+                                MetaSingleUiMode.BLOCK -> Config.OverrideMode.BLOCK
+                                MetaSingleUiMode.OFF -> Config.OverrideMode.OFF
+                                MetaSingleUiMode.AOSP -> Config.OverrideMode.AOSP
+                                MetaSingleUiMode.ZUI -> Config.OverrideMode.ZUI
+                                else -> Config.OverrideMode.FOLLOW_SYSTEM
+                            }
+                        }
+                    }
+                    dirty = true
+                    notifyItemChanged(pos)
+                }
+            }
+
+            private fun editMap(key: String, pos: Int) {
+                MetaSingleMapDialog.show(
+                    this@TemplateEditorActivity,
+                    MetaSingleMapDialog.TemplateStore(template, key),
+                    onCancelled = { notifyItemChanged(pos) },
+                    onChanged = {
+                        dirty = true
+                        // 刚录的目标可能比之前的长（带上侧别后更长），宽度按最新标签重算
+                        spinnerFixedMinWidth = 0
+                        notifyDataSetChanged()
+                    },
+                )
+            }
+
             private fun ensureOverride(key: String): PerKeyOverride {
-                var ov = template.overrides[key]
+                var ov = template.get(key)
                 if (ov == null) {
                     ov = PerKeyOverride()
-                    template.overrides[key] = ov
+                    template.put(key, ov)
                 }
                 return ov
             }

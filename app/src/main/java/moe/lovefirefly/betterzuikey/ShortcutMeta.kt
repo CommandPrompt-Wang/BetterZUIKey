@@ -1,6 +1,7 @@
 package moe.lovefirefly.betterzuikey
 
 import android.content.Context
+import android.view.KeyEvent
 import androidx.annotation.StringRes
 import moe.lovefirefly.betterzuikey.Config.Config
 
@@ -242,6 +243,64 @@ data class ShortcutMeta(
         /** 该 card 是否使用专属的六档下拉（而非通用 OverrideMode 下拉）。 */
         fun usesMetaSingleMode(key: String): Boolean = key == "metaSingle"
 
+        // ── 「按住 Win + 其它键」的兜底合并 ────────────────────────────────
+        //
+        // 背景：Win 单击可以被映射成一条组合键（如 Ctrl(R)+Shift(R)+`）。按住 Win 时再按
+        // 别的键，若那个 Win+键 组合模块**没有生效中的特殊处理**，就把它并进这条映射里
+        // （Ctrl(R)+Shift(R)+`+R）。这是所有既有处理都轮过之后的最后一步，绝不抢先。
+
+        /**
+         * Win+键 的 keyCode → 快捷键表里的 key（如 KEYCODE_E → "winE"）。
+         *
+         * <p>表里没有这个组合时返回 null —— 例如 Win+R，本模块根本没有对应条目。
+         * 方向键归到 [getSwitch] / [getOverride] 真正认的那两项（winUp / winLeft）。
+         */
+        @JvmStatic
+        fun winComboKeyId(keyCode: Int): String? = when (keyCode) {
+            KeyEvent.KEYCODE_A -> "winA"
+            KeyEvent.KEYCODE_D -> "winD"
+            KeyEvent.KEYCODE_E -> "winE"
+            KeyEvent.KEYCODE_I -> "winI"
+            KeyEvent.KEYCODE_L -> "winL"
+            KeyEvent.KEYCODE_M -> "winM"
+            KeyEvent.KEYCODE_N -> "winN"
+            KeyEvent.KEYCODE_P -> "winP"
+            KeyEvent.KEYCODE_S -> "winS"
+            KeyEvent.KEYCODE_W -> "winW"
+            KeyEvent.KEYCODE_TAB -> "winTab"
+            KeyEvent.KEYCODE_BACK -> "winBack"
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> "winUp"
+            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> "winLeft"
+            in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 -> "winNumber"
+            else -> null
+        }
+
+        /**
+         * 按住 Win 时按下的 [keyCode]，要不要并进「映射到…」的目标。
+         *
+         * @param switchState 该组合**当前生效**的开关（已过模板解析），没对应条目时传 null
+         * @param mode        该组合**当前生效**的档位（已过模板解析），没对应条目时传 null
+         *
+         * <p>返回 true 的两种情形，正是「说了关闭 / 压根没定义」：
+         *  - 表里没有这个 Win+键（Win+R 之类），模块从来不管它；
+         *  - 有条目但没生效：开关关着，或档位是「关闭」（OFF＝不拦截、事件透传）。
+         *
+         * <p>其余情况（开关生效且档位是跟随系统 / ZUI / AOSP / 忽略）返回 false：
+         * 那是有特殊处理的键，比如 Win+E 交给系统开文件管理，不能干涉。
+         */
+        @JvmStatic
+        fun shouldMergeWinCombo(
+            keyCode: Int,
+            switchState: Config.SwitchState?,
+            mode: Config.OverrideMode?,
+        ): Boolean {
+            val id = winComboKeyId(keyCode) ?: return true
+            if (switchState == null || mode == null) return true
+            // winTab 没有系统开关，只看档位（与既有分支一致）
+            val enabled = id == "winTab" || switchState.isEnabled()
+            return !enabled || mode == Config.OverrideMode.OFF
+        }
+
         fun getAppKeyMode(cfg: Config, key: String): Config.AppKeyMode = when (key) {
             "keyApp1" -> cfg.app1Mode
             "keyApp2" -> cfg.app2Mode
@@ -320,6 +379,7 @@ data class ShortcutMeta(
         }
 
         /** 从 Config 读取 SwitchState（直接字段访问，不使用反射） */
+        @JvmStatic
         fun getSwitch(cfg: Config, key: String): Config.SwitchState = when (key) {
             "winD" -> cfg.switchWinD; "winS" -> cfg.switchWinS; "winA" -> cfg.switchWinA
             "winBack" -> cfg.switchWinBack; "winE" -> cfg.switchWinE; "winI" -> cfg.switchWinI
@@ -383,6 +443,7 @@ data class ShortcutMeta(
         }
 
         /** 从 Config 读取 OverrideMode（直接字段访问） */
+        @JvmStatic
         fun getOverride(cfg: Config, key: String): Config.OverrideMode = when (key) {
             "winD" -> cfg.overrideWinD; "winS" -> cfg.overrideWinS; "winA" -> cfg.overrideWinA
             "winBack" -> cfg.overrideWinBack; "winE" -> cfg.overrideWinE; "winI" -> cfg.overrideWinI

@@ -12,6 +12,8 @@ import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.button.MaterialButton
 import moe.lovefirefly.betterzuikey.Config.Config
+import moe.lovefirefly.betterzuikey.Config.KeyTemplate
+import moe.lovefirefly.betterzuikey.Config.PerKeyOverride
 import moe.lovefirefly.betterzuikey.Utils.LogHelper
 
 /**
@@ -52,9 +54,70 @@ object MetaSingleMapDialog {
      * 界面上「映射到…」永远显示旧档位；之后调用方任何一次 `cfg.save()` 都会用
      * 它那份没更新的 `metaSingleMap` 把刚录好的映射覆盖掉。
      */
+    /** 录制结果的写入目标：全局卡片，或模板里的一张卡。 */
+    interface Store {
+        fun load(): MetaKeyMap
+        fun save(map: MetaKeyMap)
+
+        /** 空值确定：全局 → 清掉映射并落到「关闭」；模板 → 解除这张卡的覆写 */
+        fun clear()
+    }
+
+    /** 全局卡片：写 Config、落盘并同步（语义与改动前一致）。 */
+    class GlobalStore(private val context: Context, private val cfg: Config) : Store {
+        override fun load(): MetaKeyMap = ShortcutMeta.getMetaSingleMap(cfg)
+
+        override fun save(map: MetaKeyMap) {
+            ShortcutMeta.setMetaSingleMap(cfg, map)
+            ShortcutMeta.setMetaSingleUiMode(cfg, MetaSingleUiMode.MAP)
+            cfg.save()
+            Config.syncToSharedPrefs(context, cfg)
+        }
+
+        override fun clear() {
+            ShortcutMeta.setMetaSingleMap(cfg, MetaKeyMap.UNSET)
+            ShortcutMeta.setMetaSingleUiMode(cfg, MetaSingleUiMode.OFF)
+            cfg.save()
+            Config.syncToSharedPrefs(context, cfg)
+        }
+    }
+
+    /**
+     * 模板里的一张卡：映射目标**模板独立**（写进覆写的 mapTarget），落盘交给模板编辑器。
+     * 「清除」= 解除该卡覆写，而不是像全局那样把档位落到「关闭」。
+     */
+    class TemplateStore(private val template: KeyTemplate, private val key: String) : Store {
+        override fun load(): MetaKeyMap {
+            val ov = template.get(key)
+            val raw = ov?.mapTarget?.takeIf { it.isNotBlank() } ?: Config.load().metaSingleMap
+            return MetaKeyMap.parse(raw)
+        }
+
+        override fun save(map: MetaKeyMap) {
+            // 先填字段再入 map：覆写对象一旦离开原地就会被丢弃，顺序不能反
+            val ov = template.get(key) ?: PerKeyOverride()
+            ov.useMap = true
+            ov.mapTarget = map.serialize()
+            ov.overrideMode = null
+            template.put(key, ov)
+        }
+
+        override fun clear() {
+            template.overrides.remove(key)
+        }
+    }
+
+    /** 全局卡片（保持原有调用方式）。 */
     fun show(
         context: Context,
         cfg: Config,
+        onCancelled: () -> Unit = {},
+        onChanged: () -> Unit = {},
+    ) = show(context, GlobalStore(context, cfg), onCancelled, onChanged)
+
+    fun show(
+        context: Context,
+        store: Store,
         onCancelled: () -> Unit = {},
         onChanged: () -> Unit = {},
     ) {
@@ -64,7 +127,7 @@ object MetaSingleMapDialog {
         val btnCancel = view.findViewById<MaterialButton>(R.id.btn_meta_map_cancel)
         val btnSave = view.findViewById<MaterialButton>(R.id.btn_meta_map_save)
 
-        var captured = ShortcutMeta.getMetaSingleMap(cfg)
+        var captured = store.load()
         var saved = false
 
         val dialog = AlertDialog.Builder(context)
@@ -188,23 +251,16 @@ object MetaSingleMapDialog {
         btnSave.setOnClickListener {
             drainReportedKeys()   // 最后一个键可能还没被轮询到
             if (!captured.isSet) {
-                // 空值保存 = 把映射清掉，档位落到「关闭」。
+                // 空值保存 = 把映射清掉（全局落到「关闭」；模板解除覆写）。
                 // 也不该停在「映射到…（未设置）」这种看着生效、实际什么都不做的档位。
-                ShortcutMeta.setMetaSingleMap(cfg, MetaKeyMap.UNSET)
-                ShortcutMeta.setMetaSingleUiMode(cfg, MetaSingleUiMode.OFF)
-                cfg.save()
-                Config.syncToSharedPrefs(context, cfg)
+                store.clear()
                 LogHelper.log(LogHelper.VerboseLevel.INFO,
-                    "MetaSingleMap: empty save → clear + OFF")
+                    "MetaSingleMap: empty save → clear")
                 saved = true
                 dialog.dismiss()
                 return@setOnClickListener
             }
-            // 直接改写调用方那一份实例：界面下次 bind 读到的就是新值。
-            ShortcutMeta.setMetaSingleMap(cfg, captured)
-            ShortcutMeta.setMetaSingleUiMode(cfg, MetaSingleUiMode.MAP)
-            cfg.save()
-            Config.syncToSharedPrefs(context, cfg)
+            store.save(captured)
             LogHelper.log(LogHelper.VerboseLevel.INFO,
                 "MetaSingleMap: saved ", captured.serialize())
             saved = true

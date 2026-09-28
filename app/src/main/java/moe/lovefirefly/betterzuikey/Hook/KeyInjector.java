@@ -229,8 +229,8 @@ public final class KeyInjector {
     /**
      * 「映射到…」专用：注入一个组合键。
      *
-     * <p>顺序：修饰键 DOWN（Ctrl → Shift → Alt）→ 主键 DOWN/UP → 修饰键 UP（逆序）。
-     * 每个事件都带上「当时已按下（含自己）」的修饰位，与物理键盘一致。
+     * <p>顺序：修饰键 DOWN（Ctrl → Shift → Alt，每个先左后右）→ 主键 DOWN/UP →
+     * 修饰键 UP（逆序）。每个事件都带上「当时已按下（含自己）」的修饰位，与物理键盘一致。
      *
      * <p>修饰键必须作为**真实的按键事件**发出去，而不是只把修饰位塞进主键的
      * {@code metaState}：只有后者的话，应用侧的「Ctrl 是否按住」状态机不会建立，
@@ -240,50 +240,134 @@ public final class KeyInjector {
      * @param deviceId 物理 Meta 所在设备的 id（沿用可减少 InputDispatcher 的重复修饰合成）
      */
     public static void injectCombo(MetaKeyMap map, int deviceId) {
+        injectChord(map, null, 0, 0, deviceId);
+    }
+
+    /**
+     * 「按住 Win + 其它键」兜底合并专用。
+     *
+     * <p>例如 Win 映射为 `Ctrl(R)+Alt(R)+反引号`，按住 Win 再按 T（模块对 Win+T 没有
+     * 特殊处理）时，发出的是一条和弦：`Ctrl(R)+Alt(R)+反引号+T`。
+     *
+     * <p>[extras] 是 Win 按住期间被扣押的外加修饰键，**严格按用户按下的先后顺序补在
+     * 映射前缀之后**：用户先按 Ctrl(L) 再按 T，远端看到的顺序就是
+     * `Ctrl(R)↓ Alt(R)↓ 反引号↓ Ctrl(L)↓ T↓`，而不是把 Ctrl(L) 提到最前面。
+     *
+     * @param extras          扣押的外加键（可为 null）；[HookContext.PendingExtra#stillDown]
+     *                        为 true 的只发 DOWN，等它的物理 UP 来放行
+     * @param triggerKeyCode  触发合并的键；≤0 表示没有（例如松 Win 时才补发）
+     * @param triggerScanCode 触发键的扫描码
+     */
+    public static void injectMergedCombo(MetaKeyMap map,
+                                         java.util.List<HookContext.PendingExtra> extras,
+                                         int triggerKeyCode, int triggerScanCode,
+                                         int deviceId) {
+        injectChord(map, extras, triggerKeyCode, triggerScanCode, deviceId);
+    }
+
+    /** 单独补发一个被扣押的键（不并进前缀）；[stillDown] 为 false 时发一对 DOWN/UP。 */
+    public static void injectExtraKey(int keyCode, int scanCode, int deviceId, boolean stillDown) {
+        if (keyCode <= 0) return;
+        injectKeyDown(keyCode, 0, deviceId, scanCode);
+        if (!stillDown) injectKeyUp(keyCode, 0, deviceId, scanCode);
+    }
+
+    /**
+     * 注入「修饰键 + 主键（+ 外加键 + 触发键）」这一条和弦。
+     *
+     * <p>顺序：映射目标的修饰键 DOWN（Ctrl → Shift → Alt，每个先左后右）→ 主键 DOWN →
+     * 外加键（按用户按下的顺序）→ 触发键 DOWN/UP → 主键 UP → 映射修饰键 UP（逆序）。
+     * 每个事件都带上「当时已按下（含自己）」的修饰位，与物理键盘一致。
+     *
+     * <p>修饰键必须作为**真实的按键事件**发出去，而不是只把修饰位塞进主键的
+     * {@code metaState}：只有后者的话，应用侧的「Ctrl 是否按住」状态机不会建立，
+     * 依赖按住 Ctrl 的连续操作（远程桌面里的 Ctrl+拖动之类）就会断掉。
+     *
+     * @param map      映射目标；未设置或非法时直接返回
+     * @param deviceId 物理 Meta 所在设备的 id（沿用可减少 InputDispatcher 的重复修饰合成）
+     */
+    private static void injectChord(MetaKeyMap map,
+                                    java.util.List<HookContext.PendingExtra> extras,
+                                    int triggerKeyCode, int triggerScanCode,
+                                    int deviceId) {
         if (map == null || !map.isSet()) return;
         final int keyCode = map.getKeyCode();
         if (keyCode <= 0) return;
 
-        final int[] mods = new int[3];
-        int n = 0;
-        if (map.getCtrl()) mods[n++] = KeyEvent.KEYCODE_CTRL_LEFT;
-        if (map.getShift()) mods[n++] = KeyEvent.KEYCODE_SHIFT_LEFT;
-        if (map.getAlt()) mods[n++] = KeyEvent.KEYCODE_ALT_LEFT;
+        // 修饰键展开规则（左右、顺序）见 MetaKeyMap#modifierKeySequence
+        final java.util.List<kotlin.Pair<Integer, Integer>> mods = map.modifierKeySequence();
+        final java.util.List<kotlin.Pair<Integer, Integer>> pressed = new java.util.ArrayList<>(6);
+        int acc = 0;
+        for (int i = 0; i < mods.size(); i++) {
+            kotlin.Pair<Integer, Integer> m = mods.get(i);
+            // 用户按着同一个键（外加键里有）就不再补一个：同一个键按两遍会打架
+            if (containsKeyCode(extras, m.getFirst())) continue;
+            acc |= m.getSecond();
+            injectKeyDown(m.getFirst(), acc, deviceId);
+            pressed.add(m);
+        }
 
         LogHelper.log(VerboseLevel.INFO, "INJECT combo: kc=", String.valueOf(keyCode),
+                triggerKeyCode > 0 ? " +trigger=" + triggerKeyCode : "",
+                " extras=", String.valueOf(extras == null ? 0 : extras.size()),
                 " ctrl=", String.valueOf(map.getCtrl()),
                 " shift=", String.valueOf(map.getShift()),
                 " alt=", String.valueOf(map.getAlt()));
 
-        int acc = 0;
-        for (int i = 0; i < n; i++) {
-            acc |= metaBitOf(mods[i]);
-            injectKeyDown(mods[i], acc, deviceId);
-        }
         // 主键带上录制时的原始 scanCode：ZUI 的顶行虚拟键（500/501/503/504/507…）
         // 认的正是它自己那套 scanCode，丢掉 ZUI 就不认（见 FnKeyManager 的注释）。
         final int scanCode = map.getScanCode();
         injectKeyDown(keyCode, acc, deviceId, scanCode);
+
+        // 外加键：按用户按下的顺序补在前缀之后
+        if (extras != null) {
+            for (int i = 0; i < extras.size(); i++) {
+                HookContext.PendingExtra e = extras.get(i);
+                int bit = metaBitOf(e.keyCode);
+                acc |= bit;
+                injectKeyDown(e.keyCode, acc, deviceId, e.scanCode);
+                if (!e.stillDown) {
+                    // 用户在合并发生前就松手了：在它的位置上发一对 DOWN/UP
+                    injectKeyUp(e.keyCode, acc, deviceId, e.scanCode);
+                    acc &= ~bit;
+                }
+                // stillDown：留着不抬，等用户真的松手时由物理 UP 放行
+            }
+        }
+
+        // 触发键（刚按下的那个键）自己是一对 DOWN/UP
+        if (triggerKeyCode > 0 && triggerKeyCode != keyCode) {
+            injectKeyDown(triggerKeyCode, acc, deviceId, triggerScanCode);
+            injectKeyUp(triggerKeyCode, acc, deviceId, triggerScanCode);
+        }
+
         injectKeyUp(keyCode, acc, deviceId, scanCode);
-        for (int i = n - 1; i >= 0; i--) {
-            injectKeyUp(mods[i], acc, deviceId);
-            acc &= ~metaBitOf(mods[i]);
+        for (int i = pressed.size() - 1; i >= 0; i--) {
+            kotlin.Pair<Integer, Integer> m = pressed.get(i);
+            injectKeyUp(m.getFirst(), acc, deviceId);
+            acc &= ~m.getSecond();
         }
     }
 
+    private static boolean containsKeyCode(java.util.List<HookContext.PendingExtra> extras,
+                                           int keyCode) {
+        if (extras == null) return false;
+        for (int i = 0; i < extras.size(); i++) {
+            if (extras.get(i).keyCode == keyCode) return true;
+        }
+        return false;
+    }
+
+    /** 修饰键对应的 metaState 位（侧别精确）；非修饰键返回 0。 */
     private static int metaBitOf(int keyCode) {
         switch (keyCode) {
-            case KeyEvent.KEYCODE_CTRL_LEFT:
-            case KeyEvent.KEYCODE_CTRL_RIGHT:
-                return KeyEvent.META_CTRL_ON;
-            case KeyEvent.KEYCODE_SHIFT_LEFT:
-            case KeyEvent.KEYCODE_SHIFT_RIGHT:
-                return KeyEvent.META_SHIFT_ON;
-            case KeyEvent.KEYCODE_ALT_LEFT:
-            case KeyEvent.KEYCODE_ALT_RIGHT:
-                return KeyEvent.META_ALT_ON;
-            default:
-                return 0;
+            case KeyEvent.KEYCODE_CTRL_LEFT: return KeyEvent.META_CTRL_LEFT_ON;
+            case KeyEvent.KEYCODE_CTRL_RIGHT: return KeyEvent.META_CTRL_RIGHT_ON;
+            case KeyEvent.KEYCODE_SHIFT_LEFT: return KeyEvent.META_SHIFT_LEFT_ON;
+            case KeyEvent.KEYCODE_SHIFT_RIGHT: return KeyEvent.META_SHIFT_RIGHT_ON;
+            case KeyEvent.KEYCODE_ALT_LEFT: return KeyEvent.META_ALT_LEFT_ON;
+            case KeyEvent.KEYCODE_ALT_RIGHT: return KeyEvent.META_ALT_RIGHT_ON;
+            default: return 0;
         }
     }
 

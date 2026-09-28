@@ -9,6 +9,7 @@ import moe.lovefirefly.betterzuikey.Hook.HookCompat;
 import moe.lovefirefly.betterzuikey.Config.Config;
 import moe.lovefirefly.betterzuikey.Config.ConfigResolver;
 import moe.lovefirefly.betterzuikey.MetaKeyMap;
+import moe.lovefirefly.betterzuikey.ShortcutMeta;
 import moe.lovefirefly.betterzuikey.Utils.LogHelper;
 import moe.lovefirefly.betterzuikey.ime.IMEDispatcher;
 import moe.lovefirefly.betterzuikey.ime.IMEProfile;
@@ -193,6 +194,17 @@ public class HookContext {
         return handler;
     }
 
+    /**
+     * 开始一轮 Meta 按住。
+     *
+     * <p>若上一轮没等到 Meta UP（丢事件）就又有新的一轮，先把扣押的外加键补发掉 ——
+     * 用户按过的键不能因为我们扣过就丢了。
+     */
+    public boolean beginMetaSession(KeyEvent event) {
+        if (!pendingExtras.isEmpty()) flushPendingExtras("new Meta DOWN");
+        return metaSession.begin(event);
+    }
+
     public static final class MetaKeySession {
         public volatile boolean active;
         public volatile boolean upHandled;
@@ -206,6 +218,13 @@ public class HookContext {
         public volatile boolean fnMapped;
         /** Another key was pressed with Win held (Win+D etc.). */
         public volatile boolean winComboUsed;
+        /**
+         * 本轮已并进「映射到…」目标的那个按键（0 = 没有）。
+         *
+         * <p>它的 DOWN 重复与 UP 必须继续被吃掉，否则应用会收到
+         * 一个没有 DOWN 的孤立 UP（修饰键状态错乱）。
+         */
+        public volatile int mergedKeyCode = 0;
 
         /** @return true if session was started; false if overlapping DOWN was ignored */
         public boolean begin(KeyEvent event) {
@@ -221,6 +240,7 @@ public class HookContext {
             longFired = false;
             fnMapped = false;
             winComboUsed = false;
+            mergedKeyCode = 0;
             downTimeMs = System.currentTimeMillis();
             scanCode = event.getScanCode();
             keyCode = event.getKeyCode();
@@ -239,6 +259,8 @@ public class HookContext {
             longFired = false;
             fnMapped = false;
             winComboUsed = false;
+            // mergedKeyCode 故意不在这里清：合并键的 UP 可能晚于 Meta 的 UP
+            // （见 consumeMergedComboKey）。它由 begin() 或那个键自己的 UP 清除。
             downTimeMs = 0;
             keyCode = -1;
         }
@@ -294,11 +316,9 @@ public class HookContext {
      */
     public boolean isMetaPassthrough() {
         if (cfg == null || !cfg.zuxKeyboardFuncEnabled) return false;
-        Config.OverrideMode resolved = ra("metaSingle", cfg.overrideMetaSingle);
-        // 模板（profile）显式覆写了 metaSingle 时以模板为准：映射是卡片级设置，
-        // 模板只能表达标准五档，所以模板说「关闭」就真的是放行。
-        if (cfg.metaSingleMapEnabled && resolved == cfg.overrideMetaSingle) return false;
-        return resolved == Config.OverrideMode.OFF;
+        // 该 key 是否走「映射到…」由 resolver 统一判定（全局开关 + 模板覆写）
+        if (resolver != null && resolver.usesMap("metaSingle")) return false;
+        return ra("metaSingle", cfg.overrideMetaSingle) == Config.OverrideMode.OFF;
     }
 
     /**
@@ -308,12 +328,16 @@ public class HookContext {
      * 放行发一对还原后的 Meta，映射发 {@link Config#metaSingleMap 指定的组合键}。
      * 映射目标为空时不算数（回落给系统，避免出现「Win 单按什么都不做」的死状态）。
      */
+    /** 当前生效的「映射到…」目标（模板可自带目标，否则用全局）。 */
+    public String effectiveMapTarget() {
+        return resolver != null ? resolver.effectiveMapTarget("metaSingle") : cfg.metaSingleMap;
+    }
+
     public boolean isMetaMapped() {
         if (cfg == null || !cfg.zuxKeyboardFuncEnabled) return false;
-        if (!cfg.metaSingleMapEnabled) return false;
-        if (!MetaKeyMap.parse(cfg.metaSingleMap).isSet()) return false;
-        // 同上：模板显式覆写了标准五档时，映射让位
-        return ra("metaSingle", cfg.overrideMetaSingle) == cfg.overrideMetaSingle;
+        if (!MetaKeyMap.parse(effectiveMapTarget()).isSet()) return false;
+        // 全局开启、或模板显式选了「映射到…」都算；模板选了标准五档则映射让位
+        return resolver != null && resolver.usesMap("metaSingle");
     }
 
     /**
@@ -473,7 +497,10 @@ public class HookContext {
 
         String key = keyCode == 507 ? "keyApp1" : "keyApp2";
         Config.SwitchState sw = keyCode == 507 ? cfg.switchKeyApp1 : cfg.switchKeyApp2;
-        Config.AppKeyMode mode = keyCode == 507 ? cfg.app1Mode : cfg.app2Mode;
+        // 模板可对智能键单独指定三档（见 ConfigResolver.effectiveAppKeyMode）
+        Config.AppKeyMode mode = resolver != null
+                ? resolver.effectiveAppKeyMode(key)
+                : (keyCode == 507 ? cfg.app1Mode : cfg.app2Mode);
         String label = "AppKey:" + (keyCode == 507 ? "507" : "508");
 
         if (!down) {
@@ -488,17 +515,22 @@ public class HookContext {
                 cancelAppKeyLongTimer();
                 if (appKeySession.active && appKeySession.keyCode == keyCode) {
                     appKeySession.active = false;
-                    Config.AppKeyMode upMode = keyCode == 507 ? cfg.app1Mode : cfg.app2Mode;
+                    Config.AppKeyMode upMode = mode;
                     long held = SystemClock.uptimeMillis() - appKeySession.downTimeMs;
                     if (upMode == Config.AppKeyMode.CUSTOM) {
                         if (appKeySession.longFired) {
                             LogHelper.log(VerboseLevel.INFO, label,
                                     " → CUSTOM UP after long (skip short) held=", String.valueOf(held), "ms");
                         } else {
-                            String command = keyCode == 507 ? cfg.app1Command : cfg.app2Command;
-                            boolean commandRoot = keyCode == 507 ? cfg.app1CommandRoot : cfg.app2CommandRoot;
-                            boolean commandSingleton = keyCode == 507 ? cfg.app1CommandSingleton : cfg.app2CommandSingleton;
-                            int commandTimeoutMin = keyCode == 507 ? cfg.app1CommandTimeoutMin : cfg.app2CommandTimeoutMin;
+                            // 命令内容 / root / 单例 / 超时都可由模板独立覆写
+                            String command = resolver != null ? resolver.effectiveCommand(key)
+                                    : (keyCode == 507 ? cfg.app1Command : cfg.app2Command);
+                            boolean commandRoot = resolver != null ? resolver.effectiveCommandRoot(key)
+                                    : (keyCode == 507 ? cfg.app1CommandRoot : cfg.app2CommandRoot);
+                            boolean commandSingleton = resolver != null ? resolver.effectiveCommandSingleton(key)
+                                    : (keyCode == 507 ? cfg.app1CommandSingleton : cfg.app2CommandSingleton);
+                            int commandTimeoutMin = resolver != null ? resolver.effectiveCommandTimeoutMin(key)
+                                    : (keyCode == 507 ? cfg.app1CommandTimeoutMin : cfg.app2CommandTimeoutMin);
                             if (command != null && !command.trim().isEmpty()) {
                                 configIPC.runAppKeyCommand(command, commandRoot, commandSingleton, commandTimeoutMin);
                                 LogHelper.log(VerboseLevel.INFO, label, " → CUSTOM short held=", String.valueOf(held),
@@ -813,24 +845,293 @@ public class HookContext {
 
     /**
      * Win was held as a modifier (Win+D etc.). Suppress Start Menu on Meta UP and L4 type=21.
+     *
+     * <p>顺带做「兜底合并」：这个 Win+键 组合模块**没有生效中的特殊处理**时（表里没这个
+     * 条目，例如 Win+R；或条目没生效，例如 Win+D 被设为「关闭」），就把它并进 Win 单击
+     * 映射的那条组合键里（{@code Ctrl(R)+Shift(R)+`+R}）。有特殊处理的键一律不碰 ——
+     * 例如 Win+E 交给系统开文件管理。
+     *
+     * <p>这一步只做「模块已知处理之外」的兜底，Fn 映射区、修饰键本身都不参与。
+     *
+     * @return true 表示事件已被消费，调用方不得再让它往下走
      */
-    public void noteWinComboDuringMetaSession(KeyEvent event) {
-        if (cfg == null || !cfg.zuxKeyboardFuncEnabled) return;
-        if (!metaSession.active || metaSession.upHandled) return;
-        if (event.getAction() != KeyEvent.ACTION_DOWN || event.getRepeatCount() != 0) return;
+    public boolean noteWinComboDuringMetaSession(KeyEvent event) {
+        if (cfg == null || !cfg.zuxKeyboardFuncEnabled) return false;
+        if (!metaSession.active || metaSession.upHandled) return false;
+        if (event.getAction() != KeyEvent.ACTION_DOWN || event.getRepeatCount() != 0) return false;
         int keyCode = event.getKeyCode();
         if (keyCode == KeyEvent.KEYCODE_META_LEFT || keyCode == KeyEvent.KEYCODE_META_RIGHT) {
+            return false;
+        }
+        if ((event.getMetaState() & KeyEvent.META_META_MASK) == 0) {
+            // 有些键盘/来源在 Win 按住时不给别的键带 Meta 位 —— 那样就谈不上「Win+键」
+            LogHelper.log(VerboseLevel.DEBUG,
+                    "MetaRouter: key during Meta session without META bit kc=",
+                    String.valueOf(keyCode));
+            return false;
+        }
+        if (event.getScanCode() == 0) return false;
+        if (!metaSession.winComboUsed) {
+            metaSession.winComboUsed = true;
+            metaSuppressStartMenu = true;
+            fnKeyManager.cancelWinLongPressTimer();
+            cancelZuiAssistantTimer();
+            MetaTrace.decision("Session", "winComboUsed",
+                    "kc=", String.valueOf(keyCode));
+        }
+        // 修饰键：先扣押，等和弦发射时按顺序补进去（别让它抢在映射前缀前面到达）
+        if (isModifierKeyCode(keyCode)) {
+            return handleMetaExtraModifier(event);
+        }
+        // 一轮 Meta 按住里只合并第一个键：再来的键按老样子走各自的路
+        if (metaSession.mergedKeyCode != 0) return false;
+        return tryMergeIntoTarget(event);
+    }
+
+    /**
+     * 把「模块没有特殊处理的 Win+键」并进 Win 单击的映射目标，见
+     * {@link #noteWinComboDuringMetaSession}。
+     *
+     * @return true 表示已注入合并和弦并消费掉这个物理按键
+     */
+    private boolean tryMergeIntoTarget(KeyEvent event) {
+        int keyCode = event.getKeyCode();
+        if (!isMetaMapped()) {
+            flushPendingExtras("Win 单击未设为映射到…");
+            return false;
+        }
+        // 修饰键由 handleMetaExtraModifier 扣押，不会走到这里；留一道保险
+        if (isModifierKeyCode(keyCode)) return false;
+        // Fn 映射区（顶行 / ZUI 虚拟键 / 音量亮度…）是 FnKeyManager 的地盘，别抢
+        if (fnKeyManager.getFnTarget(event) != 0) {
+            LogHelper.log(VerboseLevel.DEBUG,
+                    "MetaRouter: Win+key not merged (Fn 映射区) kc=", String.valueOf(keyCode));
+            flushPendingExtras("Fn 映射区");
+            return false;
+        }
+
+        String id = ShortcutMeta.winComboKeyId(keyCode);
+        Config.SwitchState sw = id == null ? null : r(id, ShortcutMeta.getSwitch(cfg, id));
+        Config.OverrideMode mode = id == null ? null : ra(id, ShortcutMeta.getOverride(cfg, id));
+        // 快捷键表里的 Win+X 都是「纯 Win+键」规则（既有分支一律用 modifiersMatch(...,纯Meta...)），
+        // 所以只有没按别的修饰键时它们才真的在跑；按了 Ctrl/Shift/Alt 就没有特殊处理，照样合并。
+        boolean pureMeta = (event.getMetaState()
+                & (KeyEvent.META_CTRL_MASK | KeyEvent.META_SHIFT_MASK | KeyEvent.META_ALT_MASK)) == 0;
+        boolean hasHandling = pureMeta && !ShortcutMeta.shouldMergeWinCombo(keyCode, sw, mode);
+        if (hasHandling) {
+            LogHelper.log(VerboseLevel.INFO, "MetaRouter: Win+key kept (has handling) kc=",
+                    String.valueOf(keyCode),
+                    " id=", String.valueOf(id),
+                    " sw=", String.valueOf(sw),
+                    " mode=", String.valueOf(mode));
+            flushPendingExtras("有特殊处理");
+            return false;
+        }
+
+        MetaKeyMap map = MetaKeyMap.parse(effectiveMapTarget());
+        if (!map.isSet()) {
+            LogHelper.log(VerboseLevel.INFO,
+                    "MetaRouter: Win+key merge skipped (no map target) kc=",
+                    String.valueOf(keyCode));
+            flushPendingExtras("映射目标为空");
+            return false;
+        }
+
+        emitMergedChord(map, keyCode, event.getScanCode(), String.valueOf(id));
+        return true;
+    }
+
+    // ── Win 按住期间被扣押的外加键 ────────────────────────────────────
+    //
+    // 用户按住 Win 时按下的修饰键不能就这么发出去：它会先于「映射到…」的前缀到达，
+    // 远端看到的是 Ctrl(L)+Ctrl(R)+Alt(R)+`，顺序反了。所以先扣押下来，等和弦发射时
+    // 按**按下的先后顺序**补在前缀之后（前缀在前、外加键在后）。
+
+    /** 扣押中的一个外加键。 */
+    public static final class PendingExtra {
+        /** 已扣押、还没补发（用户可能已经松手）。 */
+        static final int STATE_HELD = 0;
+        /** 已按「仍按着」补发 DOWN → 它的物理 UP 必须放行，否则修饰键会卡住。 */
+        static final int STATE_EMITTED = 1;
+        final int keyCode;
+        final int scanCode;
+        int state = STATE_HELD;
+        /** 补发时是否还按着：还按着只发 DOWN，已松手就发一对 DOWN/UP。 */
+        boolean stillDown = true;
+
+        PendingExtra(int keyCode, int scanCode) {
+            this.keyCode = keyCode;
+            this.scanCode = scanCode;
+        }
+    }
+
+    // L0（按键策略线程）与 L1（InputDispatcher）都可能碰到它，用同步表 + 快照遍历
+    private final java.util.List<PendingExtra> pendingExtras =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
+    private PendingExtra findPendingExtra(int keyCode, int state) {
+        for (int i = 0; i < pendingExtras.size(); i++) {
+            PendingExtra e = pendingExtras.get(i);
+            if (e.keyCode == keyCode && e.state == state) return e;
+        }
+        return null;
+    }
+
+    /**
+     * 扣押 / 放行「Win 按住期间按下的修饰键」（Ctrl / Shift / Alt）。
+     *
+     * <p>DOWN 一律扣押；UP 看情况：还没轮到补发就吃掉（并记下已松手），
+     * 已经替它补发过 DOWN 的则放行，让应用收到那一下抬起。
+     *
+     * @return true = 事件已被消费
+     */
+    public boolean handleMetaExtraModifier(KeyEvent event) {
+        if (!isMetaMapped()) return false;
+        if (!metaSession.active || metaSession.upHandled) return false;
+        if (event.getScanCode() == 0) return false;
+        int keyCode = event.getKeyCode();
+        if (!isModifierKeyCode(keyCode)) return false;
+
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            if (event.getRepeatCount() != 0) return true;
+            if (findPendingExtra(keyCode, PendingExtra.STATE_HELD) == null) {
+                pendingExtras.add(new PendingExtra(keyCode, event.getScanCode()));
+                MetaTrace.decision("Session", "withhold extra modifier",
+                        "kc=", String.valueOf(keyCode));
+            }
+            return true;
+        }
+
+        PendingExtra emitted = findPendingExtra(keyCode, PendingExtra.STATE_EMITTED);
+        if (emitted != null) {
+            pendingExtras.remove(emitted);
+            MetaTrace.decision("Session", "release emitted extra",
+                    "kc=", String.valueOf(keyCode));
+            return false;
+        }
+        PendingExtra pending = findPendingExtra(keyCode, PendingExtra.STATE_HELD);
+        if (pending == null) return false;
+        pending.stillDown = false;
+        MetaTrace.decision("Session", "withheld extra released early",
+                "kc=", String.valueOf(keyCode));
+        return true;
+    }
+
+    /**
+     * 发射合并和弦：映射前缀 + 主键 + 扣押的外加键（按按下顺序）+ 触发键。
+     *
+     * @param triggerKeyCode 触发合并的那个键；≤0 表示没有（例如松 Win 时把只按了修饰键的
+     *                       情况补成和弦），此时不记账
+     */
+    private void emitMergedChord(MetaKeyMap map, int triggerKeyCode, int triggerScanCode,
+                                 String id) {
+        if (triggerKeyCode > 0) metaSession.mergedKeyCode = triggerKeyCode;
+        MetaTrace.decision("Session", "merge into mapped combo",
+                "extra kc=", String.valueOf(triggerKeyCode),
+                " map kc=", String.valueOf(map.getKeyCode()),
+                " id=", String.valueOf(id));
+        LogHelper.log(VerboseLevel.INFO, "MetaRouter: Win+key merged (no handling) extra=",
+                String.valueOf(triggerKeyCode),
+                " id=", String.valueOf(id),
+                " map=", map.serialize(),
+                " withheld=", String.valueOf(pendingExtras.size()));
+        armRemapInject();
+        // 传给注入器的是快照，避免遍历期间被另一个线程改到
+        KeyInjector.injectMergedCombo(map, new java.util.ArrayList<>(pendingExtras),
+                triggerKeyCode, triggerScanCode, metaSession.deviceId);
+        // 还按着的外加键：DOWN 已替它发过，等物理 UP 放行；已松手的就此了结
+        for (PendingExtra e : new java.util.ArrayList<>(pendingExtras)) {
+            if (e.stillDown) e.state = PendingExtra.STATE_EMITTED;
+            else pendingExtras.remove(e);
+        }
+    }
+
+    /**
+     * 把扣押的键按原顺序单独补发（不并进前缀）。
+     *
+     * <p>用于「这个 Win+键 有特殊处理」或「没有映射目标」这类不合并的情形 ——
+     * 用户按下去的键不能因为我们扣过就凭空消失。
+     */
+    private void flushPendingExtras(String reason) {
+        if (pendingExtras.isEmpty()) return;
+        MetaTrace.decision("Session", "flush withheld extras",
+                "n=", String.valueOf(pendingExtras.size()),
+                " why=", reason);
+        armRemapInject();
+        for (PendingExtra e : new java.util.ArrayList<>(pendingExtras)) {
+            KeyInjector.injectExtraKey(e.keyCode, e.scanCode, metaSession.deviceId, e.stillDown);
+            if (e.stillDown) {
+                e.state = PendingExtra.STATE_EMITTED;   // 等它的物理 UP 来放行
+            } else {
+                pendingExtras.remove(e);
+            }
+        }
+    }
+
+    /**
+     * Meta 抬起时的收尾：扣押着的东西要么补成完整和弦（只按了修饰键、没触发键的情况），
+     * 要么按原顺序单独放行，绝不能丢。
+     */
+    public void finishWinExtrasOnMetaUp() {
+        if (pendingExtras.isEmpty()) return;
+        if (metaSession.mergedKeyCode != 0) {
+            flushPendingExtras("和弦已发过");
             return;
         }
-        if ((event.getMetaState() & KeyEvent.META_META_MASK) == 0) return;
-        if (event.getScanCode() == 0) return;
-        if (metaSession.winComboUsed) return;
-        metaSession.winComboUsed = true;
-        metaSuppressStartMenu = true;
-        fnKeyManager.cancelWinLongPressTimer();
-        cancelZuiAssistantTimer();
-        MetaTrace.decision("Session", "winComboUsed",
-                "kc=", String.valueOf(keyCode));
+        MetaKeyMap map = MetaKeyMap.parse(effectiveMapTarget());
+        if (!map.isSet()) {
+            flushPendingExtras("映射目标为空");
+            return;
+        }
+        emitMergedChord(map, 0, 0, "meta-up");
+    }
+
+    /**
+     * 已被并进映射和弦的那个按键的后续事件（DOWN 重复 / UP）—— 继续吃掉。
+     *
+     * <p>标记不随 Meta 会话清除：用户可能先松 Win 再松这个键，那一下 UP 也必须吃掉，
+     * 否则应用会收到一个没有 DOWN 的孤立 UP。真正清除它的时机是它的 UP；
+     * 若真遇到「又来了一个首次按下」说明上一轮 UP 丢了，就地放弃吞键、交回正常流程。
+     *
+     * @return true 表示事件应被消费
+     */
+    public boolean consumeMergedComboKey(KeyEvent event) {
+        int merged = metaSession.mergedKeyCode;
+        if (merged == 0 || event.getKeyCode() != merged) return false;
+        if (event.getAction() == KeyEvent.ACTION_UP) {
+            metaSession.mergedKeyCode = 0;
+            MetaTrace.decision("Session", "merged key UP consumed",
+                    "kc=", String.valueOf(merged));
+            return true;
+        }
+        if (event.getRepeatCount() == 0) {
+            metaSession.mergedKeyCode = 0;
+            MetaTrace.decision("Session", "merged key re-DOWN → stop swallowing",
+                    "kc=", String.valueOf(merged));
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * L0 的扣押收口：先处理被扣押外加键的抬起，再处理和弦触发键的重复 / 抬起。
+     *
+     * @return true = 事件应被消费
+     */
+    public boolean consumeWithheldMetaKeys(KeyEvent event) {
+        if (event.getAction() == KeyEvent.ACTION_UP && handleMetaExtraModifier(event)) {
+            return true;
+        }
+        return consumeMergedComboKey(event);
+    }
+
+    private static boolean isModifierKeyCode(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_CTRL_LEFT
+                || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT
+                || keyCode == KeyEvent.KEYCODE_SHIFT_LEFT
+                || keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT
+                || keyCode == KeyEvent.KEYCODE_ALT_LEFT
+                || keyCode == KeyEvent.KEYCODE_ALT_RIGHT;
     }
 
     /** ZUI Start Menu — {@code KeyboardZuiKeyInputPolicy.triggerShowAllApps} (A15/16). */
@@ -881,14 +1182,16 @@ public class HookContext {
     /** Win long-press (≥2s): CUSTOM runs shell script; FOLLOW_SYSTEM launches voice assistant. */
     public void dispatchWinLongCommand() {
         if (cfg == null) return;
-        String command = cfg.winLongCommand;
+        String command = resolver != null ? resolver.effectiveCommand("winLongPress") : cfg.winLongCommand;
         if (command == null || command.trim().isEmpty()) {
             LogHelper.log(VerboseLevel.INFO, "WinLong CUSTOM: empty script");
             return;
         }
         configIPC.runAppKeyCommand(
-                command, cfg.winLongCommandRoot, cfg.winLongCommandSingleton,
-                cfg.winLongCommandTimeoutMin);
+                command,
+                resolver != null ? resolver.effectiveCommandRoot("winLongPress") : cfg.winLongCommandRoot,
+                resolver != null ? resolver.effectiveCommandSingleton("winLongPress") : cfg.winLongCommandSingleton,
+                resolver != null ? resolver.effectiveCommandTimeoutMin("winLongPress") : cfg.winLongCommandTimeoutMin);
         LogHelper.log(VerboseLevel.INFO, "WinLong CUSTOM: RUN_COMMAND len=",
                 String.valueOf(command.length()));
     }

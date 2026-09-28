@@ -22,16 +22,28 @@ class MetaSingleMapTest {
 
     @Test
     fun serializeParse_roundTrips() {
-        // Ctrl+Shift+A：KEYCODE_A = 29；第 5 段是 scanCode
-        assertEquals("29:1:1:0:0", MetaKeyMap(29, shift = true, ctrl = true).serialize())
+        // 左 Shift + 右 Ctrl + A：KEYCODE_A = 29；第 5 段是 scanCode
+        assertEquals("29:L:R:0:0",
+            MetaKeyMap(29, shift = KeySide.LEFT, ctrl = KeySide.RIGHT).serialize())
 
-        val m = MetaKeyMap.parse("29:1:1:0:0")
+        val m = MetaKeyMap.parse("29:L:R:0:0")
         assertEquals(29, m.keyCode)
-        assertTrue(m.shift)
-        assertTrue(m.ctrl)
-        assertFalse(m.alt)
+        assertEquals(KeySide.LEFT, m.shift)
+        assertEquals(KeySide.RIGHT, m.ctrl)
+        assertEquals(KeySide.NONE, m.alt)
         assertTrue(m.isSet)
         assertTrue(m.hasModifier)
+    }
+
+    @Test
+    fun legacyOnBit_parsesAsUnknownSide_andRoundTripsUnchanged() {
+        // 旧格式用 1 表示「按了修饰键」，分不清左右：不能假装知道是左侧
+        val legacy = MetaKeyMap.parse("29:1:1:0:0")
+        assertEquals(KeySide.ANY, legacy.shift)
+        assertEquals(KeySide.ANY, legacy.ctrl)
+        assertEquals(KeySide.NONE, legacy.alt)
+        // 原样写回，不把旧值改写成 L
+        assertEquals("29:1:1:0:0", legacy.serialize())
     }
 
     @Test
@@ -44,7 +56,7 @@ class MetaSingleMapTest {
         // 老格式（只有 4 段）必须照旧可读，scanCode 缺省 0
         val legacy = MetaKeyMap.parse("29:1:1:0")
         assertEquals(29, legacy.keyCode)
-        assertTrue(legacy.shift)
+        assertEquals(KeySide.ANY, legacy.shift)
         assertEquals(0, legacy.scanCode)
     }
 
@@ -71,12 +83,13 @@ class MetaSingleMapTest {
     @Test
     fun jsonRoundTrip_keepsTheRecordedTarget() {
         val cfg = Config()
-        ShortcutMeta.setMetaSingleMap(cfg, MetaKeyMap(29, shift = true, ctrl = true))
+        ShortcutMeta.setMetaSingleMap(cfg,
+            MetaKeyMap(29, shift = KeySide.LEFT, ctrl = KeySide.RIGHT))
         ShortcutMeta.setMetaSingleUiMode(cfg, MetaSingleUiMode.MAP)
 
         val restored = Config.fromJson(Config.toJson(cfg))
         assertTrue(restored.metaSingleMapEnabled)
-        assertEquals("29:1:1:0:0", restored.metaSingleMap)
+        assertEquals("29:L:R:0:0", restored.metaSingleMap)
         assertEquals(MetaSingleUiMode.MAP, ShortcutMeta.getMetaSingleUiMode(restored))
         assertEquals(29, ShortcutMeta.getMetaSingleMap(restored).keyCode)
     }
@@ -84,7 +97,7 @@ class MetaSingleMapTest {
     @Test
     fun switchingAwayFromMap_keepsTheTarget_andSwitchingBackRestoresIt() {
         val cfg = Config()
-        ShortcutMeta.setMetaSingleMap(cfg, MetaKeyMap(29, ctrl = true))
+        ShortcutMeta.setMetaSingleMap(cfg, MetaKeyMap(29, ctrl = KeySide.RIGHT))
         ShortcutMeta.setMetaSingleUiMode(cfg, MetaSingleUiMode.MAP)
         assertTrue(cfg.metaSingleMapEnabled)
 
@@ -92,7 +105,7 @@ class MetaSingleMapTest {
         ShortcutMeta.setMetaSingleUiMode(cfg, MetaSingleUiMode.BLOCK)
         assertFalse(cfg.metaSingleMapEnabled)
         assertEquals(Config.OverrideMode.BLOCK, cfg.overrideMetaSingle)
-        assertEquals("29:0:1:0:0", cfg.metaSingleMap)
+        assertEquals("29:0:R:0:0", cfg.metaSingleMap)
         assertEquals(MetaSingleUiMode.BLOCK, ShortcutMeta.getMetaSingleUiMode(cfg))
 
         // 再切回 MAP：不用重录，目标还在
@@ -107,22 +120,37 @@ class MetaSingleMapTest {
         // 单按 Ctrl：事件 metaState 天然带 META_CTRL_ON，不剔掉就显示成「Ctrl+Ctrl」
         val ctrl = MetaKeyMap.of(KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.META_CTRL_ON)
         assertEquals(KeyEvent.KEYCODE_CTRL_LEFT, ctrl.keyCode)
-        assertFalse(ctrl.ctrl)
+        assertEquals(KeySide.NONE, ctrl.ctrl)
         assertFalse(ctrl.hasModifier)
 
-        assertFalse(MetaKeyMap.of(KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.META_SHIFT_ON).shift)
-        assertFalse(MetaKeyMap.of(KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.META_ALT_ON).alt)
+        assertEquals(KeySide.NONE,
+            MetaKeyMap.of(KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.META_SHIFT_ON).shift)
+        assertEquals(KeySide.NONE,
+            MetaKeyMap.of(KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.META_ALT_ON).alt)
 
-        // 组合键照旧：主键是 A，Ctrl 那一位要留着
-        val ctrlA = MetaKeyMap.of(KeyEvent.KEYCODE_A, KeyEvent.META_CTRL_ON)
+        // 右侧修饰键自己当主键时，也要把自己那两位一起剔掉
+        assertEquals(KeySide.NONE,
+            MetaKeyMap.of(KeyEvent.KEYCODE_CTRL_RIGHT, KeyEvent.META_CTRL_RIGHT_ON).ctrl)
+
+        // 只有 ON 位、没有侧位（旧配置 / 合成事件）：知道按了、不知道哪边
+        val ctrlOnOnly = MetaKeyMap.of(KeyEvent.KEYCODE_A, KeyEvent.META_CTRL_ON)
+        assertEquals(KeyEvent.KEYCODE_A, ctrlOnOnly.keyCode)
+        assertEquals(KeySide.ANY, ctrlOnOnly.ctrl)
+        assertEquals("Ctrl+Key29", ctrlOnOnly.displayName())
+
+        // 真机事件三层位齐全：主键是 A，左 Ctrl 要原样记住
+        val ctrlA = MetaKeyMap.of(
+            KeyEvent.KEYCODE_A, KeyEvent.META_CTRL_ON or KeyEvent.META_CTRL_LEFT_ON)
         assertEquals(KeyEvent.KEYCODE_A, ctrlA.keyCode)
-        assertTrue(ctrlA.ctrl)
+        assertEquals(KeySide.LEFT, ctrlA.ctrl)
 
-        // Ctrl+Shift 同按：主键是 Shift，只剔掉它自己那一位，Ctrl 留下
+        // Ctrl+Shift 同按：主键是 Shift，只剔掉它自己那两位，Ctrl 留下
         val ctrlShift = MetaKeyMap.of(
-            KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON)
-        assertTrue(ctrlShift.ctrl)
-        assertFalse(ctrlShift.shift)
+            KeyEvent.KEYCODE_SHIFT_LEFT,
+            KeyEvent.META_CTRL_ON or KeyEvent.META_CTRL_LEFT_ON or
+                KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_RIGHT_ON)
+        assertEquals(KeySide.LEFT, ctrlShift.ctrl)
+        assertEquals(KeySide.NONE, ctrlShift.shift)
     }
 
     @Test
@@ -130,11 +158,14 @@ class MetaSingleMapTest {
         // 单独把 Win / Ctrl / Shift 映射成一个键是支持的需求，
         // 名字不该显示成 MetaLeft / CtrlRight。
         // （只断言显式命名的分支：其余走 KeyEvent.keyCodeToString，JVM 单测里没有实现）
-        assertEquals("Ctrl", MetaKeyMap.keyName(KeyEvent.KEYCODE_CTRL_LEFT))
-        assertEquals("Ctrl", MetaKeyMap.keyName(KeyEvent.KEYCODE_CTRL_RIGHT))
-        assertEquals("Shift", MetaKeyMap.keyName(KeyEvent.KEYCODE_SHIFT_LEFT))
-        assertEquals("Alt", MetaKeyMap.keyName(KeyEvent.KEYCODE_ALT_LEFT))
-        assertEquals("Win", MetaKeyMap.keyName(KeyEvent.KEYCODE_META_LEFT))
+        assertEquals("Ctrl(L)", MetaKeyMap.keyName(KeyEvent.KEYCODE_CTRL_LEFT))
+        assertEquals("Ctrl(R)", MetaKeyMap.keyName(KeyEvent.KEYCODE_CTRL_RIGHT))
+        assertEquals("Shift(L)", MetaKeyMap.keyName(KeyEvent.KEYCODE_SHIFT_LEFT))
+        assertEquals("Shift(R)", MetaKeyMap.keyName(KeyEvent.KEYCODE_SHIFT_RIGHT))
+        assertEquals("Alt(L)", MetaKeyMap.keyName(KeyEvent.KEYCODE_ALT_LEFT))
+        assertEquals("Alt(R)", MetaKeyMap.keyName(KeyEvent.KEYCODE_ALT_RIGHT))
+        assertEquals("Win(L)", MetaKeyMap.keyName(KeyEvent.KEYCODE_META_LEFT))
+        assertEquals("Win(R)", MetaKeyMap.keyName(KeyEvent.KEYCODE_META_RIGHT))
         assertEquals("Brightness+", MetaKeyMap.keyName(KeyEvent.KEYCODE_BRIGHTNESS_UP))
         assertEquals("Brightness-", MetaKeyMap.keyName(KeyEvent.KEYCODE_BRIGHTNESS_DOWN))
     }
@@ -149,5 +180,53 @@ class MetaSingleMapTest {
         cfg.metaSingleMap = ""
         assertEquals(MetaSingleUiMode.OFF, ShortcutMeta.getMetaSingleUiMode(cfg))
         assertFalse(ShortcutMeta.getMetaSingleMap(cfg).isSet)
+    }
+
+    @Test
+    fun displayName_showsTheSideOfEveryModifier() {
+        // 用户实际录到的样子：右 Alt + 右 Shift + 空格
+        val m = MetaKeyMap.of(
+            KeyEvent.KEYCODE_SPACE,
+            KeyEvent.META_ALT_RIGHT_ON or KeyEvent.META_SHIFT_RIGHT_ON)
+        assertEquals(KeySide.RIGHT, m.alt)
+        assertEquals(KeySide.RIGHT, m.shift)
+        assertEquals("Shift(R)+Alt(R)+Space", m.displayName())
+
+        // 左右同时按住时两侧都写出来，不合并
+        val both = MetaKeyMap.of(
+            KeyEvent.KEYCODE_SPACE,
+            KeyEvent.META_SHIFT_LEFT_ON or KeyEvent.META_SHIFT_RIGHT_ON)
+        assertEquals(KeySide.BOTH, both.shift)
+        assertEquals("Shift(LR)+Space", both.displayName())
+
+        // 旧值侧别未知：只写键名，不编造左右
+        assertEquals("Shift+Space", MetaKeyMap.parse("62:1:0:0:0").displayName())
+    }
+
+    @Test
+    fun modifierKeySequence_expandsToTheExactKeysAndBits() {
+        val seq = MetaKeyMap.of(
+            KeyEvent.KEYCODE_SPACE,
+            KeyEvent.META_CTRL_RIGHT_ON or KeyEvent.META_ALT_LEFT_ON).modifierKeySequence()
+        assertEquals(2, seq.size)
+        // Ctrl 先于 Alt；右侧 Ctrl 用的是右侧键码与右侧位
+        assertEquals(KeyEvent.KEYCODE_CTRL_RIGHT, seq[0].first)
+        assertEquals(KeyEvent.META_CTRL_RIGHT_ON, seq[0].second)
+        assertEquals(KeyEvent.KEYCODE_ALT_LEFT, seq[1].first)
+        assertEquals(KeyEvent.META_ALT_LEFT_ON, seq[1].second)
+
+        // 两侧同按 → 展开成两个键
+        val both = MetaKeyMap.of(
+            KeyEvent.KEYCODE_SPACE,
+            KeyEvent.META_SHIFT_LEFT_ON or KeyEvent.META_SHIFT_RIGHT_ON).modifierKeySequence()
+        assertEquals(2, both.size)
+        assertEquals(KeyEvent.KEYCODE_SHIFT_LEFT, both[0].first)
+        assertEquals(KeyEvent.KEYCODE_SHIFT_RIGHT, both[1].first)
+
+        // 旧值（侧别未知）按历史行为用左侧
+        val legacy = MetaKeyMap.parse("62:1:0:0:0").modifierKeySequence()
+        assertEquals(1, legacy.size)
+        assertEquals(KeyEvent.KEYCODE_SHIFT_LEFT, legacy[0].first)
+        assertEquals(KeyEvent.META_SHIFT_LEFT_ON, legacy[0].second)
     }
 }

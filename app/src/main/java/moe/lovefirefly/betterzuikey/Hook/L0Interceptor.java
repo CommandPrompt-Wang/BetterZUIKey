@@ -65,10 +65,21 @@ public class L0Interceptor  {
         // 模块自己为「映射到…」注入的组合键：整体放行，避免二次消费
         if (ctx.isRemapInjecting(event)) return;
 
+        // 已并进映射和弦的那个键：DOWN 重复与 UP 都要接着吃掉；
+        // 被扣押的外加修饰键的抬起也在这里收尾（见 HookContext#consumeWithheldMetaKeys）
+        if (ctx.consumeWithheldMetaKeys(event)) {
+            param.setResult(true);
+            return;
+        }
+
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
 
-        ctx.noteWinComboDuringMetaSession(event);
+        // 返回 true = 这个 Win+键 模块没有特殊处理，已并进映射和弦并消费掉
+        if (ctx.noteWinComboDuringMetaSession(event)) {
+            param.setResult(true);
+            return;
+        }
 
         boolean pt = PassthroughTrace.shouldTrace(event);
         if (pt) PassthroughTrace.in("L0", event, ctx);
@@ -96,7 +107,7 @@ public class L0Interceptor  {
                 if (down && repeatCount == 0 && physical) {
                     ctx.metaStartMenuDispatched = false;
                     ctx.metaSuppressStartMenu = false;
-                    if (ctx.metaSession.begin(event)) {
+                    if (ctx.beginMetaSession(event)) {
                         MetaTrace.session("L0", "begin (passthrough)", ctx);
                     }
                 } else if (!down && repeatCount == 0 && physical) {
@@ -112,7 +123,7 @@ public class L0Interceptor  {
             if (down && repeatCount == 0 && scanCode != 0) {
                 ctx.metaStartMenuDispatched = false;
                 ctx.metaSuppressStartMenu = false;
-                if (ctx.metaSession.begin(event)) {
+                if (ctx.beginMetaSession(event)) {
                     MetaTrace.session("L0", "begin", ctx);
                 }
             }

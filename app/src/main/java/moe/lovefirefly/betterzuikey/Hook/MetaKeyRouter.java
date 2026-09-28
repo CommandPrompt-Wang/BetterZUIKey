@@ -50,7 +50,7 @@ public class MetaKeyRouter {
 
         ctx.lastMetaScanCode = scanCode;
         if (!ctx.metaSession.active) {
-            ctx.metaSession.begin(event);
+            ctx.beginMetaSession(event);
             MetaTrace.session("Router", "begin (L1 fallback)", ctx);
         }
         MetaTrace.decision("Router", "DOWN L1",
@@ -123,6 +123,10 @@ public class MetaKeyRouter {
             return false;
         }
         ctx.metaSession.upHandled = true;
+
+        // Win 按住期间扣下的外加键：到这里要么补成完整和弦（只按了修饰键、没有触发键），
+        // 要么按原顺序单独放行 —— 用户按下去的键不能因为我们扣过就丢了
+        ctx.finishWinExtrasOnMetaUp();
 
         boolean shortPress = ctx.metaSession.isShortPress();
         MetaTrace.decision("Router", "UP L0",
@@ -227,7 +231,7 @@ public class MetaKeyRouter {
         ctx.cancelZuiAssistantTimer();
         if (standalone) {
             if (ctx.isMetaMapped()) {
-                MetaKeyMap map = MetaKeyMap.parse(ctx.cfg.metaSingleMap);
+                MetaKeyMap map = MetaKeyMap.parse(ctx.effectiveMapTarget());
                 MetaTrace.decision("Router", "mapped UP → inject mapped key",
                         " kc=", String.valueOf(map.getKeyCode()),
                         " ctrl=", String.valueOf(map.getCtrl()),
@@ -362,7 +366,11 @@ public class MetaKeyRouter {
     }
 
     private boolean isWinLongUseCommand() {
-        return ctx.cfg != null && ctx.cfg.winLongUseCommand;
+        if (ctx.cfg == null) return false;
+        // 模板可单独指定「执行命令…」（见 ConfigResolver.effectiveUseCommand）
+        return ctx.resolver != null
+                ? ctx.resolver.effectiveUseCommand("winLongPress")
+                : ctx.cfg.winLongUseCommand;
     }
 
     private Config.OverrideMode getWinLongOverride() {

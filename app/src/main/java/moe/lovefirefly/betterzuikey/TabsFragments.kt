@@ -442,6 +442,19 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
             }
         }
 
+        /**
+         * 展开的下拉允许比收起的框宽 —— 收起的框要整列对齐，下拉只要读得全。
+         *
+         * <p>「映射到…」的文案里带着录到的组合键（现在还会带左右侧别，
+         * 如 `映射到…（Shift(R)+Alt(R)+Backspace）`），比收起的框宽得多。
+         */
+        private fun fitDropDown(b: ItemShortcutRowBinding, labels: List<String>) {
+            val paint = b.spAction.paint
+            val widest = labels.maxOf { paint.measureText(it).toInt() } +
+                b.spAction.paddingLeft + b.spAction.paddingRight + 48
+            b.spAction.dropDownWidth = maxOf(spinnerFixedMinWidth, widest)
+        }
+
         override fun onBindViewHolder(holder: VH, position: Int) {
             holder.bind(filtered[position], position)
         }
@@ -839,6 +852,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 b.spAction.setAdapter(
                     ArrayAdapter(ctx, R.layout.dropdown_item_wrap, modes.map { optionLabelOf(it) })
                 )
+                fitDropDown(b, modes.map { optionLabelOf(it) })
                 b.spAction.threshold = Int.MAX_VALUE
                 b.spAction.setText(fieldLabelOf(current), false)
                 b.spAction.isEnabled = true
@@ -1486,12 +1500,8 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                                 copyName = "$base-${maxN + 1}"
                                 val copy = KeyTemplate(copyName)
                                 copy.enabled = t.enabled
-                                copy.overrides.putAll(t.overrides.mapValues {
-                                    PerKeyOverride().apply {
-                                        overrideMode = it.value.overrideMode
-                                        switchState = it.value.switchState
-                                    }
-                                })
+                                // 整条复制，别只挑几个字段：漏字段 = 复制后设置凭空消失
+                                copy.overrides.putAll(t.overrides.mapValues { it.value.copy() })
                                 if (cb.isChecked) copy.packages.addAll(t.packages)
                                 cfg.templates.add(copy) // append to end
                             }
