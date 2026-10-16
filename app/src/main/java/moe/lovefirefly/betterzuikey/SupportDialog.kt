@@ -8,7 +8,7 @@ import android.text.method.LinkMovementMethod
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.json.JSONObject
 import java.io.File
 
@@ -124,7 +124,7 @@ object SupportDialog {
         )
         body.movementMethod = LinkMovementMethod.getInstance()
 
-        val dialog = AlertDialog.Builder(context)
+        val dialog = MaterialAlertDialogBuilder(context)
             .setView(view)
             .setCancelable(true)
             .create()

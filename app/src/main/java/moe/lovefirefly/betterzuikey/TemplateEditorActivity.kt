@@ -5,7 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ArrayAdapter
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -78,7 +78,7 @@ class TemplateEditorActivity : AppCompatActivity() {
             filterSwitchOff, filterSwitchOn, filterNoSwitch,
             filterModeInherit, filterModeDefault, filterModeAOSP, filterModeZUI, filterModeOFF, filterModeBLOCK
         )
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle("筛选快捷键")
             .setMultiChoiceItems(items, checked) { _, which, isChecked ->
                 when (which) {

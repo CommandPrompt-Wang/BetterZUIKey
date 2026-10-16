@@ -74,7 +74,7 @@
                     android:fontFamily="monospace"
                     android:gravity="center" />
 
-                <Button
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_fill"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="wrap_content"
@@ -91,7 +91,7 @@
                 android:layout_marginTop="8dp"
                 android:orientation="vertical" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_copy_template"
                 style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="wrap_content"
@@ -99,7 +99,7 @@
                 android:layout_marginTop="16dp"
                 android:text="@string/detect_btn_copy_config" />
 
-            <Button
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_copy_vidpid"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"

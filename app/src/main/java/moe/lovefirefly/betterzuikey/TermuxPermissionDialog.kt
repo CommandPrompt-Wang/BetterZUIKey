@@ -8,6 +8,7 @@ import android.text.style.ClickableSpan
 import android.text.style.URLSpan
 import android.view.View
 import android.widget.TextView
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.button.MaterialButton
 
@@ -31,7 +32,7 @@ object TermuxPermissionDialog {
         view.findViewById<TextView>(R.id.tv_termux_perm_cmd_su).text =
             TermuxPermissionHelper.suGrantCommand(context.packageName)
 
-        val dialog = AlertDialog.Builder(context)
+        val dialog = MaterialAlertDialogBuilder(context)
             .setTitle(R.string.dialog_termux_perm_title)
             .setView(view)
             .create()
@@ -86,7 +87,7 @@ object TermuxPermissionDialog {
             }
 
             parentDialog.window?.decorView?.post {
-                val loading = AlertDialog.Builder(context)
+                val loading = MaterialAlertDialogBuilder(context)
                     .setView(R.layout.dialog_termux_grant_loading)
                     .setCancelable(false)
                     .create()

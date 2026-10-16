@@ -15,15 +15,17 @@
         app:title="@string/fn_title" />
 
     <!-- ESC→BACK remap warning (sticky, above scroll content) -->
-    <androidx.cardview.widget.CardView
+    <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardEscRemapWarning"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="8dp"
         android:visibility="gone"
-        android:backgroundTint="#FFF0F0"
-        app:cardElevation="4dp"
-        app:cardCornerRadius="8dp"
+        app:cardBackgroundColor="?attr/colorErrorContainer"
+        app:cardElevation="0dp"
+        app:cardCornerRadius="12dp"
+        app:strokeColor="?attr/colorError"
+        app:strokeWidth="1dp"
         tools:visibility="visible">
 
         <LinearLayout
@@ -36,17 +38,16 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/fn_esc_remap_warning_title"
-                android:textColor="#CC0000"
-                android:textSize="13sp"
-                android:textStyle="bold" />
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="?attr/colorOnErrorContainer" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="@string/fn_esc_remap_warning_desc"
-                android:textColor="#990000"
-                android:textSize="12sp"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="?attr/colorOnErrorContainer"
                 android:lineSpacingExtra="2dp" />
 
             <LinearLayout
@@ -56,36 +57,24 @@
                 android:orientation="horizontal"
                 android:gravity="end">
 
-                <Button
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnGoCreateProfile"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/fn_btn_create_profile"
-                    android:textSize="12sp"
-                    android:minHeight="0dp"
-                    android:paddingLeft="10dp"
-                    android:paddingRight="10dp"
-                    android:paddingTop="6dp"
-                    android:paddingBottom="6dp"
-                    style="?android:attr/buttonBarButtonStyle" />
+                    style="@style/Widget.Material3.Button.TextButton" />
 
-                <Button
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnGoModifierKeys"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
                     android:text="@string/fn_btn_modifier_keys"
-                    android:textSize="12sp"
-                    android:minHeight="0dp"
-                    android:paddingLeft="10dp"
-                    android:paddingRight="10dp"
-                    android:paddingTop="6dp"
-                    android:paddingBottom="6dp"
-                    style="?android:attr/buttonBarButtonStyle" />
+                    style="@style/Widget.Material3.Button.TextButton" />
 
             </LinearLayout>
         </LinearLayout>
-    </androidx.cardview.widget.CardView>
+    </com.google.android.material.card.MaterialCardView>
 
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"

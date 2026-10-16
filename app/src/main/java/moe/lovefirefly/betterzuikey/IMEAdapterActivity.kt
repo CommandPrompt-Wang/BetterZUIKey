@@ -12,6 +12,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import moe.lovefirefly.betterzuikey.Config.Config
 import moe.lovefirefly.betterzuikey.Config.Config.IMEBinding
 import moe.lovefirefly.betterzuikey.databinding.ActivityImeAdapterBinding
@@ -232,13 +233,13 @@ class IMEAdapterActivity : AppCompatActivity() {
 
     /** 重命名非内置条目。 */
     private fun showRenameDialog(profile: IMEProfile) {
-        val input = android.widget.EditText(this).apply {
+        val input = com.google.android.material.textfield.TextInputEditText(this).apply {
             setText(profile.name ?: "")
             selectAll()
             isSingleLine = true
             setPadding(48, 32, 48, 0)
         }
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(R.string.rename_title)
             .setView(input)
             .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -265,7 +266,7 @@ class IMEAdapterActivity : AppCompatActivity() {
             Toast.makeText(this, R.string.ime_builtin_nodelete, Toast.LENGTH_SHORT).show()
             return
         }
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(R.string.profile_delete_title)
             .setMessage(getString(R.string.profile_delete_msg, rowTitle(profile)))
             .setPositiveButton(R.string.profile_delete_confirm) { _, _ ->

@@ -6,7 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -113,7 +113,7 @@ class ProfileManageActivity : AppCompatActivity() {
 
                 b.tvDelete.setOnClickListener {
                     if (!p.isCustom) return@setOnClickListener
-                    AlertDialog.Builder(this@ProfileManageActivity)
+                    MaterialAlertDialogBuilder(this@ProfileManageActivity)
                         .setTitle(getString(R.string.profile_delete_title))
                         .setMessage(getString(R.string.profile_delete_msg, p.friendlyName))
                         .setPositiveButton(getString(R.string.profile_delete_confirm)) { _, _ ->
@@ -143,7 +143,7 @@ class ProfileManageActivity : AppCompatActivity() {
                 appendLine("  F$i → ${formatKeyEntry(p.keys["F$i"])}")
             }
         }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.profile_view_title, p.friendlyName))
             .setMessage(summary)
             .setPositiveButton(getString(R.string.profile_btn_close), null)
@@ -159,7 +159,7 @@ class ProfileManageActivity : AppCompatActivity() {
                 appendLine("  F$i → ${formatKeyEntry(p.keys["F$i"])}")
             }
         }
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.profile_edit_title, p.friendlyName))
             .setMessage(summary)
             .setPositiveButton(getString(R.string.profile_btn_edit_keys), null) // TODO: 打开编辑器

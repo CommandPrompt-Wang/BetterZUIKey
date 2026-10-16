@@ -36,14 +36,14 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
-                <Button
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_action"
                     android:layout_width="wrap_content"
                     android:layout_height="48dp"
                     android:minWidth="48dp"
                     android:paddingHorizontal="12dp"
                     android:text="@string/btn_placeholder"
-                    style="?attr/materialButtonOutlinedStyle" />
+                    style="@style/Widget.Material3.Button.OutlinedButton" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"

@@ -9,15 +9,17 @@
     android:orientation="vertical">
 
     <!-- Secure 权限缺失警告卡片 -->
-    <androidx.cardview.widget.CardView
+    <com.google.android.material.card.MaterialCardView
         android:id="@+id/cardWriteWarning"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="8dp"
         android:visibility="gone"
-        android:backgroundTint="@color/secure_card_bg"
-        app:cardElevation="4dp"
-        app:cardCornerRadius="8dp">
+        app:cardBackgroundColor="?attr/colorErrorContainer"
+        app:cardElevation="0dp"
+        app:cardCornerRadius="12dp"
+        app:strokeColor="?attr/colorError"
+        app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -29,17 +31,16 @@
                     android:id="@+id/tvSecurePermTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textColor="@color/secure_card_title"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
+                    android:textColor="?attr/colorOnErrorContainer"
+                    android:textAppearance="?attr/textAppearanceTitleSmall" />
 
                 <TextView
                     android:id="@+id/tvSecurePermMsg"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:textColor="@color/secure_card_text"
-                    android:textSize="12sp"
+                    android:textColor="?attr/colorOnErrorContainer"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
                     android:lineSpacingExtra="2dp"
                     android:textIsSelectable="true" />
 
@@ -50,14 +51,14 @@
                     android:orientation="horizontal"
                     android:gravity="center_vertical">
 
-                    <CheckBox
+                    <com.google.android.material.checkbox.MaterialCheckBox
                         android:id="@+id/cbSecurePermNever"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:textSize="12sp" />
+                        android:textAppearance="?attr/textAppearanceLabelSmall" />
 
-                    <Button
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnSecurePermTry"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -67,9 +68,9 @@
                         android:paddingRight="10dp"
                         android:paddingTop="6dp"
                         android:paddingBottom="6dp"
-                        style="?android:attr/buttonBarButtonStyle" />
+                        style="?attr/materialButtonOutlinedStyle" />
 
-                    <Button
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnSecurePermClose"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -80,37 +81,49 @@
                         android:paddingRight="10dp"
                         android:paddingTop="6dp"
                         android:paddingBottom="6dp"
-                        style="?android:attr/buttonBarButtonStyle" />
+                        style="@style/Widget.Material3.Button.TextButton" />
                 </LinearLayout>
 
             </LinearLayout>
 
-        </androidx.cardview.widget.CardView>
+        </com.google.android.material.card.MaterialCardView>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_margin="8dp">
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="4dp">
 
-        <SearchView
-            android:id="@+id/searchView"
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            app:cardCornerRadius="28dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorOutline"
+            app:strokeWidth="1dp">
+
+        <SearchView
+            android:id="@+id/searchView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:color/transparent"
             android:iconifiedByDefault="false"
             android:queryHint="搜索快捷键..." />
+        </com.google.android.material.card.MaterialCardView>
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnFilter"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:text="筛选"
             android:textSize="12sp"
-            android:minHeight="0dp"
-            style="?android:attr/buttonBarButtonStyle" />
+            android:minHeight="48dp"
+            style="?attr/materialButtonOutlinedStyle" />
     </LinearLayout>
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout

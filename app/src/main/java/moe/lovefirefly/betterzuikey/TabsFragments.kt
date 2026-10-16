@@ -21,7 +21,7 @@ import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.fragment.app.Fragment
@@ -157,7 +157,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
         val groupNames = arrayOf("系统开关状态", "覆写模式")
         val groupSizes = intArrayOf(3, 5)
 
-        AlertDialog.Builder(ctx)
+        MaterialAlertDialogBuilder(ctx)
             .setTitle("筛选快捷键")
             .setMultiChoiceItems(items, checked) { _, which, isChecked ->
                 when (which) {
@@ -974,11 +974,11 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
         ) {
             val ctx = host.requireContext()
             val cfg = Config.load()
-            val input = android.widget.EditText(ctx)
+            val input = com.google.android.material.textfield.TextInputEditText(ctx)
             input.hint = ctx.getString(hintRes)
             input.setText(currentValue)
 
-            AlertDialog.Builder(ctx)
+            MaterialAlertDialogBuilder(ctx)
                 .setTitle(ctx.getString(titleRes))
                 .setMessage(ctx.getString(msgRes))
                 .setView(input)
@@ -1471,7 +1471,7 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                         orientation = LinearLayout.VERTICAL
                         setPadding(48, 16, 48, 8)
                     }
-                    val cb = android.widget.CheckBox(ctx).apply {
+                    val cb = com.google.android.material.checkbox.MaterialCheckBox(ctx).apply {
                         text = getString(R.string.templates_copy_apps)
                         isChecked = true
                     }
@@ -1483,7 +1483,7 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                         setPadding(0, 8, 0, 0)
                     }
                     cbLayout.addView(warn)
-                    AlertDialog.Builder(ctx)
+                    MaterialAlertDialogBuilder(ctx)
                         .setTitle(getString(R.string.templates_copy_title))
                         .setMessage(getString(R.string.templates_copy_msg, t.name))
                         .setView(cbLayout)
@@ -1512,7 +1512,7 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                 }
 
                 b.tvDelete.setOnClickListener {
-                    AlertDialog.Builder(requireContext())
+                    MaterialAlertDialogBuilder(requireContext())
                         .setTitle(getString(R.string.templates_delete_title))
                         .setMessage(getString(R.string.templates_delete_msg, t.name))
                         .setPositiveButton(getString(R.string.templates_btn_delete_confirm)) { _, _ ->
@@ -1529,7 +1529,7 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
     // ── 对话框 ──
 
     private fun showNameDialog(current: String, onOk: (String) -> Unit) {
-        val input = android.widget.EditText(requireContext()).apply {
+        val input = com.google.android.material.textfield.TextInputEditText(requireContext()).apply {
             setText(current)
             setSingleLine()
             selectAll()
@@ -1537,7 +1537,7 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                 setHint(getString(R.string.templates_new_template_hint))
             }
         }
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.templates_name_dialog_title))
             .setView(input)
             .setPositiveButton(getString(R.string.dialog_confirm_ok)) { _, _ ->

@@ -12,7 +12,7 @@ import android.widget.ProgressBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.core.content.FileProvider
 import io.noties.markwon.Markwon
 import io.noties.markwon.ext.tables.TablePlugin
@@ -133,10 +133,16 @@ object UpdateChecker {
             Config.UpdateChannel.PERSONAL -> 3
         }
 
-        val spinner = Spinner(ctx).apply {
-            adapter = ArrayAdapter(ctx, android.R.layout.simple_spinner_dropdown_item, channels)
-            setSelection(currentChannelIdx)
-            setPadding(0, dp2px(ctx, 8), 0, dp2px(ctx, 8))
+        var channelIdx = currentChannelIdx
+        val spinner = com.google.android.material.textfield.MaterialAutoCompleteTextView(ctx).apply {
+            setAdapter(ArrayAdapter(ctx, R.layout.dropdown_item_wrap, channels))
+            setText(channels[currentChannelIdx], false)
+            threshold = Int.MAX_VALUE
+            inputType = android.text.InputType.TYPE_NULL
+            isFocusable = false
+            setPadding(dp2px(ctx, 4), dp2px(ctx, 8), dp2px(ctx, 4), dp2px(ctx, 8))
+            setOnItemClickListener { _, _, position, _ -> channelIdx = position }
+            setOnClickListener { showDropDown() }
         }
 
         val label = TextView(ctx).apply {
@@ -204,7 +210,7 @@ object UpdateChecker {
             })
         }
 
-        fun selectedChannel(): Config.UpdateChannel = when (spinner.selectedItemPosition) {
+        fun selectedChannel(): Config.UpdateChannel = when (channelIdx) {
             0 -> Config.UpdateChannel.AUTO
             1 -> Config.UpdateChannel.GITHUB1
             2 -> Config.UpdateChannel.GITHUB2
@@ -219,7 +225,7 @@ object UpdateChecker {
                 ModalDialogGate.release()
                 return@enqueue
             }
-            val dialog = AlertDialog.Builder(ctx)
+            val dialog = MaterialAlertDialogBuilder(ctx)
                 .setTitle(ctx.getString(R.string.update_dialog_title))
                 .setMessage(msg)
                 .setView(container)
@@ -265,7 +271,7 @@ object UpdateChecker {
             addView(tvSize)
         }
 
-        val dialog = AlertDialog.Builder(context)
+        val dialog = MaterialAlertDialogBuilder(context)
             .setTitle(context.getString(R.string.update_downloading))
             .setView(container)
             .setNegativeButton(context.getString(R.string.update_dialog_cancel)) { _, _ ->
@@ -510,12 +516,18 @@ object UpdateChecker {
             Config.UpdateChannel.PERSONAL -> 3
         }
 
-        val spinner = Spinner(context).apply {
-            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_dropdown_item, channels)
-            setSelection(currentIdx)
-            setPadding(0, dp2px(context, 4), 0, dp2px(context, 4))
+        var channelIdx2 = currentIdx
+        val spinner = com.google.android.material.textfield.MaterialAutoCompleteTextView(context).apply {
+            setAdapter(ArrayAdapter(context, R.layout.dropdown_item_wrap, channels))
+            setText(channels[currentIdx], false)
+            threshold = Int.MAX_VALUE
+            inputType = android.text.InputType.TYPE_NULL
+            isFocusable = false
+            setPadding(dp2px(context, 4), dp2px(context, 4), dp2px(context, 4), dp2px(context, 4))
+            setOnItemClickListener { _, _, position, _ -> channelIdx2 = position }
+            setOnClickListener { showDropDown() }
         }
-        fun selectedChannel(): Config.UpdateChannel = when (spinner.selectedItemPosition) {
+        fun selectedChannel(): Config.UpdateChannel = when (channelIdx2) {
             1 -> Config.UpdateChannel.GITHUB1
             2 -> Config.UpdateChannel.GITHUB2
             3 -> Config.UpdateChannel.PERSONAL
@@ -548,7 +560,7 @@ object UpdateChecker {
             addView(spinner)
         }
 
-        AlertDialog.Builder(context)
+        MaterialAlertDialogBuilder(context)
             .setTitle(context.getString(R.string.update_download_failed_title))
             .setView(container)
             .setPositiveButton(context.getString(R.string.update_download_retry)) { _, _ ->
@@ -772,7 +784,7 @@ object UpdateChecker {
                 failed.stackTrace ?: "")
         }
 
-        AlertDialog.Builder(context)
+        MaterialAlertDialogBuilder(context)
             .setTitle(context.getString(R.string.update_check_failed_title))
             .setMessage(fullMsg)
             .setPositiveButton(context.getString(R.string.dialog_confirm_ok), null)

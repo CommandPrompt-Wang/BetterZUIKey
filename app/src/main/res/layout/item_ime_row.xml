@@ -26,6 +26,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center_vertical"
             android:minWidth="0dp"
+            android:minHeight="0dp"
             android:paddingStart="0dp"
             android:paddingEnd="8dp" />
 
@@ -52,13 +53,13 @@
 
         </LinearLayout>
 
-        <!-- 右侧：下拉（上）+ 删除（下），删除落在右下角 -->
+        <!-- 右侧：下拉 + 删除同一行，行高只取两者最大者，避免上下堆叠把卡片撑高 -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:gravity="end"
-            android:orientation="vertical">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
             <!-- 下拉放右侧，与其它设置行一致 -->
             <com.google.android.material.textfield.TextInputLayout
@@ -82,21 +83,15 @@
                     android:inputType="none" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- 删除：与模板行 / 配置行同款（BodySmall + colorError） -->
-            <TextView
+            <!-- 删除：与模板行 / 配置行同款 -->
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/tv_delete"
+                style="@style/Widget.BetterZUIKey.Button.Inline"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingStart="6dp"
-                android:paddingEnd="6dp"
-                android:paddingTop="4dp"
-                android:paddingBottom="4dp"
+                android:layout_marginStart="4dp"
                 android:text="@string/profile_btn_delete"
-                android:textAppearance="?attr/textAppearanceBodySmall"
-                android:textColor="?attr/colorError"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackground" />
+                android:textColor="?attr/colorError" />
 
         </LinearLayout>
 

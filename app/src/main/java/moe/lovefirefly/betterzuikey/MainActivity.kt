@@ -8,6 +8,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.google.android.material.color.DynamicColors
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import moe.lovefirefly.betterzuikey.Config.Config
 import moe.lovefirefly.betterzuikey.databinding.ActivityMainBinding
 
@@ -166,7 +167,7 @@ class MainActivity : AppCompatActivity() {
                             "Reset Support Prompt Record",
                             "Reset Dialog Gate"
                         )
-                        androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                        MaterialAlertDialogBuilder(this@MainActivity)
                             .setTitle("Debug")
                             .setItems(items) { _, which ->
                                 when (which) {
@@ -322,7 +323,7 @@ class MainActivity : AppCompatActivity() {
             addView(tv)
         }
 
-        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
+        val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.agreement_title))
             .setView(container)
             .setNegativeButton(if (canExit) getString(R.string.agreement_btn_exit) else getString(R.string.agreement_btn_close)) { _, _ ->

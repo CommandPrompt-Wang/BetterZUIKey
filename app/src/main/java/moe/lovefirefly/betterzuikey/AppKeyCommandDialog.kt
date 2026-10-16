@@ -10,7 +10,7 @@ import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Spinner
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.textfield.TextInputEditText
@@ -194,7 +194,7 @@ object AppKeyCommandDialog {
         fun readTimeoutMin(): Int =
             timeoutMinutes[spTimeout.selectedItemPosition.coerceIn(0, timeoutMinutes.lastIndex)]
 
-        val dialog = AlertDialog.Builder(context)
+        val dialog = MaterialAlertDialogBuilder(context)
             .setTitle(store.title)
             .setView(view)
             .create()

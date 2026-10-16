@@ -9,7 +9,7 @@ import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.ViewConfiguration
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.button.MaterialButton
 import moe.lovefirefly.betterzuikey.Config.Config
 import moe.lovefirefly.betterzuikey.Config.KeyTemplate
@@ -130,7 +130,7 @@ object MetaSingleMapDialog {
         var captured = store.load()
         var saved = false
 
-        val dialog = AlertDialog.Builder(context)
+        val dialog = MaterialAlertDialogBuilder(context)
             .setView(view)
             .create()
 
