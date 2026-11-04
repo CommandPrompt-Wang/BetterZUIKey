@@ -18,7 +18,8 @@
         android:id="@+id/search_view"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="8dp"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginTop="8dp"
         app:queryHint="@string/app_picker_search_hint" />
 
     <TextView
@@ -36,12 +37,11 @@
         android:layout_weight="1"
         android:clipToPadding="false" />
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_done"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
-        android:text="@string/app_picker_btn_done"
-        style="?attr/materialButtonStyle" />
+        android:text="@string/app_picker_btn_done" />
 
 </LinearLayout>

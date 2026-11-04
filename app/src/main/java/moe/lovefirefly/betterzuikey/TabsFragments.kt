@@ -21,7 +21,7 @@ import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AlertDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import androidx.fragment.app.Fragment
@@ -157,7 +157,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
         val groupNames = arrayOf("系统开关状态", "覆写模式")
         val groupSizes = intArrayOf(3, 5)
 
-        AlertDialog.Builder(ctx)
+        MaterialAlertDialogBuilder(ctx)
             .setTitle("筛选快捷键")
             .setMultiChoiceItems(items, checked) { _, which, isChecked ->
                 when (which) {
@@ -307,14 +307,15 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
     /** RecyclerView Adapter — 48 条静态数据，直接字段访问，不使用反射 */
     inner class ShortcutAdapter : RecyclerView.Adapter<ShortcutAdapter.VH>() {
 
-        /** 所有 Spinner 统一固定最小宽度（px），按全部可能文本的最宽值一次性计算 */
+        /**
+         * 所有 Spinner 统一固定宽度（px），按全部可能文本的最宽值一次性计算。
+         *
+         * <p>全表共用一个值 —— 包括 Win 单按那张卡片：它**收起的框里只写快捷键本身**
+         * （`Ctrl+Shift+A`），不写「映射到…」那层壳（壳只出现在展开的下拉里），
+         * 所以按五档文案量出来的这个宽度也够用。之前给它单独放宽，整行会跟别的卡片对不齐。
+         */
         private var spinnerFixedMinWidth: Int = 0
 
-        /**
-         * metaSingle 专用宽度：「映射到…（Ctrl+Shift+A）」比五档文案长不少，
-         * 全表统一加宽会挤掉其它卡片的描述文字，所以只给这一张卡放宽。
-         */
-        private var spinnerMapWidth: Int = 0
         /** 当前展开的 Spinner 所在 position，-1 表示无 */
         private var openSpinnerPos = -1
         /** 搜索过滤后的列表 */
@@ -416,20 +417,9 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 // 额外留出 dropdown 图标 + 内边距空间
                 spinnerFixedMinWidth = maxTextW + b.spAction.paddingLeft +
                     b.spAction.paddingRight + 48
-
-                // metaSingle 的「映射到…」卡片另算一个更宽的档位（示例取中等长度的组合键）
-                val mapTextW = maxOf(
-                    MetaSingleUiMode.entries.maxOf {
-                        paint.measureText(it.displayName(ctx)).toInt()
-                    },
-                    paint.measureText(
-                        ctx.getString(R.string.mode_meta_single_map_set, "Ctrl+Shift+A")
-                    ).toInt(),
-                )
-                spinnerMapWidth = mapTextW + b.spAction.paddingLeft +
-                    b.spAction.paddingRight + 48
             }
-            // 固定宽度（不仅是 minWidth），防止 setText 不同文本时宽度抖动
+            // 固定宽度（不仅是 minWidth），防止 setText 不同文本时宽度抖动。
+            // 所有卡片（含 metaSingle）都用这一个值，保证整列对齐。
             applySpinnerWidth(b, spinnerFixedMinWidth)
             return VH(b)
         }
@@ -452,6 +442,19 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
             }
         }
 
+        /**
+         * 展开的下拉允许比收起的框宽 —— 收起的框要整列对齐，下拉只要读得全。
+         *
+         * <p>「映射到…」的文案里带着录到的组合键（现在还会带左右侧别，
+         * 如 `映射到…（Shift(R)+Alt(R)+Backspace）`），比收起的框宽得多。
+         */
+        private fun fitDropDown(b: ItemShortcutRowBinding, labels: List<String>) {
+            val paint = b.spAction.paint
+            val widest = labels.maxOf { paint.measureText(it).toInt() } +
+                b.spAction.paddingLeft + b.spAction.paddingRight + 48
+            b.spAction.dropDownWidth = maxOf(spinnerFixedMinWidth, widest)
+        }
+
         override fun onBindViewHolder(holder: VH, position: Int) {
             holder.bind(filtered[position], position)
         }
@@ -467,12 +470,8 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 val switchState = ShortcutMeta.getSwitch(cfg, switchKey)
                 val overrideMode = ShortcutMeta.getOverride(cfg, overrideKey)
 
-                // metaSingle 的「映射到…」文案更长，单独放宽它的 Spinner
-                applySpinnerWidth(
-                    b,
-                    if (ShortcutMeta.usesMetaSingleMode(meta.key)) spinnerMapWidth
-                    else spinnerFixedMinWidth
-                )
+                // 宽度在 onCreateViewHolder 里一次性设定，全表统一（含 metaSingle），
+                // 这里不再按卡片改宽度 —— 见 spinnerFixedMinWidth 的注释。
 
                 // ── 始终先清空所有视图状态，防止 RecyclerView 复用残留旧数据 ──
                 b.tvName.text = meta.displayName(requireContext())
@@ -835,8 +834,15 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 val ctx = requireContext()
                 val modes = MetaSingleUiMode.entries
 
-                fun labelOf(mode: MetaSingleUiMode): String = when (mode) {
+                // 展开的下拉：保留带说明的「映射到…（Ctrl+A）」，挑的时候看得明白
+                fun optionLabelOf(mode: MetaSingleUiMode): String = when (mode) {
                     MetaSingleUiMode.MAP -> ShortcutMeta.getMetaSingleMap(cfg).optionLabel(ctx)
+                    else -> mode.displayName(ctx)
+                }
+                // 收起的框：只写快捷键本身，不写「映射到…」那层壳
+                fun fieldLabelOf(mode: MetaSingleUiMode): String = when (mode) {
+                    MetaSingleUiMode.MAP -> ShortcutMeta.getMetaSingleMap(cfg).displayName()
+                        .ifEmpty { mode.displayName(ctx) }
                     else -> mode.displayName(ctx)
                 }
 
@@ -844,10 +850,11 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
 
                 b.spAction.setAdapter(null)
                 b.spAction.setAdapter(
-                    ArrayAdapter(ctx, R.layout.dropdown_item_wrap, modes.map { labelOf(it) })
+                    ArrayAdapter(ctx, R.layout.dropdown_item_wrap, modes.map { optionLabelOf(it) })
                 )
+                fitDropDown(b, modes.map { optionLabelOf(it) })
                 b.spAction.threshold = Int.MAX_VALUE
-                b.spAction.setText(labelOf(current), false)
+                b.spAction.setText(fieldLabelOf(current), false)
                 b.spAction.isEnabled = true
                 b.tilAction.isEnabled = true
                 b.tilAction.visibility = View.VISIBLE
@@ -864,7 +871,7 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                 b.root.setOnLongClickListener {
                     if (ShortcutMeta.getMetaSingleUiMode(cfg) == MetaSingleUiMode.MAP) {
                         MetaSingleMapDialog.show(
-                            ctx,
+                            ctx, cfg,
                             onCancelled = { notifyItemChanged(pos) },
                             onChanged = { notifyItemChanged(pos) },
                         )
@@ -876,17 +883,15 @@ class GlobalFragment : Fragment(R.layout.fragment_recycler), MainActivity.Refres
                     openSpinnerPos = -1
                     val selected = modes[itemPos]
                     if (selected == MetaSingleUiMode.MAP) {
-                        // 先不落盘，等录制窗口真的设置了目标再切档；
-                        // 取消（或没录到）就回退到进来之前那一档。
-                        val previous = current
+                        // 先不落盘，等录制窗口真的设置了目标再切档。
+                        // 必须把卡片自己的 cfg 传进去（而不是让弹窗 Config.load()）：
+                        // 这里显示的下拉文案读的就是 cfg，另开一份实例存盘会让本卡片
+                        // 继续显示旧档位，并且下一次 cfg.save() 会把刚录好的映射覆盖掉。
                         MetaSingleMapDialog.show(
-                            ctx,
-                            onCancelled = {
-                                ShortcutMeta.setMetaSingleUiMode(cfg, previous)
-                                cfg.save()
-                                Config.syncToSharedPrefs(ctx, cfg)
-                                notifyItemChanged(pos)
-                            },
+                            ctx, cfg,
+                            // 取消不动盘：弹窗只在真的存了的时候才改 cfg，
+                            // 这里重绑一次就把下拉框里被点选中的「映射到…」文案还原了。
+                            onCancelled = { notifyItemChanged(pos) },
                             onChanged = { notifyItemChanged(pos) },
                         )
                         return@setOnItemClickListener
@@ -918,10 +923,33 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
         binding.recycler.adapter = SettingsAdapter(this)
     }
 
+    /** 每次进入本页重新读盘：见 [SettingsAdapter.reload] 的注释。 */
+    override fun onResume() {
+        super.onResume()
+        val rv = view?.findViewById<RecyclerView>(R.id.recycler) ?: return
+        (rv.adapter as? SettingsAdapter)?.reload()
+    }
+
     class SettingsAdapter(private val host: Fragment) : RecyclerView.Adapter<SettingsAdapter.VH>() {
 
         /** 当前展开的 Combo 位置，-1 表示全部收起。卡片点击时用于 toggle。 */
         private var openComboPos = -1
+
+        /**
+         * 本页唯一的那份 Config 实例 —— [items] 里所有读写闭包都指向它。
+         *
+         * <p>**必须每次进页重新加载**（[reload]）：适配器只建一次（ViewPager2 4 页常驻，
+         * `offscreenPageLimit = 3` 让 `onViewCreated` 不会再跑），若一直拿着进页那一刻的
+         * 旧快照，一来本页显示的是旧值，二来 `Config.save()` 写的是**整份** JSON，
+         * 之后在快捷键 / 模板页做的任何修改都会被这一份旧快照悄悄覆盖回去。
+         */
+        private var cfg: Config = Config.load()
+
+        /** 重新读盘并重绑列表（进入设置页时调用）。 */
+        fun reload() {
+            cfg = Config.load()
+            notifyDataSetChanged()
+        }
 
         // ── 卡片类型：Tap=点击跳转, Switch=开关, Combo=下拉多选, SwitchCombo=开关+下拉 ──
         sealed class SettingItem(val label: String, val desc: String = "") {
@@ -946,11 +974,11 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
         ) {
             val ctx = host.requireContext()
             val cfg = Config.load()
-            val input = android.widget.EditText(ctx)
+            val input = com.google.android.material.textfield.TextInputEditText(ctx)
             input.hint = ctx.getString(hintRes)
             input.setText(currentValue)
 
-            AlertDialog.Builder(ctx)
+            MaterialAlertDialogBuilder(ctx)
                 .setTitle(ctx.getString(titleRes))
                 .setMessage(ctx.getString(msgRes))
                 .setView(input)
@@ -978,7 +1006,8 @@ class SettingsFragment : Fragment(R.layout.fragment_recycler) {
 
         private val items: List<SettingItem> = run {
             val ctx = host.requireContext()
-            val cfg = Config.load()
+            // 注意：这里**不要**再取局部 cfg —— 直接引用成员 [cfg]，
+            // 这样 getChecked / getCurrentText / onChanged 都在调用时读当前那一份。
             listOf(
                 SettingItem.Switch(ctx.getString(R.string.settings_master_switch), ctx.getString(R.string.settings_master_switch_desc),
                     getChecked = { cfg.zuxKeyboardFuncEnabled },
@@ -1442,7 +1471,7 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                         orientation = LinearLayout.VERTICAL
                         setPadding(48, 16, 48, 8)
                     }
-                    val cb = android.widget.CheckBox(ctx).apply {
+                    val cb = com.google.android.material.checkbox.MaterialCheckBox(ctx).apply {
                         text = getString(R.string.templates_copy_apps)
                         isChecked = true
                     }
@@ -1454,7 +1483,7 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                         setPadding(0, 8, 0, 0)
                     }
                     cbLayout.addView(warn)
-                    AlertDialog.Builder(ctx)
+                    MaterialAlertDialogBuilder(ctx)
                         .setTitle(getString(R.string.templates_copy_title))
                         .setMessage(getString(R.string.templates_copy_msg, t.name))
                         .setView(cbLayout)
@@ -1471,12 +1500,8 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                                 copyName = "$base-${maxN + 1}"
                                 val copy = KeyTemplate(copyName)
                                 copy.enabled = t.enabled
-                                copy.overrides.putAll(t.overrides.mapValues {
-                                    PerKeyOverride().apply {
-                                        overrideMode = it.value.overrideMode
-                                        switchState = it.value.switchState
-                                    }
-                                })
+                                // 整条复制，别只挑几个字段：漏字段 = 复制后设置凭空消失
+                                copy.overrides.putAll(t.overrides.mapValues { it.value.copy() })
                                 if (cb.isChecked) copy.packages.addAll(t.packages)
                                 cfg.templates.add(copy) // append to end
                             }
@@ -1487,7 +1512,7 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                 }
 
                 b.tvDelete.setOnClickListener {
-                    AlertDialog.Builder(requireContext())
+                    MaterialAlertDialogBuilder(requireContext())
                         .setTitle(getString(R.string.templates_delete_title))
                         .setMessage(getString(R.string.templates_delete_msg, t.name))
                         .setPositiveButton(getString(R.string.templates_btn_delete_confirm)) { _, _ ->
@@ -1504,7 +1529,7 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
     // ── 对话框 ──
 
     private fun showNameDialog(current: String, onOk: (String) -> Unit) {
-        val input = android.widget.EditText(requireContext()).apply {
+        val input = com.google.android.material.textfield.TextInputEditText(requireContext()).apply {
             setText(current)
             setSingleLine()
             selectAll()
@@ -1512,7 +1537,7 @@ class TemplatesFragment : Fragment(R.layout.fragment_templates) {
                 setHint(getString(R.string.templates_new_template_hint))
             }
         }
-        AlertDialog.Builder(requireContext())
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle(getString(R.string.templates_name_dialog_title))
             .setView(input)
             .setPositiveButton(getString(R.string.dialog_confirm_ok)) { _, _ ->

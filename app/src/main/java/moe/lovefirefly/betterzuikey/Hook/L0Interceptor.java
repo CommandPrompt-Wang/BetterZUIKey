@@ -38,20 +38,48 @@ public class L0Interceptor  {
             return;
         }
 
-        // 设置页正在录制「映射到…」：模块和 ZUI 全都不处理、不消费，
-        // 让按键原样落到弹窗的输入框（否则录不到已被占用的组合）。
+        // 设置页正在录制「映射到…」：模块**全权接管**这一段时间的按键。
+        //
+        // 之所以要消费而不是放行：亮度 / 音量 / toggle 这类键按下去本身就有
+        // 副作用（真的会改亮度、改音量、切窗口），录制时不该发生。
+        // 代价是窗口收不到按键 —— 所以弹窗完全靠这一路上报重建：
+        // 只报「第一次按下」和「抬起」，弹窗靠这两条区分短按与长按。
+        //
+        // Win 本身不报：它就是触发键，映射成自己没有意义。
         if (ctx.isShortcutRecording()) {
-            param.setResult(false);
+            boolean isMeta = keyCode == KeyEvent.KEYCODE_META_LEFT
+                    || keyCode == KeyEvent.KEYCODE_META_RIGHT;
+            // 只报「第一次按下」与真正的抬起；ACTION_MULTIPLE 之类一律不报，
+            // 否则会被弹窗当成抬起、把长按提前掐断。
+            boolean isUp = event.getAction() == KeyEvent.ACTION_UP;
+            if (!isMeta && ((down && repeatCount == 0) || isUp)) {
+                LogHelper.log(LogHelper.VerboseLevel.DEBUG, "L0 record kc=",
+                        String.valueOf(keyCode), down ? " D" : " U");
+                ctx.configIPC.appendRecordedKey(
+                        keyCode, event.getScanCode(), event.getMetaState(), down ? 0 : 1);
+            }
+            param.setResult(true);
             return;
         }
 
         // 模块自己为「映射到…」注入的组合键：整体放行，避免二次消费
         if (ctx.isRemapInjecting(event)) return;
 
+        // 已并进映射和弦的那个键：DOWN 重复与 UP 都要接着吃掉；
+        // 被扣押的外加修饰键的抬起也在这里收尾（见 HookContext#consumeWithheldMetaKeys）
+        if (ctx.consumeWithheldMetaKeys(event)) {
+            param.setResult(true);
+            return;
+        }
+
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
 
-        ctx.noteWinComboDuringMetaSession(event);
+        // 返回 true = 这个 Win+键 模块没有特殊处理，已并进映射和弦并消费掉
+        if (ctx.noteWinComboDuringMetaSession(event)) {
+            param.setResult(true);
+            return;
+        }
 
         boolean pt = PassthroughTrace.shouldTrace(event);
         if (pt) PassthroughTrace.in("L0", event, ctx);
@@ -79,7 +107,7 @@ public class L0Interceptor  {
                 if (down && repeatCount == 0 && physical) {
                     ctx.metaStartMenuDispatched = false;
                     ctx.metaSuppressStartMenu = false;
-                    if (ctx.metaSession.begin(event)) {
+                    if (ctx.beginMetaSession(event)) {
                         MetaTrace.session("L0", "begin (passthrough)", ctx);
                     }
                 } else if (!down && repeatCount == 0 && physical) {
@@ -95,7 +123,7 @@ public class L0Interceptor  {
             if (down && repeatCount == 0 && scanCode != 0) {
                 ctx.metaStartMenuDispatched = false;
                 ctx.metaSuppressStartMenu = false;
-                if (ctx.metaSession.begin(event)) {
+                if (ctx.beginMetaSession(event)) {
                     MetaTrace.session("L0", "begin", ctx);
                 }
             }

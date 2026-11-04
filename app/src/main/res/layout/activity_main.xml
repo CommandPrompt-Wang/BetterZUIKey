@@ -5,13 +5,17 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
     android:fitsSystemWindows="true"
     tools:context=".MainActivity">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
+        style="@style/Widget.Material3.Toolbar"
+        android:layout_height="wrap_content"
+        android:minHeight="?attr/actionBarSize"
+        android:paddingHorizontal="8dp"
         app:title="@string/app_name"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -32,8 +36,8 @@
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:padding="12dp"
-        android:background="@color/status_amber_bg"
-        android:elevation="8dp"
+        android:background="?attr/colorTertiaryContainer"
+        android:elevation="4dp"
         android:visibility="gone"
         app:layout_constraintBottom_toTopOf="@id/bottom_nav"
         app:layout_constraintStart_toStartOf="parent"
@@ -53,7 +57,7 @@
             android:layout_weight="1"
             android:text="@string/home_warning_open_lsposed_failed"
             android:textAppearance="?attr/textAppearanceBodySmall"
-            android:textColor="@color/status_amber_fg" />
+            android:textColor="?attr/colorOnTertiaryContainer" />
 
         <TextView
             android:id="@+id/btn_copy_error"
@@ -66,10 +70,10 @@
             android:paddingBottom="4dp"
             android:text="@string/home_warning_copy_error"
             android:textAppearance="?attr/textAppearanceLabelSmall"
-            android:textColor="@color/status_amber_fg"
-            android:background="?attr/selectableItemBackground"
+            android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
-            android:focusable="true" />
+            android:focusable="true"
+            android:textColor="?attr/colorOnTertiaryContainer" />
 
     </LinearLayout>
 

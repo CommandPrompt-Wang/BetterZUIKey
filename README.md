@@ -55,7 +55,6 @@ BetterZUIKey 是一个 [LSPosed](https://github.com/LSPosed/LSPosed) 模块，�
   - **使用系统框架**：由系统输入法框架接管语言，并**按自定义的语言轮转顺序点名切换**（长按条目进入拖动排序页，每个输入法各自排序）
   - **重映射快捷键**：把按键重映射为该输入法原本的切换键
   - 输入法**内部**行为（标点、配对、提交等）交给各输入法的[组件模块](#组件模块)处理
-  - Ctrl+Shift / Alt+Shift 修饰键始终透传，仅在干净释放时触发
 - **国际化** — 应用内语言切换，配置变更即时生效
 
 ## 组件模块
@@ -112,10 +111,7 @@ system_server (MainHook)
 
 0. **前置条件**：~~已 root +~~ 安装 [LSPosed](https://github.com/LSPosed/LSPosed)、ZUXOS
     - 已实现不给 BetterZUIKey 挂载 Root 也能修改系统设置的功能
-    - 按 Android SDK 选择 hook：Android 15（SDK 35）使用独立旧输入链；Android 16（SDK 36）沿用旧实现；Android 17（SDK 37）使用拆分后的 Meta 消费点和新方法签名，均需对应设备实测。SDK 34 尚未核验，不自动套用 SDK35。
-    - `minSdk` 仍为 27；SDK 35 是运行时 hook 分支，不是应用最低安装版本。
-    - 已核查 ZUXOS 1.1.04.331（Android 15 / SDK 35 / ZUI 17.0）：缺少当前依赖的 KSC / KeyGestureEvent 架构，使用独立旧输入链；仍需对应设备验证。
-    - ZUXOS 对外版本与底层 ZUI 版本不同（例如 ZUXOS 1.5.04.424 对应 ZUI 17.5），版号仅用于诊断，不作为固定白名单；未知 Android SDK 不自动套用旧 hook。
+    - 当前仅测试 1.5.04 (Android 16)，不确定基于 Android 15 的低版本是否生效
     - 欢迎提交 [Issue](https://github.com/CommandPrompt-Wang/BetterZUIKey/issues) 和 [Pull Request](https://github.com/CommandPrompt-Wang/BetterZUIKey/pulls)
 1. 在 [Releases](https://github.com/CommandPrompt-Wang/BetterZUIKey/releases) 下载最新 APK
 2. 安装后在 LSPosed Manager 中激活模块（勾选 `system_server` 和 `android`）
@@ -184,6 +180,9 @@ cd BetterZUIKey
 | **透传** | 无条件放行给前台应用 |
 | **忽略** | 消费事件，系统和应用都收不到 |
 
+特别应注意的是，大部分应用不会也无法响应 Meta 按下的事件，因此“关闭”在大部分时候是没有意义的。一种可能的解决方法是使用下面的「映射到…」：在远程机器上把 `` Ctrl+Alt+` `` 设为 `Win`，本机这边做一个 `Win` → `` Ctrl+Alt+` ``的映射。这样按本机的 Win，远端也能响应。
+ - 顺带一提，此时特别适合使用应用模板功能
+
 ### 语言轮转顺序
 
 用于「使用系统框架」接管语言的输入法：
@@ -251,6 +250,30 @@ app/src/main/java/moe/lovefirefly/betterzuikey/
 ├── ModuleStatus.kt                # 模块自检探针
 └── ...                            # Activities、LocaleHelper、Utils 等
 ```
+
+## 关于 BetterZUIKey 的转载与衍生分发
+
+BetterZUIKey 以 GNU GPLv3 发布。欢迎依 GPLv3 转载、镜像、修改和再分发，包括商业分发。请遵守 GPLv3，尤其注意：
+
+1. 分发目标代码时，按 GPLv3 提供对应完整源码，或提供 GPLv3 认可的源码获取方式，如从**同一网络位置**提供源码（而不是仅仅提供软件安装包/给出模糊的用户名）；
+
+2. 保留版权声明、许可证文本和免责声明；
+
+3. 修改版须显著标明修改内容与日期；可以添加修改者署名，但不得删除或篡改原作者信息，不得冒充原创；
+
+4. 不得附加 GPLv3 之外的额外限制。
+
+以上仅为提醒，完整条款以仓库 LICENSE 为准，此处不构成额外许可条件。
+
+我注意到部分第三方转载或改版未附源码、未保留许可证/版权声明，甚至删除原作者信息。这些做法不符合 GPLv3。仅未注明出处而保留版权与许可证的，未必单独违反 GPLv3，但亦不符合开源社区之惯例。不论动机如何，请尊重作者的付出，以正确科学的方式支持你所关注的项目。
+
+如果你计划长期或短期镜像、分发，或对项目有新的请求（如本地化翻译、bug 反馈、功能请求等），或要基于本项目继续开发，欢迎通过 Issue、PR 或 [B 站私信](https://space.bilibili.com/437547189)（Command_Prompt）告诉我。联系不是许可条件，不联系也不影响你依 GPLv3 享有的权利；但你的参与会让我更有动力。B 站私信不一定能及时回复，正式事项建议优先通过 Issue。
+
+最近学业繁忙，更新可能延迟，AIGC 比重亦会增大。即便如此，设计、审查、测试和维护亦有投入，token 也并非零开销。欢迎提交 [Issue](https://github.com/CommandPrompt-Wang/BetterZUIKey/issues)、[PR](https://github.com/CommandPrompt-Wang/BetterZUIKey/pulls)，或给仓库加星、[赞助](https://afdian.com/a/CommandPrompt)支持。
+
+以下是我的爱发电二维码：
+
+<p align="center"><img src="https://raw.githubusercontent.com/CommandPrompt-Wang/BetterZUIKey/main/app/src/main/res/drawable/ic_aifadian.png" width="80" alt="爱发电 / Afdian"></p>
 
 ## 📄 许可证
 

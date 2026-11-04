@@ -21,7 +21,7 @@
         android:layout_marginTop="16dp"
         android:orientation="horizontal">
 
-        <RadioButton
+        <com.google.android.material.radiobutton.MaterialRadioButton
             android:id="@+id/rb_file"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -29,7 +29,7 @@
             android:checked="true"
             android:text="@string/import_from_file" />
 
-        <RadioButton
+        <com.google.android.material.radiobutton.MaterialRadioButton
             android:id="@+id/rb_text"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -38,18 +38,26 @@
 
     </RadioGroup>
 
-    <EditText
-        android:id="@+id/et_json"
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/til_json"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:layout_marginTop="12dp"
-        android:gravity="top"
-        android:hint="@string/import_json_hint"
-        android:inputType="textMultiLine"
-        android:visibility="gone" />
+        android:visibility="gone"
+        app:hintEnabled="false"
+        app:boxBackgroundColor="?attr/colorSurfaceContainerHighest">
 
-    <Button
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/et_json"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="top"
+            android:hint="@string/import_json_hint"
+            android:inputType="textMultiLine" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_submit"
         style="@style/Widget.Material3.Button.TonalButton"
         android:layout_width="match_parent"

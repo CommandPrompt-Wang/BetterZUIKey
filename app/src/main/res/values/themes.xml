@@ -1,11 +1,38 @@
 <resources>
     <!-- Base application theme. -->
     <style name="Base.Theme.BetterZUIKey" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <item name="colorPrimary">@color/md_theme_light_primary</item>
+        <item name="colorOnPrimary">@color/md_theme_light_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/md_theme_light_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/md_theme_light_onPrimaryContainer</item>
+        <item name="colorSecondary">@color/md_theme_light_secondary</item>
+        <item name="colorOnSecondary">@color/md_theme_light_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/md_theme_light_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/md_theme_light_onSecondaryContainer</item>
+        <item name="android:colorAccent">@color/md_theme_light_primary</item>
+        <item name="android:navigationBarColor">@color/md_theme_light_surface</item>
+        <item name="android:statusBarColor">@color/md_theme_light_surface</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 
     <style name="Theme.BetterZUIKey" parent="Base.Theme.BetterZUIKey" />
+
+    <!--
+      行内操作按钮：列表卡片里的「重命名 / 复制 / 删除 / 上移 / 下移」。
+      这些位置原本是裸 TextView（约 20dp 高），换成 MaterialButton 后 M3 默认
+      minHeight=48dp + 上下 inset 会把整行撑高，卡片显得臃肿。这里压回紧凑尺寸。
+    -->
+    <style name="Widget.BetterZUIKey.Button.Inline" parent="Widget.Material3.Button.TextButton">
+        <item name="android:minHeight">0dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingBottom">4dp</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingEnd">8dp</item>
+        <item name="android:textSize">12sp</item>
+    </style>
 
     <!-- 输入法增强：段标题 / 添加按钮 / 说明行 -->
     <style name="ImeSectionHeader" parent="">

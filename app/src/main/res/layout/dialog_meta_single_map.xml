@@ -24,8 +24,9 @@
         android:textAppearance="?attr/textAppearanceBodySmall"
         android:textColor="?attr/colorOnSurfaceVariant" />
 
-    <moe.lovefirefly.betterzuikey.ShortcutCaptureEditText
-        android:id="@+id/et_meta_map_capture"
+    <!-- 只用来显示录到的键；按键一律由 MetaSingleMapDialog 在 Dialog 级拦下 -->
+    <TextView
+        android:id="@+id/tv_meta_map_capture"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
@@ -36,7 +37,8 @@
         android:paddingTop="12dp"
         android:paddingEnd="12dp"
         android:paddingBottom="12dp"
-        android:textAppearance="?attr/textAppearanceTitleMedium" />
+        android:textAppearance="?attr/textAppearanceTitleMedium"
+        android:textColor="?attr/colorOnSurface" />
 
     <TextView
         android:id="@+id/tv_meta_map_hint"

@@ -55,7 +55,6 @@ BetterZUIKey is an [LSPosed](https://github.com/LSPosed/LSPosed) module that int
   - **Use System Framework**: language is handed to the system IME framework and **switched by naming a target subtype in a custom rotation order** (long-press an entry to open the drag-to-sort page; the order is saved per input method)
   - **Remap Shortcut**: remap the key to the IME's own language-switch shortcut
   - The IME's **internal** behavior (punctuation, auto-pairing, committing, etc.) is handled by its own [component module](#component-modules)
-  - Ctrl+Shift / Alt+Shift modifiers always pass through; IME action fires only on a clean release
 - **Internationalization** — In-app language switcher, config changes take effect instantly
 
 ## Component Modules
@@ -104,10 +103,7 @@ system_server (MainHook)
 
 0. **Prerequisites**: ~~rooted device +~~ [LSPosed](https://github.com/LSPosed/LSPosed) installed, ZUXOS
    - BetterZUIKey can now modify system settings without granting Root access
-   - Hooks are selected by Android SDK: SDK 36 retains the legacy implementation; SDK 37 uses the split Meta consumer and updated signatures (device validation pending).
-   - Android 15 (SDK 35) uses a dedicated legacy input-chain branch; Android 16 (SDK 36) retains the established implementation; Android 17 (SDK 37) uses the split Meta consumer and updated signatures. SDK 34 is unverified and does not inherit the SDK 35 branch.
-   - `minSdk` remains 27. SDK 35 here means runtime hook routing, not the app's minimum install version.
-   - Public ZUXOS and internal ZUI versions differ (e.g. ZUXOS 1.5.04.424 / ZUI 17.5). ROM versions are diagnostic only, not a release whitelist; unknown SDKs do not inherit old hooks.
+   - Currently tested only on 1.5.04 (Android 16); unsure if lower versions based on Android 15 work
    - Issues and Pull Requests welcome: [Issues](https://github.com/CommandPrompt-Wang/BetterZUIKey/issues) | [PRs](https://github.com/CommandPrompt-Wang/BetterZUIKey/pulls)
 1. Download the latest APK from [Releases](https://github.com/CommandPrompt-Wang/BetterZUIKey/releases)
 2. Install and activate the module in LSPosed Manager (check `system_server` and `android`)
@@ -161,6 +157,8 @@ For the two **Smart Keys** (507/508):
 
 Long-press the **card** to jump to the system shortcut settings.
 
+- Meta long-press also gained a Run Command option
+
 For **Ctrl + Enter**:
 
 | Mode | Effect |
@@ -169,6 +167,9 @@ For **Ctrl + Enter**:
 | **Insert Newline** | Intercept Ctrl+Enter, commit `\n` to app |
 | **Pass-through** | Always let through to foreground app |
 | **Block** | Consume the event entirely |
+
+Of particular note: most apps neither expect nor can handle a bare Meta press, so **Off** is meaningless most of the time. One workaround is **Map to…**: set `` Ctrl+Alt+` `` as `Win` on the remote machine, then map `Win` → `` Ctrl+Alt+` `` here — a press on the local Win then registers remotely.
+ - Which is also a good moment to use app templates
 
 ### Language Rotation Order
 
@@ -237,6 +238,30 @@ app/src/main/java/moe/lovefirefly/betterzuikey/
 ├── ModuleStatus.kt                # Module self-check probe
 └── ...                            # Activities, LocaleHelper, Utils, etc.
 ```
+
+## Redistribution and Derivative Distribution
+
+BetterZUIKey is released under the GNU GPLv3. You are welcome to repost, mirror, modify and redistribute it — including commercially — in accordance with the GPLv3. Please comply with the GPLv3, and note in particular:
+
+1. When distributing object code, provide the corresponding complete source code under the GPLv3, or offer a GPLv3-approved way to obtain it — for example, offering the source from the **same network location** (rather than only shipping an installer or giving a vague username);
+
+2. Retain the copyright notices, the license text and the disclaimer;
+
+3. A modified version must prominently state what was changed and when. You may add your own attribution, but you must not remove or alter the original author's information, nor present the work as original;
+
+4. Do not impose any additional restrictions beyond the GPLv3.
+
+The above is only a reminder. The complete terms are governed by the LICENSE in this repository, and nothing here constitutes an additional license condition.
+
+I have noticed that some third-party reposts or modified versions ship without source code, without the license/copyright notices, or even with the original author's information removed. Such practices do not comply with the GPLv3. Failing to credit the origin while retaining the copyright and license may not by itself violate the GPLv3, but it does not match the conventions of the open-source community either. Whatever the motive, please respect the author's effort and support the projects you care about in a sound and proper manner.
+
+If you plan to mirror or distribute this project, long-term or short-term, or have a new request (localization, bug reports, feature requests, etc.), or want to build on this project, feel free to let me know via an Issue, a PR, or a [Bilibili DM](https://space.bilibili.com/437547189) (Command_Prompt). Contact is not a license condition, and not contacting me does not affect the rights you have under the GPLv3; but your participation gives me more motivation. Bilibili DMs may not be answered promptly — for formal matters, an Issue is preferred.
+
+Academics have kept me busy lately, so updates may be delayed and the share of AIGC will grow. Even so, design, review, testing and maintenance all take effort, and tokens are not free either. You are welcome to file an [Issue](https://github.com/CommandPrompt-Wang/BetterZUIKey/issues), open a [PR](https://github.com/CommandPrompt-Wang/BetterZUIKey/pulls), star the repo, or [sponsor](https://afdian.com/a/CommandPrompt) it.
+
+Below is my Afdian QR code:
+
+<p align="center"><img src="https://raw.githubusercontent.com/CommandPrompt-Wang/BetterZUIKey/main/app/src/main/res/drawable/ic_aifadian.png" width="80" alt="Afdian / 爱发电"></p>
 
 ## 📄 License
 

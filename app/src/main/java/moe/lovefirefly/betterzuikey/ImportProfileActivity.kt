@@ -39,7 +39,7 @@ class ImportProfileActivity : AppCompatActivity() {
         binding.toolbar.setNavigationOnClickListener { finish() }
 
         binding.rgMode.setOnCheckedChangeListener { _, id ->
-            binding.etJson.visibility = if (id == binding.rbText.id)
+            binding.tilJson.visibility = if (id == binding.rbText.id)
                 android.view.View.VISIBLE else android.view.View.GONE
         }
 

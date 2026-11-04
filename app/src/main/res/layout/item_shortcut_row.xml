@@ -80,9 +80,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:clickable="true"
+                android:ellipsize="end"
                 android:focusable="true"
                 android:focusableInTouchMode="true"
                 android:inputType="none"
+                android:maxLines="1"
                 android:paddingVertical="6dp"
                 android:textAppearance="?attr/textAppearanceBodySmall" />
 

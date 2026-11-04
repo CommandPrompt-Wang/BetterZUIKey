@@ -31,9 +31,10 @@ public class L1Interceptor  {
             return;
         }
 
-        // 设置页录制「映射到…」中：不消费任何键，让它们进到弹窗的输入框
+        // 设置页录制「映射到…」中：与 L0 一样一律消费，别让按键漏到应用/系统
+        // （L0 已经消费了，这里是兜底：个别路径可能绕过 beforeQueueing）
         if (ctx.isShortcutRecording()) {
-            param.setResult(false);
+            param.setResult(true);
             return;
         }
 
@@ -84,16 +85,9 @@ public class L1Interceptor  {
             if (!ctx.r("ctrlShiftT", ctx.cfg.switchCtrlShiftT).isEnabled())
                 return;
             Config.OverrideMode cstModeL1 = ctx.ra("ctrlShiftT", ctx.cfg.overrideCtrlShiftT);
-            // Newer systems generate KeyGestureEvent type=308 for L4. The
-            // legacy input chain has no gesture layer, so dispatch directly.
+            // ZUI mode: do NOT intercept in L1 — let KeyGestureEvent type=308
+            // be generated so L4 can handle it (calling toggleTouchpadFromKey).
             if (cstModeL1 == Config.OverrideMode.ZUI) {
-                if (ctx.usesLegacyInputChain()) {
-                    ctx.toggleTouchpadFromKey(event);
-                    param.setResult(true);
-                    LogHelper.log(VerboseLevel.INFO,
-                            "L1: legacy Ctrl+Shift+T → ZUI touchpad action");
-                    return;
-                }
                 LogHelper.log(VerboseLevel.INFO, "L1: Ctrl+Shift+T → ZUI (pass through to L4)");
                 return;
             }

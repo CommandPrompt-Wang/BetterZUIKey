@@ -2,7 +2,6 @@ package moe.lovefirefly.betterzuikey.ime
 
 import android.content.Context
 import android.os.Build
-import android.os.IBinder
 import android.os.SystemClock
 import android.view.InputDevice
 import android.view.KeyEvent
@@ -128,14 +127,10 @@ object IMEDispatcher {
     private fun getUserData(): Any? {
         val ims = getInputMethodManagerService() ?: return null
         return try {
-            val userId = findField(ims.javaClass, "mCurrentImeUserId")?.getInt(ims)
-                ?: findField(ims.javaClass, "mCurrentUserId")?.getInt(ims)
-            if (userId != null) {
-                findMethod(ims.javaClass, "getUserData", java.lang.Integer.TYPE)
-                    ?.invoke(ims, userId) ?: ims
-            } else {
-                ims
-            }
+            val userId = ims.javaClass.getDeclaredField("mCurrentImeUserId")
+                .apply { isAccessible = true }.getInt(ims)
+            ims.javaClass.getMethod("getUserData", java.lang.Integer.TYPE)
+                .invoke(ims, userId)
         } catch (t: Throwable) {
             LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: getUserData failed:", t.message)
             null
@@ -148,15 +143,8 @@ object IMEDispatcher {
             userData.javaClass.getDeclaredField("mVisibilityStateComputer")
                 .apply { isAccessible = true }.get(userData)
         } catch (t: Throwable) {
-            val ims = getInputMethodManagerService()
-            try {
-                ims?.javaClass?.getDeclaredField("mVisibilityStateComputer")
-                    ?.apply { isAccessible = true }?.get(ims)
-            } catch (legacy: Throwable) {
-                LogHelper.log(VerboseLevel.DEBUG,
-                    "IMEDispatcher: getVisibilityComputer failed:", legacy.message)
-                null
-            }
+            LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: getVisibilityComputer failed:", t.message)
+            null
         }
     }
 
@@ -317,80 +305,30 @@ object IMEDispatcher {
         }
 
         val setter = findMethodFor(ims.javaClass, "setInputMethodAndSubtypeLocked",
-            listOf<Any?>(imeId, enabled[nextIdx], userData))
-        if (setter != null) {
-            LogHelper.log(VerboseLevel.INFO,
-                "IMEDispatcher: subtype ordered switch ",
-                describeSubtype(enabled, keys, curIdx),
-                " -> ", describeSubtype(enabled, keys, nextIdx),
-                " (order=", order.joinToString("/"), " avail=", enabled.size.toString(),
-                " keys=", keys.joinToString("/"), " ime=", imeId, ")")
-            setter.invoke(ims, imeId, enabled[nextIdx], userData)
-            return true
-        }
-
-        val token = getCurrentClientToken(ims) ?: return null
-        val legacySetter = findMethodFor(ims.javaClass, "setInputMethodAndSubtype",
-            listOf<Any?>(token, imeId, enabled[nextIdx])) ?: return null
+            listOf<Any?>(imeId, enabled[nextIdx], userData)) ?: return null
         LogHelper.log(VerboseLevel.INFO,
             "IMEDispatcher: subtype ordered switch ",
             describeSubtype(enabled, keys, curIdx),
             " -> ", describeSubtype(enabled, keys, nextIdx),
             " (order=", order.joinToString("/"), " avail=", enabled.size.toString(),
             " keys=", keys.joinToString("/"), " ime=", imeId, ")")
-        legacySetter.invoke(ims, token, imeId, enabled[nextIdx])
+        setter.invoke(ims, imeId, enabled[nextIdx], userData)
         return true
     }
 
     /** 框架的 "next" —— 只在按顺序切走不通时兜底。 */
-    private fun switchToNextLocked(ims: Any, userData: Any, onlyCurrentIme: Boolean): Boolean {
-        try {
-            val m = findMethod(ims.javaClass, "switchToNextInputMethodLocked",
-                java.lang.Boolean.TYPE, userData.javaClass)
-            if (m != null) {
-                val r = m.invoke(ims, onlyCurrentIme, userData)
-                LogHelper.log(VerboseLevel.INFO,
-                    "IMEDispatcher: subtype → next (framework fallback, onlyCurrentIme=",
-                    onlyCurrentIme.toString(), ") result=", r?.toString() ?: "null")
-                return r == true
-            }
-        } catch (t: Throwable) {
-            LogHelper.log(VerboseLevel.DEBUG,
-                "IMEDispatcher: modern switchToNextLocked unavailable:", t.message)
-        }
-
-        return try {
-            val token = getCurrentClientToken(ims) ?: return false
-            val m = findMethod(ims.javaClass, "switchToNextInputMethodLocked",
-                IBinder::class.java, java.lang.Boolean.TYPE) ?: return false
-            val r = m.invoke(ims, token, onlyCurrentIme)
-            LogHelper.log(VerboseLevel.INFO,
-                "IMEDispatcher: subtype → next (legacy framework fallback, onlyCurrentIme=",
-                onlyCurrentIme.toString(), ") result=", r?.toString() ?: "null")
-            r == true
-        } catch (legacy: Throwable) {
-            LogHelper.log(VerboseLevel.WARNING,
-                "IMEDispatcher: switchToNextLocked failed:", legacy.message)
-            false
-        }
-    }
-
-    /** Resolve the legacy IMMS client token without fabricating a Binder. */
-    private fun getCurrentClientToken(ims: Any): IBinder? {
-        return try {
-            val clientState = findField(ims.javaClass, "mCurClient")?.get(ims) ?: return null
-            val client = findField(clientState.javaClass, "client")?.get(clientState)
-                ?: findField(clientState.javaClass, "mClient")?.get(clientState)
-                ?: return null
-            when (client) {
-                is IBinder -> client
-                else -> client.javaClass.getMethod("asBinder").invoke(client) as? IBinder
-            }
-        } catch (t: Throwable) {
-            LogHelper.log(VerboseLevel.DEBUG,
-                "IMEDispatcher: legacy IME client token unavailable:", t.message)
-            null
-        }
+    private fun switchToNextLocked(ims: Any, userData: Any, onlyCurrentIme: Boolean): Boolean = try {
+        val m = findMethod(ims.javaClass, "switchToNextInputMethodLocked",
+            java.lang.Boolean.TYPE, userData.javaClass) ?: return false
+        val r = m.invoke(ims, onlyCurrentIme, userData)
+        LogHelper.log(VerboseLevel.INFO,
+            "IMEDispatcher: subtype → next (framework fallback, onlyCurrentIme=",
+            onlyCurrentIme.toString(), ") result=", r?.toString() ?: "null")
+        r == true
+    } catch (t: Throwable) {
+        LogHelper.log(VerboseLevel.WARNING,
+            "IMEDispatcher: switchToNextLocked failed:", t.message)
+        false
     }
 
     // -----------------------------------------------------------------
@@ -400,7 +338,6 @@ object IMEDispatcher {
     /** IMMS.mCurrentImeUserId。 */
     private fun getCurrentUserId(ims: Any): Int? = try {
         findField(ims.javaClass, "mCurrentImeUserId")?.getInt(ims)
-            ?: findField(ims.javaClass, "mCurrentUserId")?.getInt(ims)
     } catch (t: Throwable) {
         LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: getCurrentUserId failed:", t.message)
         null
@@ -761,12 +698,12 @@ object IMEDispatcher {
             val cl = systemClassLoader ?: return false
 
             // Get current IME user ID
-            val userId = getCurrentUserId(ims)
-                ?: return false
+            val userId = ims.javaClass.getDeclaredField("mCurrentImeUserId")
+                .apply { isAccessible = true }.getInt(ims)
 
             // Get UserData
-            val userData = findMethod(ims.javaClass, "getUserData", java.lang.Integer.TYPE)
-                ?.invoke(ims, userId) ?: ims
+            val method = ims.javaClass.getMethod("getUserData", java.lang.Integer.TYPE)
+            val userData = method.invoke(ims, userId) ?: return false
 
             // Get mCurInputConnection from UserData (the active IRemoteInputConnection)
             // Note: NOT mCurClient.mFallbackInputConnection — that's stale;
@@ -775,10 +712,6 @@ object IMEDispatcher {
                 userData.javaClass.getDeclaredField("mCurInputConnection")
                     .apply { isAccessible = true }.get(userData)
             } catch (e: NoSuchFieldException) { null }
-                ?: try {
-                    ims.javaClass.getDeclaredField("mCurInputConnection")
-                        .apply { isAccessible = true }.get(ims)
-                } catch (e: NoSuchFieldException) { null }
                 ?: return false
 
             // Create InputConnectionCommandHeader(sessionId=0)

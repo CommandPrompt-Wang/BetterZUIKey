@@ -133,7 +133,7 @@ class KeyboardDetectActivity : AppCompatActivity() {
 
             // RadioButton（手动管理单选）
             val idx = i
-            val rb = RadioButton(this).apply {
+            val rb = com.google.android.material.radiobutton.MaterialRadioButton(this).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT

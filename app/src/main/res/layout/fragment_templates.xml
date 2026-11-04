@@ -6,21 +6,34 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <SearchView
-        android:id="@+id/searchView"
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="8dp"
-        android:iconifiedByDefault="false"
-        android:queryHint="搜索模板名称..." />
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="4dp"
+        app:cardCornerRadius="28dp"
+        app:cardElevation="0dp"
+        app:strokeColor="?attr/colorOutline"
+        app:strokeWidth="1dp">
+
+        <SearchView
+            android:id="@+id/searchView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@android:color/transparent"
+            android:iconifiedByDefault="false"
+            android:queryHint="搜索模板名称..." />
+    </com.google.android.material.card.MaterialCardView>
 
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="4dp"
         android:text="@string/templates_drag_hint"
-        android:textColor="?android:attr/textColorSecondary"
-        android:textSize="12sp" />
+        android:textAppearance="?attr/textAppearanceBodySmall"
+        android:textColor="?attr/colorOnSurfaceVariant" />
 
     <TextView
         android:id="@+id/tv_empty"
@@ -29,8 +42,8 @@
         android:layout_weight="1"
         android:gravity="center"
         android:text="@string/templates_empty"
-        android:textColor="?android:attr/textColorSecondary"
-        android:textSize="14sp"
+        android:textAppearance="?attr/textAppearanceBodyLarge"
+        android:textColor="?attr/colorOnSurfaceVariant"
         android:visibility="gone" />
 
     <androidx.recyclerview.widget.RecyclerView
@@ -48,6 +61,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
         android:layout_margin="16dp"
+        style="@style/Widget.Material3.ExtendedFloatingActionButton.Primary"
         android:text="@string/templates_new_template"
         app:icon="@android:drawable/ic_input_add" />
 

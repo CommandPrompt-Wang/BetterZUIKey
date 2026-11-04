@@ -98,21 +98,19 @@ If IME Enhancement binds Win long-press to switching while accepting text, IME s
 
 **Special case: Win single-press set to Off (pass-through)**
 
-The physical Win **down** is withheld by the module; what happens is decided on release:
-
 | What you actually did | Foreground app receives | System |
 |-----------------------|-------------------------|--------|
 | Quick tap on Win | A restored Meta down/up pair | Dock does not open |
 | Win + letter (e.g. `Win+E`) | Only the letter, **no** Win | ZUI shortcut handled as usual |
 | Long-press Win | Nothing | Per the "Win long-press" table above |
 
-> The down is withheld because a standalone tap can only be told apart from a Win inside a combo on release; withholding guarantees the Win in a combo never leaks to the app as an isolated press (a remote desktop would otherwise treat it as a standalone Start-menu click).
->
-> Also, in pass-through mode the module bypasses ZUI's own Meta handling, so **Keep default** in the table above is emulated by the module (long-press → voice assistant).
+> Most apps can't and won't respond to a bare Win press. One way around it is "Map to…" below: set `` Ctrl+Alt+` `` as Win on the remote machine, then map `Win` → `` Ctrl+Alt+` `` here (an app template is the tidy way). Now a local Win press registers remotely.
 
 **Special case: Win single-press set to "Map to…"**
 
-Picking this option opens a capture dialog: whatever key or combo you press is recorded (**any single key and any `Ctrl` / `Shift` / `Alt` combo are accepted** — unlike IME Enhancement, a modifier is not required). `Backspace` clears, `Esc` cancels.
+Picking it opens a capture dialog; press the key or combo you want (single keys and combos alike, no modifier required). Keys that never reach the app window — brightness, `CapsLock`, a lone `Ctrl` / `Shift` — are caught by the module and reported, so they can be recorded too; `Win` itself cannot. Every key is swallowed by the module while recording, so nothing triggers a system action.
+
+A tap on `Esc` / `Backspace` records that key; long-press them to cancel / clear. Pressing OK with an empty box clears the mapping and drops the card to "Off".
 
 | What you actually did | Foreground app receives | System |
 |-----------------------|-------------------------|--------|
@@ -121,8 +119,6 @@ Picking this option opens a capture dialog: whatever key or combo you press is r
 | Long-press Win | Nothing | Per the "Win long-press" table above |
 
 For example, set it to `Esc` to make a Win tap act as `Esc`, or `Ctrl+C` to make it a copy shortcut. The mapped modifiers are injected as **real key events** in sequence, so continuous operations that require holding Ctrl (Ctrl+drag in a remote desktop) still work.
-
-> While recording, the module temporarily hands off **all** keys — otherwise combos already claimed by the module (like `Ctrl+Shift+T`) could never be captured. That hand-off expires after 10 minutes, so a crash of the app mid-recording cannot leave the module permanently unresponsive.
 
 **Special case: Ctrl + Enter**
 

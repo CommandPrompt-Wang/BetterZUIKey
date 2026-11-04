@@ -46,12 +46,31 @@ public class KeyTemplate {
         return overrides.get(key);
     }
 
+    /**
+     * 写入一条覆写；传 null 表示移除。
+     *
+     * <p>注意：这里**不**做「空覆写自动丢弃」的判断。调用方常见的写法是
+     * 「先建一个空覆写放进 map，再往它身上填字段」，若在此处按 {@link
+     * PerKeyOverride#isInherit()} 丢弃，填字段就落在一个游离对象上，
+     * 保存后静默丢失（历史上模板里「映射到…」「执行命令…」存不上就是这个原因）。
+     * 需要清理空覆写时请显式调用 {@link #removeIfInherit(String)}。
+     */
     public void put(String key, PerKeyOverride override) {
-        if (override == null || override.isInherit()) {
+        if (override == null) {
             overrides.remove(key);
         } else {
             overrides.put(key, override);
         }
+    }
+
+    /** 该覆写若无任何实际内容则移除，返回是否被移除。 */
+    public boolean removeIfInherit(String key) {
+        PerKeyOverride override = overrides.get(key);
+        if (override != null && override.isInherit()) {
+            overrides.remove(key);
+            return true;
+        }
+        return false;
     }
 }
 
