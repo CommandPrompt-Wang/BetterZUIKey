@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.AttributeSet
 import android.view.KeyEvent
 import androidx.appcompat.widget.AppCompatEditText
+import moe.lovefirefly.betterzuikey.Hook.KeyInjector
 
 /**
  * 只用来「录键」的输入框：不接收文本，把硬件按键原样交给 [captureListener]。
@@ -34,13 +35,13 @@ class ShortcutCaptureEditText @JvmOverloads constructor(
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         captureListener?.let { if (it(event)) return true }
         // 修饰键自己不算键：吞掉，别让它触发文本选择之类
-        if (captureListener != null && MetaKeyMap.isModifierKey(keyCode)) return true
+        if (captureListener != null && KeyInjector.isModifierKeyCode(keyCode)) return true
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         captureListener?.let { if (it(event)) return true }
-        if (captureListener != null && MetaKeyMap.isModifierKey(keyCode)) return true
+        if (captureListener != null && KeyInjector.isModifierKeyCode(keyCode)) return true
         return super.onKeyUp(keyCode, event)
     }
 }
