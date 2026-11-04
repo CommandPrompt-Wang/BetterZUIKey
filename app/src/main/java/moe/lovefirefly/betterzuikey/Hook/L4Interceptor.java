@@ -90,21 +90,7 @@ public class L4Interceptor  {
                     blocked = true;
                     LogHelper.log(VerboseLevel.INFO, "L4: Ctrl+Shift+T (308) → blocked (mode=", cstMode.name(), ")");
                     if (cstMode == Config.OverrideMode.ZUI) {
-                        // ZUI实现: 照抄 case 308 — this.mPolicy.toggleTouchpadFromKey()
-                        try {
-                            if (ctx.policyInstance != null) {
-                                ctx.policyInstance.getClass().getMethod("toggleTouchpadFromKey")
-                                        .invoke(ctx.policyInstance);
-                                LogHelper.log(VerboseLevel.INFO,
-                                        "L4: Ctrl+Shift+T → ZUI (toggleTouchpadFromKey called)");
-                            } else {
-                                LogHelper.log(VerboseLevel.WARNING,
-                                        "L4: Ctrl+Shift+T → ZUI but ctx.policyInstance is null!");
-                            }
-                        } catch (Exception e) {
-                            LogHelper.log(VerboseLevel.ERROR, "L4: toggleTouchpadFromKey reflection failed:",
-                                    e.getMessage());
-                        }
+                        ctx.toggleTouchpadFromKey((KeyEvent) param.args[0]);
                     }
                     // OFF/BLOCK/AOSP: 已拦截
                     // OFF → L0 已剥离修饰键，透传给应用

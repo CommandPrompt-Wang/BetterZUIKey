@@ -84,9 +84,16 @@ public class L1Interceptor  {
             if (!ctx.r("ctrlShiftT", ctx.cfg.switchCtrlShiftT).isEnabled())
                 return;
             Config.OverrideMode cstModeL1 = ctx.ra("ctrlShiftT", ctx.cfg.overrideCtrlShiftT);
-            // ZUI mode: do NOT intercept in L1 — let KeyGestureEvent type=308
-            // be generated so L4 can handle it (calling toggleTouchpadFromKey).
+            // Newer systems generate KeyGestureEvent type=308 for L4. The
+            // legacy input chain has no gesture layer, so dispatch directly.
             if (cstModeL1 == Config.OverrideMode.ZUI) {
+                if (ctx.usesLegacyInputChain()) {
+                    ctx.toggleTouchpadFromKey(event);
+                    param.setResult(true);
+                    LogHelper.log(VerboseLevel.INFO,
+                            "L1: legacy Ctrl+Shift+T → ZUI touchpad action");
+                    return;
+                }
                 LogHelper.log(VerboseLevel.INFO, "L1: Ctrl+Shift+T → ZUI (pass through to L4)");
                 return;
             }

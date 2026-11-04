@@ -104,7 +104,10 @@ system_server (MainHook)
 
 0. **Prerequisites**: ~~rooted device +~~ [LSPosed](https://github.com/LSPosed/LSPosed) installed, ZUXOS
    - BetterZUIKey can now modify system settings without granting Root access
-   - Currently tested only on 1.5.04 (Android 16); unsure if lower versions based on Android 15 work
+   - Hooks are selected by Android SDK: SDK 36 retains the legacy implementation; SDK 37 uses the split Meta consumer and updated signatures (device validation pending).
+   - Android 15 (SDK 35) uses a dedicated legacy input-chain branch; Android 16 (SDK 36) retains the established implementation; Android 17 (SDK 37) uses the split Meta consumer and updated signatures. SDK 34 is unverified and does not inherit the SDK 35 branch.
+   - `minSdk` remains 27. SDK 35 here means runtime hook routing, not the app's minimum install version.
+   - Public ZUXOS and internal ZUI versions differ (e.g. ZUXOS 1.5.04.424 / ZUI 17.5). ROM versions are diagnostic only, not a release whitelist; unknown SDKs do not inherit old hooks.
    - Issues and Pull Requests welcome: [Issues](https://github.com/CommandPrompt-Wang/BetterZUIKey/issues) | [PRs](https://github.com/CommandPrompt-Wang/BetterZUIKey/pulls)
 1. Download the latest APK from [Releases](https://github.com/CommandPrompt-Wang/BetterZUIKey/releases)
 2. Install and activate the module in LSPosed Manager (check `system_server` and `android`)

@@ -112,7 +112,10 @@ system_server (MainHook)
 
 0. **前置条件**：~~已 root +~~ 安装 [LSPosed](https://github.com/LSPosed/LSPosed)、ZUXOS
     - 已实现不给 BetterZUIKey 挂载 Root 也能修改系统设置的功能
-    - 当前仅测试 1.5.04 (Android 16)，不确定基于 Android 15 的低版本是否生效
+    - 按 Android SDK 选择 hook：Android 15（SDK 35）使用独立旧输入链；Android 16（SDK 36）沿用旧实现；Android 17（SDK 37）使用拆分后的 Meta 消费点和新方法签名，均需对应设备实测。SDK 34 尚未核验，不自动套用 SDK35。
+    - `minSdk` 仍为 27；SDK 35 是运行时 hook 分支，不是应用最低安装版本。
+    - 已核查 ZUXOS 1.1.04.331（Android 15 / SDK 35 / ZUI 17.0）：缺少当前依赖的 KSC / KeyGestureEvent 架构，使用独立旧输入链；仍需对应设备验证。
+    - ZUXOS 对外版本与底层 ZUI 版本不同（例如 ZUXOS 1.5.04.424 对应 ZUI 17.5），版号仅用于诊断，不作为固定白名单；未知 Android SDK 不自动套用旧 hook。
     - 欢迎提交 [Issue](https://github.com/CommandPrompt-Wang/BetterZUIKey/issues) 和 [Pull Request](https://github.com/CommandPrompt-Wang/BetterZUIKey/pulls)
 1. 在 [Releases](https://github.com/CommandPrompt-Wang/BetterZUIKey/releases) 下载最新 APK
 2. 安装后在 LSPosed Manager 中激活模块（勾选 `system_server` 和 `android`）

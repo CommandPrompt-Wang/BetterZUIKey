@@ -189,7 +189,7 @@ public class MetaKeyRouter {
     }
 
     private void dispatchStartMenu() {
-        ctx.triggerShowAllApps(0);
+        ctx.triggerShowAllApps(ctx.metaSession.displayId);
     }
 
     private boolean consumeUp(HookCompat.HookParam param, boolean zuiMeta, String reason) {

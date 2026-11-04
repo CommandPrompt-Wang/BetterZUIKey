@@ -23,7 +23,7 @@ object ZuiDetector {
 
     data class Result(val isZux: Boolean, val zuiVersion: String?) {
         val detail: String
-            get() = if (isZux) "ZUXOS $zuiVersion"
+            get() = if (isZux) "ZUI $zuiVersion"
             else "非 ZUXOS (ro.com.zui.version 为空)"
     }
 

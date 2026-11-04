@@ -28,6 +28,11 @@ public class HookContext {
     public volatile Object kscInstance;
     public volatile Object policyInstance;
 
+    public boolean usesLegacyInputChain() {
+        return PlatformHookProfile.forSdk(android.os.Build.VERSION.SDK_INT)
+                .usesLegacyInputChain();
+    }
+
     /** Lenovo keyboard firmware scanCode handled in ZUI case 117. */
     public static final int ZUI_META_SCAN_CODE = 787345;
     /** ZUI short vs long Meta threshold (ms), matches mLaunchAssistantRunnable delay. */
@@ -200,6 +205,7 @@ public class HookContext {
         public volatile int scanCode;
         public volatile int keyCode = -1;
         public volatile int deviceId = -1;
+        public volatile int displayId = 0;
         /** Voice or IME long-press fired during this press. */
         public volatile boolean longFired;
         /** A top-row key was Fn-mapped during this Meta press (Win consumed as modifier). */
@@ -225,6 +231,14 @@ public class HookContext {
             scanCode = event.getScanCode();
             keyCode = event.getKeyCode();
             deviceId = event.getDeviceId();
+            // InputEvent.getDisplayId is hidden from the public Android SDK.
+            displayId = 0;
+            try {
+                Object value = event.getClass().getMethod("getDisplayId").invoke(event);
+                if (value instanceof Integer) displayId = Math.max(0, (Integer) value);
+            } catch (ReflectiveOperationException ignored) {
+                // Default display when this hidden API is unavailable.
+            }
             return true;
         }
 
@@ -694,6 +708,7 @@ public class HookContext {
             LogHelper.log(VerboseLevel.ERROR, "IME switch: policyInstance is null");
             return null;
         }
+
         try {
             // Get current IME name before switching
             String before = getCurrentIMEName();
@@ -708,6 +723,33 @@ public class HookContext {
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR, "IME switch: failed: ", t.getMessage());
             return null;
+        }
+    }
+
+    /** Invoke the ZUI touchpad action with the signature used by the active SDK. */
+    public boolean toggleTouchpadFromKey(KeyEvent event) {
+        if (policyInstance == null) {
+            LogHelper.log(VerboseLevel.ERROR,
+                    "Touchpad toggle: policyInstance is null");
+            return false;
+        }
+        try {
+            if (PlatformHookProfile.forSdk(android.os.Build.VERSION.SDK_INT)
+                    .usesLegacyInputChain()) {
+                policyInstance.getClass()
+                        .getMethod("toggleTouchpadFromKey", KeyEvent.class)
+                        .invoke(policyInstance, event);
+            } else {
+                policyInstance.getClass()
+                        .getMethod("toggleTouchpadFromKey")
+                        .invoke(policyInstance);
+            }
+            LogHelper.log(VerboseLevel.INFO, "Touchpad toggle dispatched");
+            return true;
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR,
+                    "Touchpad toggle failed:", t.getMessage());
+            return false;
         }
     }
 
@@ -797,6 +839,8 @@ public class HookContext {
 
     /** Cancel ZUI's 2s voice-assistant timer posted from case 117 Meta DOWN. */
     public void cancelZuiAssistantTimer() {
+        if (!PlatformHookProfile.forSdk(android.os.Build.VERSION.SDK_INT)
+                .supportsLegacyAssistantRunnable()) return;
         if (kscInstance == null || policyInstance == null) return;
         try {
             Object runnable = HookCompat.getObjectField(
@@ -833,7 +877,7 @@ public class HookContext {
                 "kc=", String.valueOf(keyCode));
     }
 
-    /** ZUI Start Menu — {@code KeyboardZuiKeyInputPolicy.triggerShowAllApps} (A15/16). */
+    /** ZUI Start Menu — version-specific Policy bridge. */
     public void triggerShowAllApps(int displayId) {
         MetaTrace.decision("Policy", "start menu triggerShowAllApps",
                 "displayId=", String.valueOf(displayId),
@@ -845,9 +889,15 @@ public class HookContext {
         }
         metaStartMenuDispatched = true;
         try {
-            policyInstance.getClass()
-                    .getMethod("triggerShowAllApps", boolean.class, int.class)
-                    .invoke(policyInstance, true, displayId);
+            if (PlatformHookProfile.forSdk(android.os.Build.VERSION.SDK_INT)
+                    .usesLegacyInputChain()) {
+                policyInstance.getClass().getMethod("triggerShowAllApps")
+                        .invoke(policyInstance);
+            } else {
+                policyInstance.getClass()
+                        .getMethod("triggerShowAllApps", boolean.class, int.class)
+                        .invoke(policyInstance, true, displayId);
+            }
             MetaTrace.decision("Policy", "triggerShowAllApps ok",
                     "displayId=", String.valueOf(displayId));
         } catch (Throwable t) {
@@ -911,7 +961,17 @@ public class HookContext {
         }
         if (isPrcRegion()) {
             try {
-                HookCompat.callMethod(policyInstance, "launchXiaoTianAgent");
+                // Do not use callMethod here: it swallows reflection failures and
+                // would log success without launching anything or reaching fallback.
+                if (android.os.Build.VERSION.SDK_INT == 37) {
+                    // SDK37 policy forwards this argument to
+                    // ActivityOptions.setLaunchDisplayId/setCallerDisplayId.
+                    policyInstance.getClass().getMethod("launchXiaoTianAgent", int.class)
+                            .invoke(policyInstance, metaSession.displayId);
+                } else {
+                    policyInstance.getClass().getMethod("launchXiaoTianAgent")
+                            .invoke(policyInstance);
+                }
                 PassthroughTrace.noteMsg("Policy", "launchVoiceAssistant ok (PRC XiaoTian)");
                 MetaTrace.decision("Policy", "launchXiaoTianAgent ok");
                 LogHelper.log(VerboseLevel.INFO,
