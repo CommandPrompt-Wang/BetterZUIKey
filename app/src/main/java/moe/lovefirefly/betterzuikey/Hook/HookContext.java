@@ -29,10 +29,17 @@ public class HookContext {
     public volatile Object kscInstance;
     public volatile Object policyInstance;
 
+    public boolean usesLegacyInputChain() {
+        return PlatformHookProfile.forSdk(android.os.Build.VERSION.SDK_INT)
+                .usesLegacyInputChain();
+    }
+
     /** Lenovo keyboard firmware scanCode handled in ZUI case 117. */
     public static final int ZUI_META_SCAN_CODE = 787345;
     /** ZUI short vs long Meta threshold (ms), matches mLaunchAssistantRunnable delay. */
     public static final long ZUI_META_LONG_PRESS_MS = 2000L;
+    /** Delay standalone Meta mapping briefly so priority Meta combinations can win. */
+    private static final long META_MAP_DECISION_DELAY_MS = 80L;
 
     /** Per-press Win/Meta session — reset on DOWN, cleared after UP handling. */
     public final MetaKeySession metaSession = new MetaKeySession();
@@ -84,8 +91,9 @@ public class HookContext {
      */
     public boolean isRemapInjecting(KeyEvent event) {
         long until = remapInjectUntil;
-        if (until == 0L || android.os.SystemClock.uptimeMillis() > until) return false;
-        return event != null && event.getDeviceId() < 0;
+        if (event == null || event.getDeviceId() >= 0) return false;
+        return (until != 0L && android.os.SystemClock.uptimeMillis() <= until)
+                || metaSession.mappedOutputActive;
     }
 
     /** UP cleanup after 507/508 was blocked on DOWN. */
@@ -212,6 +220,11 @@ public class HookContext {
         public volatile int scanCode;
         public volatile int keyCode = -1;
         public volatile int deviceId = -1;
+        public volatile int displayId = 0;
+        /** Snapshot of the mapped target held from Meta DOWN until Meta UP. */
+        public volatile MetaKeyMap mappedOutputMap;
+        public volatile boolean mappedOutputActive;
+        public volatile boolean mappedOutputPending;
         /** Voice or IME long-press fired during this press. */
         public volatile boolean longFired;
         /** A top-row key was Fn-mapped during this Meta press (Win consumed as modifier). */
@@ -241,10 +254,21 @@ public class HookContext {
             fnMapped = false;
             winComboUsed = false;
             mergedKeyCode = 0;
+            mappedOutputMap = null;
+            mappedOutputActive = false;
+            mappedOutputPending = false;
             downTimeMs = System.currentTimeMillis();
             scanCode = event.getScanCode();
             keyCode = event.getKeyCode();
             deviceId = event.getDeviceId();
+            // InputEvent.getDisplayId is hidden from the public Android SDK.
+            displayId = 0;
+            try {
+                Object value = event.getClass().getMethod("getDisplayId").invoke(event);
+                if (value instanceof Integer) displayId = Math.max(0, (Integer) value);
+            } catch (ReflectiveOperationException ignored) {
+                // Default display when this hidden API is unavailable.
+            }
             return true;
         }
 
@@ -259,6 +283,9 @@ public class HookContext {
             longFired = false;
             fnMapped = false;
             winComboUsed = false;
+            mappedOutputMap = null;
+            mappedOutputActive = false;
+            mappedOutputPending = false;
             // mergedKeyCode 故意不在这里清：合并键的 UP 可能晚于 Meta 的 UP
             // （见 consumeMergedComboKey）。它由 begin() 或那个键自己的 UP 清除。
             downTimeMs = 0;
@@ -348,6 +375,122 @@ public class HookContext {
      */
     public boolean isMetaIntercepted() {
         return isMetaPassthrough() || isMetaMapped();
+    }
+
+    /**
+     * Whether a non-Meta physical key is being pressed while the mapped output
+     * is already held for the current Meta press.
+     */
+    public boolean isMappedMetaOutputActive(KeyEvent event) {
+        if (event == null || !metaSession.active || !metaSession.mappedOutputActive) {
+            return false;
+        }
+        int keyCode = event.getKeyCode();
+        return keyCode != KeyEvent.KEYCODE_META_LEFT
+                && keyCode != KeyEvent.KEYCODE_META_RIGHT;
+    }
+
+    public boolean isMappedMetaOutputPending(KeyEvent event) {
+        if (event == null || !metaSession.active || !metaSession.mappedOutputPending) {
+            return false;
+        }
+        int keyCode = event.getKeyCode();
+        return keyCode != KeyEvent.KEYCODE_META_LEFT
+                && keyCode != KeyEvent.KEYCODE_META_RIGHT;
+    }
+
+    /**
+     * Whether this is a Meta combination that must take precedence over the
+     * standalone Meta mapping: Fn top-row keys or the pure Win+` FnLock toggle.
+     */
+    public boolean isMetaMappingPriorityCombo(KeyEvent event) {
+        if (event == null || event.getAction() != KeyEvent.ACTION_DOWN
+                || event.getRepeatCount() != 0 || !event.isMetaPressed()) {
+            return false;
+        }
+        if (event.getKeyCode() == KeyEvent.KEYCODE_GRAVE
+                && KeyInjector.modifiersMatch(event, true, false, false, false)) {
+            return true;
+        }
+        return fnKeyManager.getFnTarget(event) != 0;
+    }
+
+    /** Start the PowerToys-style held output for a mapped standalone Meta key. */
+    public boolean startMappedMetaOutput(KeyEvent event) {
+        if (!isMetaMapped() || event == null
+                || metaSession.mappedOutputActive || metaSession.mappedOutputPending) return false;
+        MetaKeyMap map = MetaKeyMap.parse(effectiveMapTarget());
+        if (!map.isSet()) return false;
+        metaSession.mappedOutputMap = map;
+        metaSession.mappedOutputPending = true;
+        android.os.Handler handler = resolvePolicyHandler();
+        handler.postDelayed(() -> {
+            if (!metaSession.active || !metaSession.mappedOutputPending
+                    || metaSession.mappedOutputMap != map) {
+                return;
+            }
+            metaSession.mappedOutputPending = false;
+            metaSession.mappedOutputActive = true;
+            armRemapInject();
+            KeyInjector.injectComboDown(map, metaSession.deviceId);
+            MetaTrace.decision("Router", "mapped DOWN → hold mapped target",
+                    "map=", map.serialize());
+        }, META_MAP_DECISION_DELAY_MS);
+        MetaTrace.decision("Router", "mapped DOWN deferred for priority combo",
+                "ms=", String.valueOf(META_MAP_DECISION_DELAY_MS),
+                " map=", map.serialize());
+        return true;
+    }
+
+    /** Activate a deferred mapping before a non-priority key is passed through. */
+    public boolean activatePendingMappedMetaOutput() {
+        MetaKeyMap map = metaSession.mappedOutputMap;
+        if (!metaSession.mappedOutputPending || map == null) return false;
+        metaSession.mappedOutputPending = false;
+        metaSession.mappedOutputActive = true;
+        armRemapInject();
+        KeyInjector.injectComboDown(map, metaSession.deviceId);
+        MetaTrace.decision("Router", "mapped DOWN → activate before combo",
+                "map=", map.serialize());
+        return true;
+    }
+
+    /** Cancel a deferred mapping because a priority Meta combination won. */
+    public boolean cancelPendingMappedMetaOutput() {
+        MetaKeyMap map = metaSession.mappedOutputMap;
+        if (!metaSession.mappedOutputPending || map == null) return false;
+        metaSession.mappedOutputPending = false;
+        metaSession.mappedOutputMap = null;
+        metaSession.winComboUsed = true;
+        metaSuppressStartMenu = true;
+        MetaTrace.decision("Router", "mapped DOWN canceled by priority combo",
+                "map=", map.serialize());
+        return true;
+    }
+
+    /** Release the mapped output on physical Meta UP, tapping a still-pending map if standalone. */
+    public boolean releaseMappedMetaOutput(boolean standaloneTap) {
+        MetaKeyMap map = metaSession.mappedOutputMap;
+        if (map == null) return false;
+        if (metaSession.mappedOutputPending) {
+            metaSession.mappedOutputPending = false;
+            metaSession.mappedOutputMap = null;
+            if (standaloneTap) {
+                armRemapInject();
+                KeyInjector.injectCombo(map, metaSession.deviceId);
+                MetaTrace.decision("Router", "mapped tap → emit deferred target",
+                        "map=", map.serialize());
+            }
+            return true;
+        }
+        if (!metaSession.mappedOutputActive) return false;
+        armRemapInject();
+        KeyInjector.injectComboUp(map, metaSession.deviceId);
+        metaSession.mappedOutputActive = false;
+        metaSession.mappedOutputMap = null;
+        MetaTrace.decision("Router", "mapped UP → release mapped target",
+                "map=", map.serialize());
+        return true;
     }
 
     // ----------------------------------------------------------------
@@ -829,6 +972,8 @@ public class HookContext {
 
     /** Cancel ZUI's 2s voice-assistant timer posted from case 117 Meta DOWN. */
     public void cancelZuiAssistantTimer() {
+        if (!PlatformHookProfile.forSdk(android.os.Build.VERSION.SDK_INT)
+                .supportsLegacyAssistantRunnable()) return;
         if (kscInstance == null || policyInstance == null) return;
         try {
             Object runnable = HookCompat.getObjectField(
@@ -885,6 +1030,7 @@ public class HookContext {
         }
         // 一轮 Meta 按住里只合并第一个键：再来的键按老样子走各自的路
         if (metaSession.mergedKeyCode != 0) return false;
+        if (isMetaMappingPriorityCombo(event)) return false;
         return tryMergeIntoTarget(event);
     }
 
@@ -1134,7 +1280,7 @@ public class HookContext {
                 || keyCode == KeyEvent.KEYCODE_ALT_RIGHT;
     }
 
-    /** ZUI Start Menu — {@code KeyboardZuiKeyInputPolicy.triggerShowAllApps} (A15/16). */
+    /** ZUI Start Menu — version-specific Policy bridge. */
     public void triggerShowAllApps(int displayId) {
         MetaTrace.decision("Policy", "start menu triggerShowAllApps",
                 "displayId=", String.valueOf(displayId),
@@ -1146,15 +1292,46 @@ public class HookContext {
         }
         metaStartMenuDispatched = true;
         try {
-            policyInstance.getClass()
-                    .getMethod("triggerShowAllApps", boolean.class, int.class)
-                    .invoke(policyInstance, true, displayId);
+            if (usesLegacyInputChain()) {
+                policyInstance.getClass().getMethod("triggerShowAllApps")
+                        .invoke(policyInstance);
+            } else {
+                policyInstance.getClass()
+                        .getMethod("triggerShowAllApps", boolean.class, int.class)
+                        .invoke(policyInstance, true, displayId);
+            }
             MetaTrace.decision("Policy", "triggerShowAllApps ok",
                     "displayId=", String.valueOf(displayId));
         } catch (Throwable t) {
             MetaTrace.decision("Policy", "triggerShowAllApps FAIL", t.getMessage());
             LogHelper.log(VerboseLevel.ERROR,
                     "triggerShowAllApps failed:", t.getMessage());
+        }
+    }
+
+    /** Invoke the ZUI touchpad action with the signature used by the active SDK. */
+    public boolean toggleTouchpadFromKey(KeyEvent event) {
+        if (policyInstance == null) {
+            LogHelper.log(VerboseLevel.ERROR,
+                    "Touchpad toggle: policyInstance is null");
+            return false;
+        }
+        try {
+            if (usesLegacyInputChain()) {
+                policyInstance.getClass()
+                        .getMethod("toggleTouchpadFromKey", KeyEvent.class)
+                        .invoke(policyInstance, event);
+            } else {
+                policyInstance.getClass()
+                        .getMethod("toggleTouchpadFromKey")
+                        .invoke(policyInstance);
+            }
+            LogHelper.log(VerboseLevel.INFO, "Touchpad toggle dispatched");
+            return true;
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR,
+                    "Touchpad toggle failed:", t.getMessage());
+            return false;
         }
     }
 
@@ -1214,7 +1391,17 @@ public class HookContext {
         }
         if (isPrcRegion()) {
             try {
-                HookCompat.callMethod(policyInstance, "launchXiaoTianAgent");
+                // Do not use callMethod here: it swallows reflection failures and
+                // would log success without launching anything or reaching fallback.
+                if (android.os.Build.VERSION.SDK_INT == 37) {
+                    // SDK37 policy forwards this argument to
+                    // ActivityOptions.setLaunchDisplayId/setCallerDisplayId.
+                    policyInstance.getClass().getMethod("launchXiaoTianAgent", int.class)
+                            .invoke(policyInstance, metaSession.displayId);
+                } else {
+                    policyInstance.getClass().getMethod("launchXiaoTianAgent")
+                            .invoke(policyInstance);
+                }
                 PassthroughTrace.noteMsg("Policy", "launchVoiceAssistant ok (PRC XiaoTian)");
                 MetaTrace.decision("Policy", "launchXiaoTianAgent ok");
                 LogHelper.log(VerboseLevel.INFO,

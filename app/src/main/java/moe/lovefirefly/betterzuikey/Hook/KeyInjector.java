@@ -243,6 +243,34 @@ public final class KeyInjector {
         injectChord(map, null, 0, 0, deviceId);
     }
 
+    /** Inject only the DOWN half of a mapped key/chord. */
+    public static void injectComboDown(MetaKeyMap map, int deviceId) {
+        if (map == null || !map.isSet() || map.getKeyCode() <= 0) return;
+        java.util.List<kotlin.Pair<Integer, Integer>> mods = map.modifierKeySequence();
+        int acc = 0;
+        for (kotlin.Pair<Integer, Integer> mod : mods) {
+            acc |= mod.getSecond();
+            injectKeyDown(mod.getFirst(), acc, deviceId);
+        }
+        injectKeyDown(map.getKeyCode(), acc, deviceId, map.getScanCode());
+    }
+
+    /** Inject only the UP half of a mapped key/chord. */
+    public static void injectComboUp(MetaKeyMap map, int deviceId) {
+        if (map == null || !map.isSet() || map.getKeyCode() <= 0) return;
+        java.util.List<kotlin.Pair<Integer, Integer>> mods = map.modifierKeySequence();
+        int acc = 0;
+        for (kotlin.Pair<Integer, Integer> mod : mods) {
+            acc |= mod.getSecond();
+        }
+        injectKeyUp(map.getKeyCode(), acc, deviceId, map.getScanCode());
+        for (int i = mods.size() - 1; i >= 0; i--) {
+            kotlin.Pair<Integer, Integer> mod = mods.get(i);
+            injectKeyUp(mod.getFirst(), acc, deviceId);
+            acc &= ~mod.getSecond();
+        }
+    }
+
     /**
      * 「按住 Win + 其它键」兜底合并专用。
      *

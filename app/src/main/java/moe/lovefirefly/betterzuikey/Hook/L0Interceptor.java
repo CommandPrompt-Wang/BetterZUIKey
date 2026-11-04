@@ -65,6 +65,31 @@ public class L0Interceptor  {
         // 模块自己为「映射到…」注入的组合键：整体放行，避免二次消费
         if (ctx.isRemapInjecting(event)) return;
 
+        // Priority combinations must win before a deferred standalone mapping
+        // is activated. Their physical trigger is consumed by the normal Fn
+        // section below, while the mapped target is never sent to the host.
+        if (ctx.isMappedMetaOutputPending(event)) {
+            if (ctx.isMetaMappingPriorityCombo(event)) {
+                ctx.cancelPendingMappedMetaOutput();
+            } else if (event.getAction() == KeyEvent.ACTION_DOWN
+                    && event.getRepeatCount() == 0) {
+                ctx.activatePendingMappedMetaOutput();
+            }
+        } else if (ctx.isMappedMetaOutputActive(event)
+                && ctx.isMetaMappingPriorityCombo(event)) {
+            // Once the decision window has elapsed, the target may already
+            // have reached the host; release it before handling the priority key.
+            ctx.releaseMappedMetaOutput(false);
+        }
+
+        // The mapped target is already held for this physical Meta press.
+        // Strip Meta so subsequent physical keys behave like PowerToys
+        // remapping instead of entering the legacy merged-combo path.
+        if (ctx.isMappedMetaOutputActive(event)) {
+            KeyInjector.stripMetaState(event, KeyEvent.META_META_MASK);
+            return;
+        }
+
         // 已并进映射和弦的那个键：DOWN 重复与 UP 都要接着吃掉；
         // 被扣押的外加修饰键的抬起也在这里收尾（见 HookContext#consumeWithheldMetaKeys）
         if (ctx.consumeWithheldMetaKeys(event)) {

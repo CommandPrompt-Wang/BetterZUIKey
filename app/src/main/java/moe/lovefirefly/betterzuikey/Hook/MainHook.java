@@ -27,6 +27,7 @@ public class MainHook extends XposedModule {
     public static volatile boolean globalEnabled = false;
 
     private ClassLoader mClassLoader;
+    private PlatformHookProfile platformProfile;
     private HookContext ctx;
     private Config cfg;
     private ConfigIPCManager mConfigIPC;
@@ -49,11 +50,24 @@ public class MainHook extends XposedModule {
             ClassLoader classLoader = param.getClassLoader();
             if (classLoader == null) return;
 
+            platformProfile = PlatformHookProfile.forSdk(android.os.Build.VERSION.SDK_INT);
+            LogHelper.log(VerboseLevel.INFO, "Hook profile: ", platformProfile.name,
+                    " SDK=", String.valueOf(platformProfile.sdk),
+                    " rawZUI=", String.valueOf(ZuiDetector.INSTANCE.getRawZuiVersion()),
+                    " ro.config.lgsi.fp.incremental=",
+                    readPlatformProperty("ro.config.lgsi.fp.incremental"));
+            // Device-family detection only; never whitelist individual ZUI releases.
             if (!ZuiDetector.INSTANCE.isZuxOS()) {
                 LogHelper.log(VerboseLevel.WARNING,
-                    "Non-ZUXOS device detected. Module disabled. detail=",
-                    ZuiDetector.INSTANCE.getResult().getDetail());
+                        "Non-ZUXOS device: ZUI property absent; hooks skipped");
                 setError("Non-ZUXOS device, module disabled");
+                return;
+            }
+            if (!platformProfile.supportsVersionDependentHooks()) {
+                LogHelper.log(VerboseLevel.WARNING,
+                        "Unsupported profile ", platformProfile.name,
+                        ": skipping all hooks (missing/unverified architecture); no future SDK fallback");
+                setError("Unsupported Android SDK " + platformProfile.sdk + "; hooks skipped");
                 return;
             }
 
@@ -122,20 +136,33 @@ public class MainHook extends XposedModule {
             foregroundTracker.install(this, mClassLoader);
 
             LogHelper.log(VerboseLevel.INFO, "Installing constructor hook...");
-            hookConstructor();
-            hookLaunchAssistantRunnable();
+            if (platformProfile.usesLegacyInputChain()) {
+                hookLegacyPolicyConstructor();
+                hookLegacyInputChain();
+            } else {
+                hookConstructor();
+            }
+            if (platformProfile.supportsLegacyAssistantRunnable()
+                    && !platformProfile.usesLegacyInputChain()) {
+                hookLaunchAssistantRunnable();
+            } else {
+                LogHelper.log(VerboseLevel.INFO,
+                        "Profile uses policy-specific assistant handling");
+            }
 
-            LogHelper.log(VerboseLevel.INFO, "Installing L0 hook...");
-            hookL0_BeforeQueueing();
-            LogHelper.log(VerboseLevel.INFO, "Installing L1 hook...");
-            hookL1_BeforeDispatching();
-            LogHelper.log(VerboseLevel.INFO, "Installing L4 hook...");
-            hookL4_HandleKeyGestureEvent();
-            LogHelper.log(VerboseLevel.INFO, "Installing L3 hook (PhoneWindowManager)...");
-            hookL3_PhoneWindowManager();
+            if (!platformProfile.usesLegacyInputChain()) {
+                LogHelper.log(VerboseLevel.INFO, "Installing L0 hook...");
+                hookL0_BeforeQueueing();
+                LogHelper.log(VerboseLevel.INFO, "Installing L1 hook...");
+                hookL1_BeforeDispatching();
+                LogHelper.log(VerboseLevel.INFO, "Installing L4 hook...");
+                hookL4_HandleKeyGestureEvent();
+                LogHelper.log(VerboseLevel.INFO, "Installing L3 hook (PhoneWindowManager)...");
+                hookL3_PhoneWindowManager();
 
-            LogHelper.log(VerboseLevel.INFO, "Installing KeyGestureController hook...");
-            hookKeyGestureController();
+                LogHelper.log(VerboseLevel.INFO, "Installing KeyGestureController hook...");
+                hookKeyGestureController();
+            }
 
             LogHelper.log(VerboseLevel.INFO, "Installing PhoneWindowManager system-keys hook...");
             hookPhoneWindowManagerSystemKeys();
@@ -150,7 +177,8 @@ public class MainHook extends XposedModule {
             cfg.injected = true;
             cfg.injectError = "";
 
-            LogHelper.log(VerboseLevel.INFO, "All hooks installed successfully!");
+            LogHelper.log(VerboseLevel.INFO,
+                    "Hook installation pass finished; see profile capability warnings for skipped hooks");
             // Retry boot mark until the app process is up and ContentProvider responds
             if (!sBootMarked) {
                 sBootMarked = true;
@@ -472,6 +500,50 @@ public class MainHook extends XposedModule {
     //  Hook installers (use HookCompat to bridge old callback API)
     // ----------------------------------------------------------------
 
+    private static String readPlatformProperty(String key) {
+        try {
+            return (String) Class.forName("android.os.SystemProperties")
+                    .getMethod("get", String.class, String.class).invoke(null, key, "");
+        } catch (Throwable ignored) {
+            return "<unavailable>";
+        }
+    }
+
+    // Resolve before registering: HookCompat's convenience overloads swallow lookup errors.
+    // A missing legacy capability must be reported as unsupported, not an installed hook.
+    private void hookCheckedMethod(MainHook module, String className, ClassLoader loader,
+            String name, HookCompat.HookCallback callback, Class<?>... parameters) throws Throwable {
+        hookCheckedMethod(module, HookCompat.findClass(className, loader), name, callback, parameters);
+    }
+
+    private void hookCheckedMethod(MainHook module, Class<?> target, String name,
+            HookCompat.HookCallback callback, Class<?>... parameters) throws Throwable {
+        java.lang.reflect.Method method;
+        try {
+            method = target.getDeclaredMethod(name, parameters);
+        } catch (NoSuchMethodException missing) {
+            LogHelper.log(VerboseLevel.WARNING, "Profile ", platformProfile.name,
+                    " unsupported capability: ", target.getName(), ".", name,
+                    java.util.Arrays.toString(parameters));
+            throw missing;
+        }
+        if (("interceptKeyBeforeDispatching".equals(name)
+                && "com.android.server.policy.PhoneWindowManager".equals(target.getName()))) {
+            Class<?> expected = platformProfile.hasPolicyFlagsInPwmDispatch() ? long.class : boolean.class;
+            if (method.getReturnType() != expected) {
+                throw new NoSuchMethodException("PWM debug signature return mismatch: " + method);
+            }
+        }
+        if ((name.equals(platformProfile.keyGestureMetaMethod())
+                || "interceptSystemKeysAndShortcuts".equals(name))
+                && method.getReturnType() != boolean.class) {
+            throw new NoSuchMethodException("Meta consumer must return boolean: " + method);
+        }
+        method.setAccessible(true);
+        HookCompat.hookMethod(module, method, callback);
+        LogHelper.log(VerboseLevel.INFO, "Profile capability installed: ", method.toString());
+    }
+
     private void hookConstructor() {
         try {
             Class<?> policyClass = HookCompat.findClass(
@@ -489,6 +561,65 @@ public class MainHook extends XposedModule {
                     });
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR, "Failed to hook constructor:", t.getMessage());
+        }
+    }
+
+    private void hookLegacyPolicyConstructor() {
+        try {
+            Class<?> policyClass = HookCompat.findClass(
+                    "com.zui.server.input.keyboard.key.policy.KeyboardZuiKeyInputPolicy",
+                    mClassLoader);
+            Class<?> serviceThread = HookCompat.findClass(
+                    "com.android.server.ServiceThread", mClassLoader);
+            HookCompat.hookConstructor(
+                    this, policyClass.getName(), mClassLoader,
+                    new Class<?>[]{android.content.Context.class, serviceThread},
+                    hparam -> {
+                        ctx.policyInstance = hparam.thisObject;
+                        installAssistantRunnableHook(hparam.thisObject);
+                        LogHelper.log(VerboseLevel.INFO,
+                                "Legacy KeyboardZuiKeyInputPolicy instance captured");
+                    });
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR,
+                    "Failed to hook legacy policy constructor:", t.getMessage());
+        }
+    }
+
+    private void hookLegacyInputChain() {
+        final L0Interceptor l0 = new L0Interceptor(ctx);
+        final L1Interceptor l1 = new L1Interceptor(ctx);
+        final String policyClassName =
+                "com.zui.server.input.keyboard.key.policy.KeyboardZuiKeyInputPolicy";
+        try {
+            hookCheckedMethod(this, policyClassName, mClassLoader,
+                    "interceptKeyBeforeQueueingBefore",
+                    new HookCompat.HookCallback() {
+                        @Override
+                        protected void beforeHookedMethod(HookCompat.HookParam param) {
+                            l0.intercept(param);
+                        }
+                    }, KeyEvent.class, int.class, boolean.class);
+            LogHelper.log(VerboseLevel.INFO,
+                    "Legacy QueueingBefore hook installed");
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR,
+                    "Legacy QueueingBefore hook failed:", t.getMessage());
+        }
+        try {
+            hookCheckedMethod(this, policyClassName, mClassLoader,
+                    "interceptKeyBeforeDispatchingBefore",
+                    new HookCompat.HookCallback() {
+                        @Override
+                        protected void beforeHookedMethod(HookCompat.HookParam param) {
+                            l1.intercept(param);
+                        }
+                    }, KeyEvent.class, int.class);
+            LogHelper.log(VerboseLevel.INFO,
+                    "Legacy DispatchingBefore hook installed");
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR,
+                    "Legacy DispatchingBefore hook failed:", t.getMessage());
         }
     }
 
@@ -515,12 +646,13 @@ public class MainHook extends XposedModule {
     private volatile boolean mAssistantRunnableHooked = false;
 
     private void installAssistantRunnableHook(Object policy) {
-        if (mAssistantRunnableHooked || policy == null) return;
+        if (!platformProfile.supportsLegacyAssistantRunnable()
+                || mAssistantRunnableHooked || policy == null) return;
         try {
             Object runnable = HookCompat.getObjectField(policy, "mLaunchAssistantRunnable");
             if (runnable == null) return;
             final MetaKeyRouter router = new MetaKeyRouter(ctx);
-            HookCompat.hookMethod(
+            hookCheckedMethod(
                     this, runnable.getClass(), "run",
                     new HookCompat.HookCallback() {
                         @Override
@@ -542,7 +674,7 @@ public class MainHook extends XposedModule {
     private void hookL0_BeforeQueueing() {
         try {
             final L0Interceptor interceptor = new L0Interceptor(ctx);
-            HookCompat.hookMethod(
+            hookCheckedMethod(
                     this, CLASS_KSC, mClassLoader,
                     "interceptSystemKeysAndShortcutsBeforeQueueing",
                     new HookCompat.HookCallback() {
@@ -560,7 +692,7 @@ public class MainHook extends XposedModule {
     private void hookL1_BeforeDispatching() {
         try {
             final L1Interceptor interceptor = new L1Interceptor(ctx);
-            HookCompat.hookMethod(
+            hookCheckedMethod(
                     this, CLASS_KSC, mClassLoader,
                     "interceptSystemKeysAndShortcutsBeforeDispatching",
                     new HookCompat.HookCallback() {
@@ -579,7 +711,7 @@ public class MainHook extends XposedModule {
         try {
             Class<?> kgClass = HookCompat.findClass(CLASS_KEY_GESTURE_EVENT, mClassLoader);
             final L4Interceptor interceptor = new L4Interceptor(ctx);
-            HookCompat.hookMethod(
+            hookCheckedMethod(
                     this, CLASS_KSC, mClassLoader, "handleKeyGestureEvent",
                     new HookCompat.HookCallback() {
                         @Override
@@ -607,7 +739,7 @@ public class MainHook extends XposedModule {
                 }
 
                 final L3Interceptor interceptor = new L3Interceptor(ctx);
-                HookCompat.hookMethod(
+                hookCheckedMethod(
                         this, className, mClassLoader, "handleKeyGestureEvent",
                         new HookCompat.HookCallback() {
                             @Override
@@ -646,8 +778,8 @@ public class MainHook extends XposedModule {
                         "KeyGestureController not found; Meta passthrough unavailable");
                 return;
             }
-            HookCompat.hookMethod(
-                    this, kgc, "interceptSystemKeysAndShortcuts",
+            hookCheckedMethod(
+                    this, kgc, platformProfile.keyGestureMetaMethod(),
                     new HookCompat.HookCallback() {
                         @Override
                         protected void beforeHookedMethod(HookCompat.HookParam param) {
@@ -669,7 +801,8 @@ public class MainHook extends XposedModule {
                     },
                     IBinder.class, KeyEvent.class);
             LogHelper.log(VerboseLevel.INFO,
-                    "KeyGestureController hook installed (interceptSystemKeysAndShortcuts)");
+                    "KeyGestureController Meta hook installed: ",
+                    platformProfile.keyGestureMetaMethod());
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR,
                     "KeyGestureController hook failed:", t.getMessage());
@@ -696,7 +829,7 @@ public class MainHook extends XposedModule {
      */
     private void hookPhoneWindowManagerSystemKeys() {
         try {
-            HookCompat.hookMethod(
+            hookCheckedMethod(
                     this, "com.android.server.policy.PhoneWindowManager", mClassLoader,
                     "interceptSystemKeysAndShortcuts",
                     new HookCompat.HookCallback() {
@@ -735,7 +868,7 @@ public class MainHook extends XposedModule {
 
     private void hookL2_DebugInterceptBeforeDispatching() {
         try {
-            HookCompat.hookMethod(
+            hookCheckedMethod(
                     this, "com.android.server.policy.PhoneWindowManager", mClassLoader,
                     "interceptKeyBeforeDispatching",
                     new HookCompat.HookCallback() {
@@ -750,8 +883,11 @@ public class MainHook extends XposedModule {
                             }
                         }
                     },
-                    IBinder.class, KeyEvent.class, int.class);
-            LogHelper.log(VerboseLevel.INFO, "L2 debug hook installed: PhoneWindowManager.interceptKeyBeforeDispatching");
+                    platformProfile.hasPolicyFlagsInPwmDispatch()
+                            ? new Class<?>[]{IBinder.class, KeyEvent.class, int.class}
+                            : new Class<?>[]{IBinder.class, KeyEvent.class});
+            LogHelper.log(VerboseLevel.INFO,
+                    "L2 debug hook installed: PhoneWindowManager.interceptKeyBeforeDispatching");
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR, "L2 hook failed:", t.getMessage());
         }

@@ -60,6 +60,9 @@ public class MetaKeyRouter {
         if (MetaTrace.isTraceOnly()) {
             return;
         }
+        if (ctx.isMetaMapped()) {
+            ctx.startMappedMetaOutput(event);
+        }
         if (metaSingle == Config.OverrideMode.BLOCK) {
             param.setResult(true);
             MetaTrace.decision("Router", "BLOCK DOWN → consume");
@@ -193,7 +196,7 @@ public class MetaKeyRouter {
     }
 
     private void dispatchStartMenu() {
-        ctx.triggerShowAllApps(0);
+        ctx.triggerShowAllApps(ctx.metaSession.displayId);
     }
 
     private boolean consumeUp(HookCompat.HookParam param, boolean zuiMeta, String reason) {
@@ -229,17 +232,11 @@ public class MetaKeyRouter {
                 && !ctx.metaSession.winComboUsed;
         ctx.fnKeyManager.cancelWinLongPressTimer();
         ctx.cancelZuiAssistantTimer();
-        if (standalone) {
-            if (ctx.isMetaMapped()) {
-                MetaKeyMap map = MetaKeyMap.parse(ctx.effectiveMapTarget());
-                MetaTrace.decision("Router", "mapped UP → inject mapped key",
-                        " kc=", String.valueOf(map.getKeyCode()),
-                        " ctrl=", String.valueOf(map.getCtrl()),
-                        " shift=", String.valueOf(map.getShift()),
-                        " alt=", String.valueOf(map.getAlt()));
-                ctx.armRemapInject();
-                KeyInjector.injectCombo(map, ctx.metaSession.deviceId);
-            } else {
+        if (ctx.releaseMappedMetaOutput(standalone)) {
+            // PowerToys semantics: the mapped target remains held for the
+            // complete physical Meta press, including long presses and combos.
+        } else if (standalone) {
+            if (!ctx.isMetaMapped()) {
                 MetaTrace.decision("Router", "passthrough UP → inject Meta tap",
                         " kc=", String.valueOf(event.getKeyCode()));
                 KeyInjector.injectMetaTap(event);
