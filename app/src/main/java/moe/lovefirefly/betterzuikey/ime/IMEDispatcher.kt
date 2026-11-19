@@ -100,6 +100,15 @@ object IMEDispatcher {
         cachedIms = null
     }
 
+    /** Release references held by the retired system_server module generation. */
+    @JvmStatic
+    fun clearClassLoader(classLoader: ClassLoader?) {
+        if (systemClassLoader === classLoader) {
+            systemClassLoader = null
+            cachedIms = null
+        }
+    }
+
     @Volatile
     private var cachedIms: Any? = null
 

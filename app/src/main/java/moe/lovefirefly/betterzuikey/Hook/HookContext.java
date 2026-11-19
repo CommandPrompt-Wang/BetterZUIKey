@@ -133,6 +133,8 @@ public class HookContext {
     private android.os.Handler appKeyLongHandler;
     private Runnable appKeyLongRunnable;
     private android.os.Handler fallbackMainHandler;
+    private android.os.Handler mappedMetaHandler;
+    private Runnable mappedMetaRunnable;
 
     private android.os.Handler getFallbackMainHandler() {
         if (fallbackMainHandler == null) {
@@ -153,6 +155,7 @@ public class HookContext {
         android.os.Handler handler = resolvePolicyHandler();
         appKeyLongHandler = handler;
         appKeyLongRunnable = () -> {
+            appKeyLongRunnable = null;
             if (!appKeySession.active || appKeySession.keyCode != keyCode) {
                 LogHelper.log(VerboseLevel.DEBUG, label,
                         " long timer stale (session inactive or kc mismatch)");
@@ -424,7 +427,9 @@ public class HookContext {
         metaSession.mappedOutputMap = map;
         metaSession.mappedOutputPending = true;
         android.os.Handler handler = resolvePolicyHandler();
-        handler.postDelayed(() -> {
+        Runnable decision = () -> {
+            mappedMetaRunnable = null;
+            mappedMetaHandler = null;
             if (!metaSession.active || !metaSession.mappedOutputPending
                     || metaSession.mappedOutputMap != map) {
                 return;
@@ -435,7 +440,10 @@ public class HookContext {
             KeyInjector.injectComboDown(map, metaSession.deviceId);
             MetaTrace.decision("Router", "mapped DOWN → hold mapped target",
                     "map=", map.serialize());
-        }, META_MAP_DECISION_DELAY_MS);
+        };
+        mappedMetaHandler = handler;
+        mappedMetaRunnable = decision;
+        handler.postDelayed(decision, META_MAP_DECISION_DELAY_MS);
         MetaTrace.decision("Router", "mapped DOWN deferred for priority combo",
                 "ms=", String.valueOf(META_MAP_DECISION_DELAY_MS),
                 " map=", map.serialize());
@@ -446,6 +454,7 @@ public class HookContext {
     public boolean activatePendingMappedMetaOutput() {
         MetaKeyMap map = metaSession.mappedOutputMap;
         if (!metaSession.mappedOutputPending || map == null) return false;
+        cancelMappedMetaDecision();
         metaSession.mappedOutputPending = false;
         metaSession.mappedOutputActive = true;
         armRemapInject();
@@ -459,6 +468,7 @@ public class HookContext {
     public boolean cancelPendingMappedMetaOutput() {
         MetaKeyMap map = metaSession.mappedOutputMap;
         if (!metaSession.mappedOutputPending || map == null) return false;
+        cancelMappedMetaDecision();
         metaSession.mappedOutputPending = false;
         metaSession.mappedOutputMap = null;
         metaSession.winComboUsed = true;
@@ -473,6 +483,7 @@ public class HookContext {
         MetaKeyMap map = metaSession.mappedOutputMap;
         if (map == null) return false;
         if (metaSession.mappedOutputPending) {
+            cancelMappedMetaDecision();
             metaSession.mappedOutputPending = false;
             metaSession.mappedOutputMap = null;
             if (standaloneTap) {
@@ -483,6 +494,7 @@ public class HookContext {
             }
             return true;
         }
+
         if (!metaSession.mappedOutputActive) return false;
         armRemapInject();
         KeyInjector.injectComboUp(map, metaSession.deviceId);
@@ -491,6 +503,26 @@ public class HookContext {
         MetaTrace.decision("Router", "mapped UP → release mapped target",
                 "map=", map.serialize());
         return true;
+    }
+
+    private void cancelMappedMetaDecision() {
+        if (mappedMetaHandler != null && mappedMetaRunnable != null) {
+            mappedMetaHandler.removeCallbacks(mappedMetaRunnable);
+        }
+        mappedMetaHandler = null;
+        mappedMetaRunnable = null;
+    }
+
+    /** Cancel delayed work owned by this runtime generation before hot reload. */
+    public void cancelPendingTasks() {
+        cancelAppKeyLongTimer();
+        cancelMappedMetaDecision();
+        cancelZuiAssistantTimer();
+        appKeyPendingBlockUp = 0;
+        appKeySession.active = false;
+        appKeySession.longFired = false;
+        metaSession.clear();
+        imeChord.reset();
     }
 
     // ----------------------------------------------------------------

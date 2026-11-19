@@ -1,4 +1,4 @@
-/* Migrated: Legacy Xposed API → libxposed API 101 (LSPosed 2.0.0+) */
+/* Migrated: Legacy Xposed API → libxposed API 102 (LSPosed 2.0.0+) */
 
 package moe.lovefirefly.betterzuikey.Hook;
 
@@ -31,9 +31,13 @@ public class MainHook extends XposedModule {
     private HookContext ctx;
     private Config cfg;
     private ConfigIPCManager mConfigIPC;
-    private static volatile boolean sInitDone = false;
-    private static volatile boolean sSelfHookDone = false;
-    private static volatile boolean sBootMarked = false;
+    private volatile boolean mSelfHookDone;
+    private volatile boolean mBootMarked;
+    private volatile boolean mSystemServerInstalled;
+    private android.os.Handler mBootMarkHandler;
+    private Runnable mBootMarkRunnable;
+    private android.os.Handler mRuntimeHandler;
+    private Runnable mRuntimeRunnable;
 
     /** Required public no-arg constructor for libxposed. */
     public MainHook() {
@@ -46,17 +50,62 @@ public class MainHook extends XposedModule {
 
     @Override
     public void onSystemServerStarting(XposedModuleInterface.SystemServerStartingParam param) {
-        try {
-            ClassLoader classLoader = param.getClassLoader();
-            if (classLoader == null) return;
+        ClassLoader classLoader = param.getClassLoader();
+        if (classLoader == null) {
+            setError("System server class loader unavailable");
+            return;
+        }
+        installSystemServer(classLoader, false);
+    }
 
+    /**
+     * API 102 calls this on the old module generation before its hooks are frozen.
+     * All callbacks owned by this generation must be stopped before returning.
+     */
+    @Override
+    public boolean onHotReloading(XposedModuleInterface.HotReloadingParam param) {
+        stopRuntimeTasks();
+        LogHelper.log(VerboseLevel.INFO, "API 102 hot reload: old generation stopped");
+        return true;
+    }
+
+    /**
+     * API 102 does not replay onSystemServerStarting. Recover the target class loader
+     * from an old hook handle, remove the old generation's hooks, then install a
+     * completely fresh runtime.
+     */
+    @Override
+    public void onHotReloaded(XposedModuleInterface.HotReloadedParam param) {
+        if (!param.isSystemServer()) return;
+        try {
+            java.util.List<io.github.libxposed.api.XposedInterface.HookHandle> oldHandles =
+                    param.getOldHookHandles();
+            ClassLoader classLoader = findTargetClassLoader(oldHandles);
+            if (classLoader == null) {
+                classLoader = resolveFallbackClassLoader();
+            }
+            if (classLoader == null) {
+                setError("Unable to recover system server class loader after hot reload");
+                return;
+            }
+            unhookOldGeneration(oldHandles);
+            installSystemServer(classLoader, true);
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR, "Hot reload installation failed:", t.getMessage());
+            setError("Injection error: " + t.toString() + "\n\n" + KeyInjector.stackTraceToString(t));
+        }
+    }
+
+    private void installSystemServer(ClassLoader classLoader, boolean hotReload) {
+        if (mSystemServerInstalled) return;
+        try {
             platformProfile = PlatformHookProfile.forSdk(android.os.Build.VERSION.SDK_INT);
             LogHelper.log(VerboseLevel.INFO, "Hook profile: ", platformProfile.name,
                     " SDK=", String.valueOf(platformProfile.sdk),
                     " rawZUI=", String.valueOf(ZuiDetector.INSTANCE.getRawZuiVersion()),
                     " ro.config.lgsi.fp.incremental=",
-                    readPlatformProperty("ro.config.lgsi.fp.incremental"));
-            // Device-family detection only; never whitelist individual ZUI releases.
+                    readPlatformProperty("ro.config.lgsi.fp.incremental"),
+                    hotReload ? " (API 102 hot reload)" : "");
             if (!ZuiDetector.INSTANCE.isZuxOS()) {
                 LogHelper.log(VerboseLevel.WARNING,
                         "Non-ZUXOS device: ZUI property absent; hooks skipped");
@@ -71,125 +120,170 @@ public class MainHook extends XposedModule {
                 return;
             }
 
-            if (sInitDone) return;
-            sInitDone = true;
-
-            cfg = Config.load();
-            mClassLoader = classLoader;
-            globalEnabled = cfg.zuxKeyboardFuncEnabled;
-
-            LogHelper.log(VerboseLevel.INFO, "Module loaded! Ciallo～(∠・ω< )⌒★");
-            LogHelper.log(VerboseLevel.INFO, "Config loaded from:", Config.CONFIG_PATH,
-                    " zux=", String.valueOf(cfg.zuxKeyboardFuncEnabled));
-
-            if (!cfg.isSystemDetected()) {
-                LogHelper.log(VerboseLevel.INFO, "First run: detecting system capabilities...");
-                cfg.detectFromSystem(mClassLoader);
-            } else {
-                LogHelper.log(VerboseLevel.INFO, "Refreshing system switch states...");
-                cfg.readSystemSwitchesPublic();
-            }
-            // system_server (uid 1000) 无法写 app 私有目录，此处不持久化；
-            // 配置由 app 侧 Config.syncToSharedPrefs 经 ContentProvider 镜像。
-
-            // Init IPC early
-            mConfigIPC = new ConfigIPCManager();
-
-            Config ipcConfig = mConfigIPC.init();
-            if (ipcConfig != null) {
-                ipcConfig.injected = cfg.injected;
-                ipcConfig.injectError = cfg.injectError;
-                ipcConfig.readSystemSwitchesPublic();
-                cfg = ipcConfig;
-                LogHelper.currentLevel = cfg.verboseLevel;
-                LogHelper.log(VerboseLevel.INFO,
-                    "Config replaced with ContentProvider version, templates=",
-                    String.valueOf(cfg.templates != null ? cfg.templates.size() : 0));
-            }
-
-            // Init IME profiles via dedicated ContentProvider IPC (once at boot, no hot-reload)
-            try {
-                IMEProfileManager.clear();
-                String profilesJson = mConfigIPC.pullProfiles();
-                LogHelper.log(VerboseLevel.INFO, "IMEProfileManager: IPC pull len=",
-                        String.valueOf(profilesJson.length()));
-                IMEProfileManager.loadFromJsonArray(profilesJson);
-                LogHelper.log(VerboseLevel.INFO, "IMEProfileManager initialized with ",
-                        String.valueOf(IMEProfileManager.getProfileCount()), " profile(s)");
-            } catch (Throwable t) {
-                LogHelper.log(VerboseLevel.ERROR, "IMEProfileManager init failed:", t.getMessage());
-            }
-
-            IMEDispatcher.initClassLoader(mClassLoader);
-            LogHelper.log(VerboseLevel.INFO, "IMEDispatcher initialized with system ClassLoader");
-
-            ConfigResolver resolver = new ConfigResolver(cfg);
-            FnKeyManager fnKeyManager = new FnKeyManager(cfg, mConfigIPC);
-            ForegroundTracker foregroundTracker = new ForegroundTracker(resolver);
-
-            ctx = new HookContext(cfg, resolver, fnKeyManager, foregroundTracker, mConfigIPC);
-
-            LogHelper.log(VerboseLevel.INFO, "Installing FeatureHook...");
-            FeatureHook.install(this, mClassLoader, cfg);
-
-            LogHelper.log(VerboseLevel.INFO, "Installing foreground tracker...");
-            foregroundTracker.install(this, mClassLoader);
-
-            LogHelper.log(VerboseLevel.INFO, "Installing constructor hook...");
-            if (platformProfile.usesLegacyInputChain()) {
-                hookLegacyPolicyConstructor();
-                hookLegacyInputChain();
-            } else {
-                hookConstructor();
-            }
-            if (platformProfile.supportsLegacyAssistantRunnable()
-                    && !platformProfile.usesLegacyInputChain()) {
-                hookLaunchAssistantRunnable();
-            } else {
-                LogHelper.log(VerboseLevel.INFO,
-                        "Profile uses policy-specific assistant handling");
-            }
-
-            if (!platformProfile.usesLegacyInputChain()) {
-                LogHelper.log(VerboseLevel.INFO, "Installing L0 hook...");
-                hookL0_BeforeQueueing();
-                LogHelper.log(VerboseLevel.INFO, "Installing L1 hook...");
-                hookL1_BeforeDispatching();
-                LogHelper.log(VerboseLevel.INFO, "Installing L4 hook...");
-                hookL4_HandleKeyGestureEvent();
-                LogHelper.log(VerboseLevel.INFO, "Installing L3 hook (PhoneWindowManager)...");
-                hookL3_PhoneWindowManager();
-
-                LogHelper.log(VerboseLevel.INFO, "Installing KeyGestureController hook...");
-                hookKeyGestureController();
-            }
-
-            LogHelper.log(VerboseLevel.INFO, "Installing PhoneWindowManager system-keys hook...");
-            hookPhoneWindowManagerSystemKeys();
-
-            LogHelper.log(VerboseLevel.INFO, "Installing L2 debug hook...");
-            hookL2_DebugInterceptBeforeDispatching();
-            if (MetaTrace.isTraceOnly()) {
-                LogHelper.log(VerboseLevel.INFO,
-                        "MetaTrace TRACE_ONLY=true — Meta routing observe-only, no consume/inject/menu");
-            }
-
-            cfg.injected = true;
-            cfg.injectError = "";
-
-            LogHelper.log(VerboseLevel.INFO,
-                    "Hook installation pass finished; see profile capability warnings for skipped hooks");
-            // Retry boot mark until the app process is up and ContentProvider responds
-            if (!sBootMarked) {
-                sBootMarked = true;
-                markBootDelayed(mConfigIPC);
-            }
-            // Start ESC→BACK detection watcher (async, system_server UID, no su needed)
-            startEscCheckWatcher();
+            prepareRuntime(classLoader);
+            installHooks();
+            startRuntimeTasks();
+            mSystemServerInstalled = true;
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR, "Hook installation failed:", t.getMessage());
             setError("Injection error: " + t.toString() + "\n\n" + KeyInjector.stackTraceToString(t));
         }
+    }
+
+    private void prepareRuntime(ClassLoader classLoader) {
+        cfg = Config.load();
+        mClassLoader = classLoader;
+        globalEnabled = cfg.zuxKeyboardFuncEnabled;
+
+        LogHelper.log(VerboseLevel.INFO, "Module loaded! Ciallo～(∠・ω< )⌒★");
+        LogHelper.log(VerboseLevel.INFO, "Config loaded from:", Config.CONFIG_PATH,
+                " zux=", String.valueOf(cfg.zuxKeyboardFuncEnabled));
+
+        if (!cfg.isSystemDetected()) {
+            LogHelper.log(VerboseLevel.INFO, "First run: detecting system capabilities...");
+            cfg.detectFromSystem(mClassLoader);
+        } else {
+            LogHelper.log(VerboseLevel.INFO, "Refreshing system switch states...");
+            cfg.readSystemSwitchesPublic();
+        }
+
+        mConfigIPC = new ConfigIPCManager();
+        Config ipcConfig = mConfigIPC.init();
+        if (ipcConfig != null) {
+            ipcConfig.injected = cfg.injected;
+            ipcConfig.injectError = cfg.injectError;
+            ipcConfig.readSystemSwitchesPublic();
+            cfg = ipcConfig;
+            LogHelper.currentLevel = cfg.verboseLevel;
+            LogHelper.log(VerboseLevel.INFO,
+                    "Config replaced with ContentProvider version, templates=",
+                    String.valueOf(cfg.templates != null ? cfg.templates.size() : 0));
+        }
+
+        try {
+            IMEProfileManager.clear();
+            String profilesJson = mConfigIPC.pullProfiles();
+            LogHelper.log(VerboseLevel.INFO, "IMEProfileManager: IPC pull len=",
+                    String.valueOf(profilesJson.length()));
+            IMEProfileManager.loadFromJsonArray(profilesJson);
+            LogHelper.log(VerboseLevel.INFO, "IMEProfileManager initialized with ",
+                    String.valueOf(IMEProfileManager.getProfileCount()), " profile(s)");
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR, "IMEProfileManager init failed:", t.getMessage());
+        }
+
+        IMEDispatcher.initClassLoader(mClassLoader);
+        ConfigResolver resolver = new ConfigResolver(cfg);
+        FnKeyManager fnKeyManager = new FnKeyManager(cfg, mConfigIPC);
+        ForegroundTracker foregroundTracker = new ForegroundTracker(resolver);
+        ctx = new HookContext(cfg, resolver, fnKeyManager, foregroundTracker, mConfigIPC);
+    }
+
+    private void installHooks() {
+        LogHelper.log(VerboseLevel.INFO, "Installing FeatureHook...");
+        FeatureHook.install(this, mClassLoader, cfg);
+        LogHelper.log(VerboseLevel.INFO, "Installing foreground tracker...");
+        ctx.foregroundTracker.install(this, mClassLoader);
+
+        LogHelper.log(VerboseLevel.INFO, "Installing constructor hook...");
+        if (platformProfile.usesLegacyInputChain()) {
+            hookLegacyPolicyConstructor();
+            hookLegacyInputChain();
+        } else {
+            hookConstructor();
+        }
+        if (platformProfile.supportsLegacyAssistantRunnable()
+                && !platformProfile.usesLegacyInputChain()) {
+            hookLaunchAssistantRunnable();
+        } else {
+            LogHelper.log(VerboseLevel.INFO,
+                    "Profile uses policy-specific assistant handling");
+        }
+
+        if (!platformProfile.usesLegacyInputChain()) {
+            LogHelper.log(VerboseLevel.INFO, "Installing L0 hook...");
+            hookL0_BeforeQueueing();
+            LogHelper.log(VerboseLevel.INFO, "Installing L1 hook...");
+            hookL1_BeforeDispatching();
+            LogHelper.log(VerboseLevel.INFO, "Installing L4 hook...");
+            hookL4_HandleKeyGestureEvent();
+            LogHelper.log(VerboseLevel.INFO, "Installing L3 hook (PhoneWindowManager)...");
+            hookL3_PhoneWindowManager();
+            LogHelper.log(VerboseLevel.INFO, "Installing KeyGestureController hook...");
+            hookKeyGestureController();
+        }
+        LogHelper.log(VerboseLevel.INFO, "Installing PhoneWindowManager system-keys hook...");
+        hookPhoneWindowManagerSystemKeys();
+        LogHelper.log(VerboseLevel.INFO, "Installing L2 debug hook...");
+        hookL2_DebugInterceptBeforeDispatching();
+        if (MetaTrace.isTraceOnly()) {
+            LogHelper.log(VerboseLevel.INFO,
+                    "MetaTrace TRACE_ONLY=true — Meta routing observe-only, no consume/inject/menu");
+        }
+    }
+
+    private void startRuntimeTasks() {
+        cfg.injected = true;
+        cfg.injectError = "";
+        LogHelper.log(VerboseLevel.INFO,
+                "Hook installation pass finished; see profile capability warnings for skipped hooks");
+        if (!mBootMarked) {
+            mBootMarked = true;
+            markBootDelayed(mConfigIPC);
+        }
+        startEscCheckWatcher();
+    }
+
+    private ClassLoader findTargetClassLoader(
+            java.util.List<io.github.libxposed.api.XposedInterface.HookHandle> handles) {
+        if (handles == null) return null;
+        for (io.github.libxposed.api.XposedInterface.HookHandle handle : handles) {
+            try {
+                java.lang.reflect.Executable executable = handle.getExecutable();
+                ClassLoader loader = executable.getDeclaringClass().getClassLoader();
+                if (loader != null && canLoadTargetClass(loader)) return loader;
+            } catch (Throwable t) {
+                LogHelper.log(VerboseLevel.DEBUG,
+                        "Hot reload: unable to recover class loader from old hook:", t.getMessage());
+            }
+        }
+        return null;
+    }
+
+    private ClassLoader resolveFallbackClassLoader() {
+        ClassLoader[] candidates = {
+                Thread.currentThread().getContextClassLoader(),
+                ClassLoader.getSystemClassLoader(),
+                MainHook.class.getClassLoader()
+        };
+        for (ClassLoader candidate : candidates) {
+            if (candidate != null && canLoadTargetClass(candidate)) return candidate;
+        }
+        return null;
+    }
+
+    private boolean canLoadTargetClass(ClassLoader loader) {
+        try {
+            Class.forName(CLASS_KSC, false, loader);
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    private void unhookOldGeneration(
+            java.util.List<io.github.libxposed.api.XposedInterface.HookHandle> handles) {
+        if (handles == null) return;
+        for (io.github.libxposed.api.XposedInterface.HookHandle handle : handles) {
+            try {
+                handle.unhook();
+            } catch (Throwable t) {
+                LogHelper.log(VerboseLevel.WARNING,
+                        "Hot reload: failed to unhook old handle:", t.getMessage());
+            }
+        }
+        LogHelper.log(VerboseLevel.INFO, "API 102 hot reload: old hooks removed count=",
+                String.valueOf(handles.size()));
     }
 
     // ----------------------------------------------------------------
@@ -209,15 +303,15 @@ public class MainHook extends XposedModule {
         LogHelper.log(VerboseLevel.INFO, "onPackageReady: package=", packageName,
                 " firstPackage=", String.valueOf(param.isFirstPackage()));
 
-        if (sSelfHookDone) return;
+        if (mSelfHookDone) return;
         if (!param.isFirstPackage()) return;
 
-        sSelfHookDone = true;
+        mSelfHookDone = true;
 
         // Boot mark: only the module's own app process is a scope error.
         // Module loading in other apps alongside system_server is legitimate.
-        if (!sBootMarked && "moe.lovefirefly.betterzuikey".equals(packageName)) {
-            sBootMarked = true;
+        if (!mBootMarked && "moe.lovefirefly.betterzuikey".equals(packageName)) {
+            mBootMarked = true;
             if (mConfigIPC == null) {
                 mConfigIPC = new ConfigIPCManager();
                 mConfigIPC.init();
@@ -245,6 +339,7 @@ public class MainHook extends XposedModule {
      * Early-boot ContentProvider calls may fail; retries guarantee delivery.
      */
     private void markBootDelayed(ConfigIPCManager configIPC) {
+        stopBootMarkRetry();
         final boolean isSystem = android.os.Process.myUid() == android.os.Process.SYSTEM_UID;
         final String label = isSystem ? "system" : "app(uid=" + android.os.Process.myUid() + ")";
         LogHelper.log(VerboseLevel.INFO, "Boot mark: process=", label);
@@ -253,7 +348,7 @@ public class MainHook extends XposedModule {
         final int maxTries = 12;
         android.os.Handler handler = new android.os.Handler(
                 android.os.Looper.getMainLooper());
-        handler.postDelayed(new Runnable() {
+        Runnable retry = new Runnable() {
             int tries = 0;
             @Override
             public void run() {
@@ -269,10 +364,25 @@ public class MainHook extends XposedModule {
                     LogHelper.log(VerboseLevel.INFO, "Boot mark retry finished (",
                             label, ", ", String.valueOf(maxTries), " attempts)");
                     // All attempts failed — reset flag so future triggers can retry
-                    sBootMarked = false;
+                    if (mBootMarkRunnable == this) {
+                        mBootMarkHandler = null;
+                        mBootMarkRunnable = null;
+                        mBootMarked = false;
+                    }
                 }
             }
-        }, delay);
+        };
+        mBootMarkHandler = handler;
+        mBootMarkRunnable = retry;
+        handler.postDelayed(retry, delay);
+    }
+
+    private void stopBootMarkRetry() {
+        if (mBootMarkHandler != null && mBootMarkRunnable != null) {
+            mBootMarkHandler.removeCallbacks(mBootMarkRunnable);
+        }
+        mBootMarkHandler = null;
+        mBootMarkRunnable = null;
     }
 
     // ----------------------------------------------------------------
@@ -293,9 +403,10 @@ public class MainHook extends XposedModule {
         )));
 
     private void startEscCheckWatcher() {
+        stopEscCheckWatcher();
         final android.os.Handler handler = new android.os.Handler(
                 android.os.Looper.getMainLooper());
-        handler.postDelayed(new Runnable() {
+        Runnable poll = new Runnable() {
             @Override
             public void run() {
                 processEscCheckRequest();
@@ -303,9 +414,45 @@ public class MainHook extends XposedModule {
                 processLsposedOpenRequest();
                 processGrantSecureRequest();
                 processGrantTermuxRequest();
-                handler.postDelayed(this, 1000); // 1s polling (Binder IPC overhead <1ms)
+                if (mRuntimeRunnable == this) {
+                    handler.postDelayed(this, 1000); // 1s polling (Binder IPC overhead <1ms)
+                }
             }
-        }, 5000);
+        };
+        mRuntimeHandler = handler;
+        mRuntimeRunnable = poll;
+        handler.postDelayed(poll, 5000);
+    }
+
+    private void stopEscCheckWatcher() {
+        if (mRuntimeHandler != null && mRuntimeRunnable != null) {
+            mRuntimeHandler.removeCallbacks(mRuntimeRunnable);
+        }
+        mRuntimeHandler = null;
+        mRuntimeRunnable = null;
+    }
+
+    private void stopRuntimeTasks() {
+        stopBootMarkRetry();
+        stopEscCheckWatcher();
+        if (ctx != null) {
+            ctx.cancelPendingTasks();
+            if (ctx.fnKeyManager != null) {
+                ctx.fnKeyManager.cancelWinLongPressTimer();
+                ctx.fnKeyManager.stopWinLongPressRepeat();
+            }
+        }
+        FeatureHook.resetForHotReload();
+        IMEDispatcher.clearClassLoader(mClassLoader);
+        mClassLoader = null;
+        platformProfile = null;
+        mConfigIPC = null;
+        ctx = null;
+        cfg = null;
+        mAssistantRunnableHooked = false;
+        globalEnabled = false;
+        mSystemServerInstalled = false;
+        LogHelper.log(VerboseLevel.INFO, "Runtime tasks stopped for module generation retirement");
     }
 
     /** Process pending ESC check request if any. */
@@ -629,7 +776,7 @@ public class MainHook extends XposedModule {
             Class<?> policyClass = HookCompat.findClass(
                     "com.zui.server.input.keyboard.key.policy.KeyboardZuiKeyInputPolicy",
                     mClassLoader);
-            HookCompat.hookConstructor(
+            HookCompat.hookOptionalConstructor(
                     this, policyClass.getName(), mClassLoader,
                     new Class<?>[]{android.content.Context.class},
                     hparam -> {
@@ -638,8 +785,9 @@ public class MainHook extends XposedModule {
                         installAssistantRunnableHook(policy);
                     });
         } catch (Throwable t) {
-            LogHelper.log(VerboseLevel.ERROR,
-                    "Failed to hook policy constructor:", t.getMessage());
+            LogHelper.log(VerboseLevel.DEBUG,
+                    "Optional assistant-runnable constructor fallback unavailable:",
+                    t.getMessage());
         }
     }
 

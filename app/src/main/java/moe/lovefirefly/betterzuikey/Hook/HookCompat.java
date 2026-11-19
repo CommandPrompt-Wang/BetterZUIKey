@@ -10,7 +10,7 @@ import java.lang.reflect.Method;
 
 /**
  * Compatibility adapter: bridges the legacy Xposed callback API
- * (XC_MethodHook / MethodHookParam) to the libxposed API 101 chain model.
+ * (XC_MethodHook / MethodHookParam) to the libxposed API 102 chain model.
  *
  * <p>This allows existing interceptor classes to work with minimal changes:
  * <ul>
@@ -51,7 +51,7 @@ public final class HookCompat {
         HookParam(XposedInterface.Chain chain) {
             this.chain = chain;
             this.method = (Member) chain.getExecutable();
-            // 优先用 API 101 的 Chain.getThisObject()，只在框架没实现时退回反射读
+            // 优先用 API 102 的 Chain.getThisObject()，只在框架没实现时退回反射读
             // 内部字段 —— 反射访问 Xposed API 会被 PROP_RT_API_PROTECTION（LSPosed
             // “Xposed API 调用保护”）针对，能不走反射就不走。
             Object inst = null;
@@ -203,6 +203,25 @@ public final class HookCompat {
             moe.lovefirefly.betterzuikey.Utils.LogHelper.log(
                     moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel.ERROR,
                     "HookCompat: hookConstructor failed for ", className, ": ", t.getMessage());
+        }
+    }
+
+    /**
+     * Hook an optional constructor without treating an absent compatibility
+     * candidate as an installation error.
+     */
+    public static void hookOptionalConstructor(XposedModule module, String className,
+            ClassLoader classLoader, Class<?>[] paramTypes,
+            java.util.function.Consumer<HookParam> afterCallback) {
+        try {
+            Class<?> clazz = Class.forName(className, false, classLoader);
+            Constructor<?> ctor = findConstructor(clazz, paramTypes);
+            hookConstructor(module, ctor, afterCallback);
+        } catch (Throwable t) {
+            moe.lovefirefly.betterzuikey.Utils.LogHelper.log(
+                    moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel.DEBUG,
+                    "HookCompat: optional constructor unavailable for ", className,
+                    ": ", t.getMessage());
         }
     }
 

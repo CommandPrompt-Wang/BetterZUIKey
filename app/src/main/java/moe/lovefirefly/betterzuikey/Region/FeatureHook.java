@@ -15,7 +15,7 @@ import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 public class FeatureHook {
 
     private static Config sConfig;
-    private static boolean sInstalled = false;
+    private static volatile boolean sInstalled = false;
     private static XposedModule sModule;
 
     private static final String CLASS_KSC =
@@ -57,6 +57,13 @@ public class FeatureHook {
         sConfig = config;
         LogHelper.log(VerboseLevel.DEBUG, "FeatureHook: config hot-reloaded, ai=",
                 config.aiAgent.name(), ", file=", config.fileManager.name());
+    }
+
+    /** Release static generation state before API 102 installs the replacement hooks. */
+    public static void resetForHotReload() {
+        sInstalled = false;
+        sModule = null;
+        sConfig = null;
     }
 
     // ----------------------------------------------------------------
