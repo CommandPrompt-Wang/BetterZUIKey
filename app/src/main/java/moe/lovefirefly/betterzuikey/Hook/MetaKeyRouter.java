@@ -52,6 +52,8 @@ public class MetaKeyRouter {
         if (!ctx.metaSession.active) {
             ctx.beginMetaSession(event);
             MetaTrace.session("Router", "begin (L1 fallback)", ctx);
+        } else {
+            ctx.beginMetaSession(event);
         }
         MetaTrace.decision("Router", "DOWN L1",
                 "metaSingle=", metaSingle.name(),
@@ -77,6 +79,8 @@ public class MetaKeyRouter {
             armModuleLongPress(true, event);
         } else if (!zuiMeta || ctx.isMetaIntercepted()) {
             armModuleLongPress(false, event);
+        } else {
+            ctx.armMetaAssistantCallback();
         }
     }
 
@@ -102,9 +106,6 @@ public class MetaKeyRouter {
             MetaTrace.decision("Router", "skip UP sc=0");
             return false;
         }
-        if (ctx.isMetaIntercepted()) {
-            return consumePassthroughUp(param, event);
-        }
 
         Config.OverrideMode metaSingle = ctx.ra("metaSingle", ctx.cfg.overrideMetaSingle);
         boolean zuiMeta = scanCode == HookContext.ZUI_META_SCAN_CODE;
@@ -115,16 +116,26 @@ public class MetaKeyRouter {
             MetaTrace.decision("Router", "UP L0 ignored", "no active session");
             return false;
         }
-        if (ctx.metaSession.keyCode >= 0 && keyCode != ctx.metaSession.keyCode) {
-            MetaTrace.decision("Router", "UP L0 ignored", "kc mismatch event=",
-                    String.valueOf(keyCode),
-                    " sess=", String.valueOf(ctx.metaSession.keyCode));
-            return false;
-        }
         if (ctx.metaSession.upHandled) {
             MetaTrace.decision("Router", "UP L0 ignored", "already handled");
             return false;
         }
+        if (!ctx.metaSession.isMetaSideHeld(keyCode)) {
+            MetaTrace.decision("Router", "UP L0 ignored", "physical side not held",
+                    " kc=", String.valueOf(keyCode));
+            return false;
+        }
+        ctx.metaSession.markSideReleased(keyCode);
+        if (ctx.metaSession.leftHeld || ctx.metaSession.rightHeld) {
+            MetaTrace.decision("Router", "UP L0 deferred",
+                    "other physical Win side still held", " kc=", String.valueOf(keyCode));
+            param.setResult(true);
+            return true;
+        }
+        if (ctx.isMetaIntercepted()) {
+            return consumePassthroughUp(param, event);
+        }
+        ctx.cancelMetaAssistantCallback();
         ctx.metaSession.upHandled = true;
 
         // Win 按住期间扣下的外加键：到这里要么补成完整和弦（只按了修饰键、没有触发键），
@@ -254,11 +265,13 @@ public class MetaKeyRouter {
 
     private void armModuleLongPress(boolean imeWinActive, KeyEvent event) {
         android.os.Handler looperSource = ctx.resolvePolicyHandler();
+        final long generation = ctx.metaSession.generation;
         if (imeWinActive) {
             PassthroughTrace.note("Router", "arm IME timer 500ms", event);
             LogHelper.log(VerboseLevel.INFO,
                     "MetaRouter: arm IME long timer 500ms (acceptingText=true)");
-            ctx.fnKeyManager.startWinLongPressTimer(looperSource, () -> onModuleLongFiredIme());
+            ctx.fnKeyManager.startWinLongPressTimer(looperSource,
+                    () -> onModuleLongFiredIme(generation));
         } else if (isWinLongTimerEnabled()) {
             Config.OverrideMode winLong = getWinLongOverride();
             boolean cmd = isWinLongUseCommand();
@@ -271,7 +284,7 @@ public class MetaKeyRouter {
                     " dev=", String.valueOf(ctx.metaSession.deviceId));
             ctx.fnKeyManager.startWinLongPressOnce(looperSource,
                     HookContext.ZUI_META_LONG_PRESS_MS,
-                    this::onModuleLongFiredWinLong);
+                    () -> onModuleLongFiredWinLong(generation));
         } else {
             PassthroughTrace.note("Router",
                     "win long pass-through override=" + getWinLongOverride().name(), event);
@@ -281,19 +294,25 @@ public class MetaKeyRouter {
         }
     }
 
-    private void onModuleLongFiredIme() {
+    private void onModuleLongFiredIme(long generation) {
+        if (!isMetaSessionGenerationActive(generation)) return;
         ctx.metaSession.longFired = true;
         LogHelper.log(VerboseLevel.INFO, "MetaRouter: module long → IME (repeat)");
         ctx.fnKeyManager.startWinLongPressRepeat(ctx.resolvePolicyHandler(),
-                () -> ctx.dispatchWinLongPressIme());
+                () -> {
+                    if (isMetaSessionGenerationActive(generation)) {
+                        ctx.dispatchWinLongPressIme();
+                    }
+                });
     }
 
-    private void onModuleLongFiredWinLong() {
-        if (!isWinLongTimerEnabled()) return;
-        dispatchWinLongAction();
+    private void onModuleLongFiredWinLong(long generation) {
+        if (!isMetaSessionGenerationActive(generation) || !isWinLongTimerEnabled()) return;
+        dispatchWinLongAction(generation);
     }
 
-    private void dispatchWinLongAction() {
+    private void dispatchWinLongAction(long generation) {
+        if (!isMetaSessionGenerationActive(generation)) return;
         ctx.metaSession.longFired = true;
         if (isWinLongUseCommand()) {
             MetaTrace.decision("Router", "module long → command");
@@ -317,6 +336,10 @@ public class MetaKeyRouter {
             MetaTrace.decision("Assistant", "runnable fired (trace-only pass)");
             return false;
         }
+        if (!ctx.isMetaAssistantCallbackCurrent()) {
+            MetaTrace.decision("Assistant", "stale/reused callback suppressed");
+            return true;
+        }
         ctx.checkConfigChanged();
         if (ctx.isMetaIntercepted()) {
             MetaTrace.decision("Assistant", "passthrough/mapped → suppress long-press");
@@ -334,15 +357,20 @@ public class MetaKeyRouter {
                 " deviceId=", String.valueOf(ctx.metaSession.deviceId));
 
         if (imeWinActive) {
+            final long generation = ctx.metaSession.generation;
             ctx.metaSession.longFired = true;
             LogHelper.log(VerboseLevel.INFO, "MetaRouter: 2s long → IME (repeat)");
             ctx.fnKeyManager.startWinLongPressRepeat(ctx.resolvePolicyHandler(),
-                    () -> ctx.dispatchWinLongPressIme());
+                    () -> {
+                        if (isMetaSessionGenerationActive(generation)) {
+                            ctx.dispatchWinLongPressIme();
+                        }
+                    });
             return true;
         }
 
         if (isWinLongUseCommand()) {
-            dispatchWinLongAction();
+            dispatchWinLongAction(ctx.metaSession.generation);
             return true;
         }
 
@@ -353,13 +381,19 @@ public class MetaKeyRouter {
             return true;
         }
         if (winLong == Config.OverrideMode.ZUI) {
-            dispatchWinLongAction();
+            dispatchWinLongAction(ctx.metaSession.generation);
             return true;
         }
         // FOLLOW_SYSTEM: 透传，由系统 / ZUI 原生 case 117 决定
         LogHelper.log(VerboseLevel.INFO,
                 "MetaRouter: 2s long → pass-through (winLong=FOLLOW_SYSTEM)");
         return false;
+    }
+
+    private boolean isMetaSessionGenerationActive(long generation) {
+        return ctx.metaSession.active
+                && !ctx.metaSession.upHandled
+                && ctx.metaSession.generation == generation;
     }
 
     private boolean isWinLongUseCommand() {

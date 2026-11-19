@@ -212,18 +212,30 @@ public class HookContext {
      * 用户按过的键不能因为我们扣过就丢了。
      */
     public boolean beginMetaSession(KeyEvent event) {
-        if (!pendingExtras.isEmpty()) flushPendingExtras("new Meta DOWN");
+        if ((!metaSession.active || metaSession.upHandled) && !pendingExtras.isEmpty()) {
+            for (PendingExtra e : new java.util.ArrayList<>(pendingExtras)) {
+                if (e.state == PendingExtra.STATE_EMITTED) {
+                    armRemapInject();
+                    KeyInjector.injectKeyUp(e.keyCode, 0, metaSession.deviceId, e.scanCode);
+                    pendingExtras.remove(e);
+                }
+            }
+            flushPendingExtras("new Meta DOWN");
+        }
         return metaSession.begin(event);
     }
 
     public static final class MetaKeySession {
         public volatile boolean active;
         public volatile boolean upHandled;
+        public volatile long generation;
         public volatile long downTimeMs;
         public volatile int scanCode;
         public volatile int keyCode = -1;
         public volatile int deviceId = -1;
         public volatile int displayId = 0;
+        public volatile boolean leftHeld;
+        public volatile boolean rightHeld;
         /** Snapshot of the mapped target held from Meta DOWN until Meta UP. */
         public volatile MetaKeyMap mappedOutputMap;
         public volatile boolean mappedOutputActive;
@@ -245,12 +257,14 @@ public class HookContext {
         /** @return true if session was started; false if overlapping DOWN was ignored */
         public boolean begin(KeyEvent event) {
             if (active && !upHandled) {
+                markSideHeld(event.getKeyCode());
                 MetaTrace.decision("Session", "skip overlapping DOWN",
                         "held kc=", String.valueOf(keyCode),
                         " new kc=", String.valueOf(event.getKeyCode()),
                         " sc=", String.valueOf(event.getScanCode()));
                 return false;
             }
+            generation++;
             active = true;
             upHandled = false;
             longFired = false;
@@ -263,6 +277,8 @@ public class HookContext {
             downTimeMs = System.currentTimeMillis();
             scanCode = event.getScanCode();
             keyCode = event.getKeyCode();
+            leftHeld = event.getKeyCode() == KeyEvent.KEYCODE_META_LEFT;
+            rightHeld = event.getKeyCode() == KeyEvent.KEYCODE_META_RIGHT;
             deviceId = event.getDeviceId();
             // InputEvent.getDisplayId is hidden from the public Android SDK.
             displayId = 0;
@@ -275,12 +291,35 @@ public class HookContext {
             return true;
         }
 
+        public void markSideHeld(int sideKeyCode) {
+            if (sideKeyCode == KeyEvent.KEYCODE_META_LEFT) leftHeld = true;
+            if (sideKeyCode == KeyEvent.KEYCODE_META_RIGHT) rightHeld = true;
+        }
+
+        public void markSideReleased(int sideKeyCode) {
+            if (sideKeyCode == KeyEvent.KEYCODE_META_LEFT) leftHeld = false;
+            if (sideKeyCode == KeyEvent.KEYCODE_META_RIGHT) rightHeld = false;
+        }
+
+        public boolean isMetaSideHeld(int sideKeyCode) {
+            if (sideKeyCode == KeyEvent.KEYCODE_META_LEFT) return leftHeld;
+            if (sideKeyCode == KeyEvent.KEYCODE_META_RIGHT) return rightHeld;
+            return false;
+        }
+
+        public boolean hasOtherMetaSideHeld(int releasedKeyCode) {
+            if (releasedKeyCode == KeyEvent.KEYCODE_META_LEFT) return rightHeld;
+            if (releasedKeyCode == KeyEvent.KEYCODE_META_RIGHT) return leftHeld;
+            return leftHeld || rightHeld;
+        }
+
         public boolean isShortPress() {
             if (!active || downTimeMs == 0) return false;
             return System.currentTimeMillis() - downTimeMs < ZUI_META_LONG_PRESS_MS;
         }
 
         public void clear() {
+            generation++;
             active = false;
             upHandled = false;
             longFired = false;
@@ -293,6 +332,8 @@ public class HookContext {
             // （见 consumeMergedComboKey）。它由 begin() 或那个键自己的 UP 清除。
             downTimeMs = 0;
             keyCode = -1;
+            leftHeld = false;
+            rightHeld = false;
         }
     }
 
@@ -424,13 +465,15 @@ public class HookContext {
                 || metaSession.mappedOutputActive || metaSession.mappedOutputPending) return false;
         MetaKeyMap map = MetaKeyMap.parse(effectiveMapTarget());
         if (!map.isSet()) return false;
+        final long generation = metaSession.generation;
         metaSession.mappedOutputMap = map;
         metaSession.mappedOutputPending = true;
         android.os.Handler handler = resolvePolicyHandler();
         Runnable decision = () -> {
             mappedMetaRunnable = null;
             mappedMetaHandler = null;
-            if (!metaSession.active || !metaSession.mappedOutputPending
+            if (!metaSession.active || metaSession.generation != generation
+                    || !metaSession.mappedOutputPending
                     || metaSession.mappedOutputMap != map) {
                 return;
             }
@@ -513,16 +556,39 @@ public class HookContext {
         mappedMetaRunnable = null;
     }
 
+    /** Stop all held Meta output owned by this HookContext generation. */
+    public void stopForHotReload() {
+        cancelMappedMetaDecision();
+        cancelZuiAssistantTimer();
+        fnKeyManager.cancelWinLongPressTimer();
+        fnKeyManager.stopWinLongPressRepeat();
+
+        MetaKeyMap mapped = metaSession.mappedOutputMap;
+        if (metaSession.mappedOutputActive && mapped != null) {
+            armRemapInject();
+            KeyInjector.injectComboUp(mapped, metaSession.deviceId);
+        }
+
+        for (PendingExtra e : new java.util.ArrayList<>(pendingExtras)) {
+            if (e.state == PendingExtra.STATE_EMITTED) {
+                armRemapInject();
+                KeyInjector.injectKeyUp(e.keyCode, 0, metaSession.deviceId, e.scanCode);
+            }
+        }
+        pendingExtras.clear();
+        metaAssistantCallbackGeneration = -1L;
+        metaSession.clear();
+        metaSession.mergedKeyCode = 0;
+        appKeySession.active = false;
+        appKeySession.longFired = false;
+        imeChord.reset();
+    }
+
     /** Cancel delayed work owned by this runtime generation before hot reload. */
     public void cancelPendingTasks() {
         cancelAppKeyLongTimer();
-        cancelMappedMetaDecision();
-        cancelZuiAssistantTimer();
         appKeyPendingBlockUp = 0;
-        appKeySession.active = false;
-        appKeySession.longFired = false;
-        metaSession.clear();
-        imeChord.reset();
+        stopForHotReload();
     }
 
     // ----------------------------------------------------------------
@@ -1147,6 +1213,27 @@ public class HookContext {
     private final java.util.List<PendingExtra> pendingExtras =
             java.util.Collections.synchronizedList(new java.util.ArrayList<>());
 
+    /** Generation captured when ZUI's shared assistant runnable is armed for this Meta press. */
+    private volatile long metaAssistantCallbackGeneration = -1L;
+
+    public void armMetaAssistantCallback() {
+        metaAssistantCallbackGeneration = metaSession.generation;
+    }
+
+    public boolean isMetaAssistantCallbackCurrent() {
+        return metaSession.active && !metaSession.upHandled
+                && metaAssistantCallbackGeneration == metaSession.generation;
+    }
+
+    public void cancelMetaAssistantCallback() {
+        metaAssistantCallbackGeneration = -1L;
+    }
+
+    public boolean isEmittedMetaExtraModifierUp(KeyEvent event) {
+        if (event == null || event.getAction() != KeyEvent.ACTION_UP) return false;
+        return findPendingExtra(event.getKeyCode(), PendingExtra.STATE_EMITTED) != null;
+    }
+
     private PendingExtra findPendingExtra(int keyCode, int state) {
         for (int i = 0; i < pendingExtras.size(); i++) {
             PendingExtra e = pendingExtras.get(i);
@@ -1237,6 +1324,9 @@ public class HookContext {
                 " why=", reason);
         armRemapInject();
         for (PendingExtra e : new java.util.ArrayList<>(pendingExtras)) {
+            // STATE_EMITTED extras already have an injected DOWN. Flushing them
+            // again would leave duplicate modifier holds; wait for their physical UP.
+            if (e.state == PendingExtra.STATE_EMITTED) continue;
             KeyInjector.injectExtraKey(e.keyCode, e.scanCode, metaSession.deviceId, e.stillDown);
             if (e.stillDown) {
                 e.state = PendingExtra.STATE_EMITTED;   // 等它的物理 UP 来放行
@@ -1303,7 +1393,7 @@ public class HookContext {
         return consumeMergedComboKey(event);
     }
 
-    private static boolean isModifierKeyCode(int keyCode) {
+    public static boolean isModifierKeyCode(int keyCode) {
         return keyCode == KeyEvent.KEYCODE_CTRL_LEFT
                 || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT
                 || keyCode == KeyEvent.KEYCODE_SHIFT_LEFT

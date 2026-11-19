@@ -2,6 +2,7 @@ package moe.lovefirefly.betterzuikey
 
 import android.view.KeyEvent
 import moe.lovefirefly.betterzuikey.Config.Config
+import moe.lovefirefly.betterzuikey.Hook.HookContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -18,6 +19,21 @@ import org.junit.Test
  *  - Win+D 被设为「关闭」(OFF) → 合并
  */
 class WinComboMergeTest {
+
+    @Test
+    fun overlappingMetaSides_areTrackedIndependently() {
+        val session = HookContext.MetaKeySession()
+        session.active = true
+        session.markSideHeld(KeyEvent.KEYCODE_META_LEFT)
+        session.markSideHeld(KeyEvent.KEYCODE_META_RIGHT)
+
+        session.markSideReleased(KeyEvent.KEYCODE_META_LEFT)
+        assertTrue(session.hasOtherMetaSideHeld(KeyEvent.KEYCODE_META_LEFT))
+
+        session.markSideReleased(KeyEvent.KEYCODE_META_RIGHT)
+        assertFalse(session.leftHeld)
+        assertFalse(session.rightHeld)
+    }
 
     private fun merge(
         keyCode: Int,
