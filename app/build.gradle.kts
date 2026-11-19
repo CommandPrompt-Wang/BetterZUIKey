@@ -105,8 +105,8 @@ dependencies {
         exclude(group = "org.jetbrains", module = "annotations-java5")
     }
 
-    compileOnly("io.github.libxposed:api:101.0.0")
-    implementation("io.github.libxposed:service:101.0.0")
+    compileOnly("io.github.libxposed:api:102.0.0")
+    implementation("io.github.libxposed:service:102.0.0")
 
     // TermuxAm — inject am via app_process bypassing shell UID requirement
     implementation(project(":termuxam:app"))

@@ -121,7 +121,8 @@ cd BetterZUIKey
 
 Requires Android Studio + JDK 17 + Android SDK 34+.
 - ~~The module invokes the Xposed framework via reflection and has no compile-time dependency on any specific Xposed API version.~~
-- Requires [libxposed](https://github.com/libxposed/api) API 101+
+- Requires [libxposed](https://github.com/libxposed/api) API 102
+- API 102 hot reload is supported; framework-triggered updates clean up the old generation's hooks and background tasks first
 
 > **For developers**: Commits on the `dev` branch prefixed with `[Nightly]` will automatically trigger a CI build and upload the debug artifact.
 
