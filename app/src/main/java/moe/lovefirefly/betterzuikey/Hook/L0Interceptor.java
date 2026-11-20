@@ -65,6 +65,24 @@ public class L0Interceptor  {
         // 模块自己为「映射到…」注入的组合键：整体放行，避免二次消费
         if (ctx.isRemapInjecting(event)) return;
 
+        // Win 按住期间的 Ctrl/Shift/Alt 必须先走会话扣押逻辑：
+        // DOWN 不得落到映射分支；已替按下去的 UP 必须原样放行，不能再被映射分支吞掉。
+        if (ctx.isModifierKeyCode(event.getKeyCode())) {
+            boolean emittedUp = ctx.isEmittedMetaExtraModifierUp(event);
+            if (ctx.handleMetaExtraModifier(event)) {
+                if (event.getAction() == KeyEvent.ACTION_UP) {
+                    param.setResult(true);
+                } else {
+                    param.setResult(true);
+                }
+                return;
+            }
+            if (emittedUp) {
+                param.setResult(false);
+                return;
+            }
+        }
+
         // Priority combinations must win before a deferred standalone mapping
         // is activated. Their physical trigger is consumed by the normal Fn
         // section below, while the mapped target is never sent to the host.

@@ -53,7 +53,7 @@ class AppPickerActivity : AppCompatActivity() {
                 "com.android.launcher3", "com.zui.launcher"
             )}
             .map { AppInfo(it.packageName, it.loadLabel(pm).toString()) }
-            .sortedBy { it.label.lowercase() }
+            .sortedWith(compareBy<AppInfo> { it.label.lowercase() }.thenBy { it.packageName })
 
         val adapter = AppAdapter()
         binding.recycler.layoutManager = LinearLayoutManager(this)
@@ -88,11 +88,18 @@ class AppPickerActivity : AppCompatActivity() {
 
     inner class AppAdapter : RecyclerView.Adapter<AppAdapter.VH>() {
 
-        private var filtered = allApps
+        private var query = ""
+        private var filtered = sortedApps()
 
         fun filter(query: String) {
-            filtered = if (query.isBlank()) allApps
-            else allApps.filter {
+            this.query = query
+            refresh()
+        }
+
+        fun refresh() {
+            val apps = sortedApps()
+            filtered = if (query.isBlank()) apps
+            else apps.filter {
                 it.label.contains(query, true) || it.packageName.contains(query, true)
             }
             notifyDataSetChanged()
@@ -143,11 +150,18 @@ class AppPickerActivity : AppCompatActivity() {
                         selected.add(pkg)
                         cb.isChecked = true
                     }
+                    refresh()
                     updateCount()
                 }
             }
         }
     }
+
+    private fun sortedApps(): List<AppInfo> = allApps.sortedWith(
+        compareBy<AppInfo> { if (selected.contains(it.packageName)) 0 else 1 }
+            .thenBy { it.label.lowercase() }
+            .thenBy { it.packageName }
+    )
 
     /** 检查此包名是否已被其他模板使用，返回冲突模板名 */
     private fun findConflictTemplate(packageName: String): String? {

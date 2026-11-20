@@ -133,6 +133,8 @@ public class HookContext {
     private android.os.Handler appKeyLongHandler;
     private Runnable appKeyLongRunnable;
     private android.os.Handler fallbackMainHandler;
+    private android.os.Handler mappedMetaHandler;
+    private Runnable mappedMetaRunnable;
 
     private android.os.Handler getFallbackMainHandler() {
         if (fallbackMainHandler == null) {
@@ -153,6 +155,7 @@ public class HookContext {
         android.os.Handler handler = resolvePolicyHandler();
         appKeyLongHandler = handler;
         appKeyLongRunnable = () -> {
+            appKeyLongRunnable = null;
             if (!appKeySession.active || appKeySession.keyCode != keyCode) {
                 LogHelper.log(VerboseLevel.DEBUG, label,
                         " long timer stale (session inactive or kc mismatch)");
@@ -209,18 +212,30 @@ public class HookContext {
      * 用户按过的键不能因为我们扣过就丢了。
      */
     public boolean beginMetaSession(KeyEvent event) {
-        if (!pendingExtras.isEmpty()) flushPendingExtras("new Meta DOWN");
+        if ((!metaSession.active || metaSession.upHandled) && !pendingExtras.isEmpty()) {
+            for (PendingExtra e : new java.util.ArrayList<>(pendingExtras)) {
+                if (e.state == PendingExtra.STATE_EMITTED) {
+                    armRemapInject();
+                    KeyInjector.injectKeyUp(e.keyCode, 0, metaSession.deviceId, e.scanCode);
+                    pendingExtras.remove(e);
+                }
+            }
+            flushPendingExtras("new Meta DOWN");
+        }
         return metaSession.begin(event);
     }
 
     public static final class MetaKeySession {
         public volatile boolean active;
         public volatile boolean upHandled;
+        public volatile long generation;
         public volatile long downTimeMs;
         public volatile int scanCode;
         public volatile int keyCode = -1;
         public volatile int deviceId = -1;
         public volatile int displayId = 0;
+        public volatile boolean leftHeld;
+        public volatile boolean rightHeld;
         /** Snapshot of the mapped target held from Meta DOWN until Meta UP. */
         public volatile MetaKeyMap mappedOutputMap;
         public volatile boolean mappedOutputActive;
@@ -242,12 +257,14 @@ public class HookContext {
         /** @return true if session was started; false if overlapping DOWN was ignored */
         public boolean begin(KeyEvent event) {
             if (active && !upHandled) {
+                markSideHeld(event.getKeyCode());
                 MetaTrace.decision("Session", "skip overlapping DOWN",
                         "held kc=", String.valueOf(keyCode),
                         " new kc=", String.valueOf(event.getKeyCode()),
                         " sc=", String.valueOf(event.getScanCode()));
                 return false;
             }
+            generation++;
             active = true;
             upHandled = false;
             longFired = false;
@@ -260,6 +277,8 @@ public class HookContext {
             downTimeMs = System.currentTimeMillis();
             scanCode = event.getScanCode();
             keyCode = event.getKeyCode();
+            leftHeld = event.getKeyCode() == KeyEvent.KEYCODE_META_LEFT;
+            rightHeld = event.getKeyCode() == KeyEvent.KEYCODE_META_RIGHT;
             deviceId = event.getDeviceId();
             // InputEvent.getDisplayId is hidden from the public Android SDK.
             displayId = 0;
@@ -272,12 +291,41 @@ public class HookContext {
             return true;
         }
 
+        public void markSideHeld(int sideKeyCode) {
+            if (sideKeyCode == KeyEvent.KEYCODE_META_LEFT) leftHeld = true;
+            if (sideKeyCode == KeyEvent.KEYCODE_META_RIGHT) rightHeld = true;
+        }
+
+        public void markSideReleased(int sideKeyCode) {
+            if (sideKeyCode == KeyEvent.KEYCODE_META_LEFT) leftHeld = false;
+            if (sideKeyCode == KeyEvent.KEYCODE_META_RIGHT) rightHeld = false;
+        }
+
+        public boolean isMetaSideHeld(int sideKeyCode) {
+            if (sideKeyCode == KeyEvent.KEYCODE_META_LEFT) return leftHeld;
+            if (sideKeyCode == KeyEvent.KEYCODE_META_RIGHT) return rightHeld;
+            return false;
+        }
+
+        public boolean shouldProcessMetaUp(int sideKeyCode) {
+            if (leftHeld || rightHeld) return isMetaSideHeld(sideKeyCode);
+            if (keyCode >= 0) return keyCode == sideKeyCode;
+            return true;
+        }
+
+        public boolean hasOtherMetaSideHeld(int releasedKeyCode) {
+            if (releasedKeyCode == KeyEvent.KEYCODE_META_LEFT) return rightHeld;
+            if (releasedKeyCode == KeyEvent.KEYCODE_META_RIGHT) return leftHeld;
+            return leftHeld || rightHeld;
+        }
+
         public boolean isShortPress() {
             if (!active || downTimeMs == 0) return false;
             return System.currentTimeMillis() - downTimeMs < ZUI_META_LONG_PRESS_MS;
         }
 
         public void clear() {
+            generation++;
             active = false;
             upHandled = false;
             longFired = false;
@@ -290,6 +338,8 @@ public class HookContext {
             // （见 consumeMergedComboKey）。它由 begin() 或那个键自己的 UP 清除。
             downTimeMs = 0;
             keyCode = -1;
+            leftHeld = false;
+            rightHeld = false;
         }
     }
 
@@ -421,11 +471,15 @@ public class HookContext {
                 || metaSession.mappedOutputActive || metaSession.mappedOutputPending) return false;
         MetaKeyMap map = MetaKeyMap.parse(effectiveMapTarget());
         if (!map.isSet()) return false;
+        final long generation = metaSession.generation;
         metaSession.mappedOutputMap = map;
         metaSession.mappedOutputPending = true;
         android.os.Handler handler = resolvePolicyHandler();
-        handler.postDelayed(() -> {
-            if (!metaSession.active || !metaSession.mappedOutputPending
+        Runnable decision = () -> {
+            mappedMetaRunnable = null;
+            mappedMetaHandler = null;
+            if (!metaSession.active || metaSession.generation != generation
+                    || !metaSession.mappedOutputPending
                     || metaSession.mappedOutputMap != map) {
                 return;
             }
@@ -435,7 +489,10 @@ public class HookContext {
             KeyInjector.injectComboDown(map, metaSession.deviceId);
             MetaTrace.decision("Router", "mapped DOWN → hold mapped target",
                     "map=", map.serialize());
-        }, META_MAP_DECISION_DELAY_MS);
+        };
+        mappedMetaHandler = handler;
+        mappedMetaRunnable = decision;
+        handler.postDelayed(decision, META_MAP_DECISION_DELAY_MS);
         MetaTrace.decision("Router", "mapped DOWN deferred for priority combo",
                 "ms=", String.valueOf(META_MAP_DECISION_DELAY_MS),
                 " map=", map.serialize());
@@ -446,6 +503,7 @@ public class HookContext {
     public boolean activatePendingMappedMetaOutput() {
         MetaKeyMap map = metaSession.mappedOutputMap;
         if (!metaSession.mappedOutputPending || map == null) return false;
+        cancelMappedMetaDecision();
         metaSession.mappedOutputPending = false;
         metaSession.mappedOutputActive = true;
         armRemapInject();
@@ -459,6 +517,7 @@ public class HookContext {
     public boolean cancelPendingMappedMetaOutput() {
         MetaKeyMap map = metaSession.mappedOutputMap;
         if (!metaSession.mappedOutputPending || map == null) return false;
+        cancelMappedMetaDecision();
         metaSession.mappedOutputPending = false;
         metaSession.mappedOutputMap = null;
         metaSession.winComboUsed = true;
@@ -473,6 +532,7 @@ public class HookContext {
         MetaKeyMap map = metaSession.mappedOutputMap;
         if (map == null) return false;
         if (metaSession.mappedOutputPending) {
+            cancelMappedMetaDecision();
             metaSession.mappedOutputPending = false;
             metaSession.mappedOutputMap = null;
             if (standaloneTap) {
@@ -483,6 +543,7 @@ public class HookContext {
             }
             return true;
         }
+
         if (!metaSession.mappedOutputActive) return false;
         armRemapInject();
         KeyInjector.injectComboUp(map, metaSession.deviceId);
@@ -491,6 +552,49 @@ public class HookContext {
         MetaTrace.decision("Router", "mapped UP → release mapped target",
                 "map=", map.serialize());
         return true;
+    }
+
+    private void cancelMappedMetaDecision() {
+        if (mappedMetaHandler != null && mappedMetaRunnable != null) {
+            mappedMetaHandler.removeCallbacks(mappedMetaRunnable);
+        }
+        mappedMetaHandler = null;
+        mappedMetaRunnable = null;
+    }
+
+    /** Stop all held Meta output owned by this HookContext generation. */
+    public void stopForHotReload() {
+        cancelMappedMetaDecision();
+        cancelZuiAssistantTimer();
+        fnKeyManager.cancelWinLongPressTimer();
+        fnKeyManager.stopWinLongPressRepeat();
+
+        MetaKeyMap mapped = metaSession.mappedOutputMap;
+        if (metaSession.mappedOutputActive && mapped != null) {
+            armRemapInject();
+            KeyInjector.injectComboUp(mapped, metaSession.deviceId);
+        }
+
+        for (PendingExtra e : new java.util.ArrayList<>(pendingExtras)) {
+            if (e.state == PendingExtra.STATE_EMITTED) {
+                armRemapInject();
+                KeyInjector.injectKeyUp(e.keyCode, 0, metaSession.deviceId, e.scanCode);
+            }
+        }
+        pendingExtras.clear();
+        metaAssistantCallbackGeneration = -1L;
+        metaSession.clear();
+        metaSession.mergedKeyCode = 0;
+        appKeySession.active = false;
+        appKeySession.longFired = false;
+        imeChord.reset();
+    }
+
+    /** Cancel delayed work owned by this runtime generation before hot reload. */
+    public void cancelPendingTasks() {
+        cancelAppKeyLongTimer();
+        appKeyPendingBlockUp = 0;
+        stopForHotReload();
     }
 
     // ----------------------------------------------------------------
@@ -1115,6 +1219,27 @@ public class HookContext {
     private final java.util.List<PendingExtra> pendingExtras =
             java.util.Collections.synchronizedList(new java.util.ArrayList<>());
 
+    /** Generation captured when ZUI's shared assistant runnable is armed for this Meta press. */
+    private volatile long metaAssistantCallbackGeneration = -1L;
+
+    public void armMetaAssistantCallback() {
+        metaAssistantCallbackGeneration = metaSession.generation;
+    }
+
+    public boolean isMetaAssistantCallbackCurrent() {
+        return metaSession.active && !metaSession.upHandled
+                && metaAssistantCallbackGeneration == metaSession.generation;
+    }
+
+    public void cancelMetaAssistantCallback() {
+        metaAssistantCallbackGeneration = -1L;
+    }
+
+    public boolean isEmittedMetaExtraModifierUp(KeyEvent event) {
+        if (event == null || event.getAction() != KeyEvent.ACTION_UP) return false;
+        return findPendingExtra(event.getKeyCode(), PendingExtra.STATE_EMITTED) != null;
+    }
+
     private PendingExtra findPendingExtra(int keyCode, int state) {
         for (int i = 0; i < pendingExtras.size(); i++) {
             PendingExtra e = pendingExtras.get(i);
@@ -1205,6 +1330,9 @@ public class HookContext {
                 " why=", reason);
         armRemapInject();
         for (PendingExtra e : new java.util.ArrayList<>(pendingExtras)) {
+            // STATE_EMITTED extras already have an injected DOWN. Flushing them
+            // again would leave duplicate modifier holds; wait for their physical UP.
+            if (e.state == PendingExtra.STATE_EMITTED) continue;
             KeyInjector.injectExtraKey(e.keyCode, e.scanCode, metaSession.deviceId, e.stillDown);
             if (e.stillDown) {
                 e.state = PendingExtra.STATE_EMITTED;   // 等它的物理 UP 来放行
@@ -1271,7 +1399,7 @@ public class HookContext {
         return consumeMergedComboKey(event);
     }
 
-    private static boolean isModifierKeyCode(int keyCode) {
+    public static boolean isModifierKeyCode(int keyCode) {
         return keyCode == KeyEvent.KEYCODE_CTRL_LEFT
                 || keyCode == KeyEvent.KEYCODE_CTRL_RIGHT
                 || keyCode == KeyEvent.KEYCODE_SHIFT_LEFT
@@ -1282,9 +1410,26 @@ public class HookContext {
 
     /** ZUI Start Menu — version-specific Policy bridge. */
     public void triggerShowAllApps(int displayId) {
+        LogHelper.log(VerboseLevel.INFO,
+                "[WIN-HOT] triggerShowAllApps displayId=", String.valueOf(displayId),
+                " policy=", policyInstance != null ? "ok" : "null",
+                " legacy=", String.valueOf(usesLegacyInputChain()));
         MetaTrace.decision("Policy", "start menu triggerShowAllApps",
                 "displayId=", String.valueOf(displayId),
                 " policy=", policyInstance != null ? "ok" : "NULL");
+        if (policyInstance == null && kscInstance != null) {
+            try {
+                Object recoveredPolicy = HookCompat.getObjectField(kscInstance, "mPolicy");
+                if (recoveredPolicy != null) {
+                    policyInstance = recoveredPolicy;
+                    LogHelper.log(VerboseLevel.INFO,
+                            "[WIN-HOT] recovered policy from kscInstance mPolicy");
+                }
+            } catch (Throwable t) {
+                LogHelper.log(VerboseLevel.DEBUG,
+                        "triggerShowAllApps recover mPolicy failed:", t.getMessage());
+            }
+        }
         if (policyInstance == null) {
             LogHelper.log(VerboseLevel.ERROR,
                     "triggerShowAllApps: policyInstance is null");
