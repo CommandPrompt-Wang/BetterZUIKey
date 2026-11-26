@@ -548,9 +548,9 @@ public class L1Interceptor  {
         }
 
         LogHelper.log(VerboseLevel.INFO, "L1: ", label, " → switch language (profile)");
-        boolean ok = ctx.triggerIMEProfile();
+        String toast = ctx.triggerIMEProfileWithLabel();
         if (ctx.cfg.imeToastEnabled) {
-            KeyInjector.showToast(ok ? "Language switched" : "No IME profile matched");
+            KeyInjector.showToast(toast != null ? toast : ctx.getNoImeProfileToast());
         }
     }
 
@@ -583,9 +583,9 @@ public class L1Interceptor  {
                 " src=0x", Integer.toHexString(ev.getSource()),
                 " flags=0x", Integer.toHexString(ev.getFlags()),
                 " thread=", Thread.currentThread().getName());
-        boolean ok = ctx.triggerIMEProfile();
+        String toast = ctx.triggerIMEProfileWithLabel();
         if (ctx.cfg.imeToastEnabled) {
-            KeyInjector.showToast(ok ? "Language switched" : "No IME profile matched");
+            KeyInjector.showToast(toast != null ? toast : ctx.getNoImeProfileToast());
         }
         return true;
     }

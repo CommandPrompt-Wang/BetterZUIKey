@@ -206,4 +206,18 @@ public class MetaPassthroughRuntimeTest {
                 KeyEvent.META_CTRL_ON | KeyEvent.META_CTRL_LEFT_ON
                         | KeyEvent.META_SHIFT_ON | KeyEvent.META_SHIFT_RIGHT_ON));
     }
+
+    @Test
+    public void languageSwitchToastFormatsSubtypeOrProfileName() {
+        assertEquals("简体中文",
+                HookContext.formatLanguageSwitchToast(true, true, "简体中文", "Gboard", true));
+        assertEquals("搜狗输入法 · 已切换语言",
+                HookContext.formatLanguageSwitchToast(true, false, null, "搜狗输入法", true));
+        assertEquals("Gboard · Language switched",
+                HookContext.formatLanguageSwitchToast(true, true, null, "Gboard", false));
+        assertEquals("未匹配到输入法配置",
+                HookContext.formatLanguageSwitchToast(false, false, null, null, true));
+        assertEquals("No IME profile matched",
+                HookContext.formatLanguageSwitchToast(false, false, null, null, false));
+    }
 }

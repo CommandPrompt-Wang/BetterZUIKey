@@ -1043,10 +1043,18 @@ public class HookContext {
     }
 
     public boolean triggerIMEProfile() {
+        return triggerIMEProfileWithLabel() != null;
+    }
+
+    /**
+     * 执行当前输入法的语言切换方案，并返回适合 Toast 展示的结果文案；
+     * 返回 {@code null} 表示未匹配或触发失败（或在冷却中）。
+     */
+    public String triggerIMEProfileWithLabel() {
         // Cooldown guard: prevent rapid re-triggering (e.g. injected event loops)
         if (IMEDispatcher.isInProfileCooldown()) {
             LogHelper.log(VerboseLevel.DEBUG, "IME: triggerIMEProfile skipped — cooldown");
-            return false;
+            return null;
         }
         IMEDispatcher.markProfileTriggered();
 
@@ -1085,10 +1093,43 @@ public class HookContext {
         if (IMEProfileManager.executeForIME(imePkg)) {
             LogHelper.log(VerboseLevel.INFO, "IME: profile strategy executed for '",
                     imePkg != null ? imePkg : "<null>", "'");
-            return true;
+            boolean isFramework = profile != null
+                    && profile.getStrategy() == moe.lovefirefly.betterzuikey.ime.Strategy.framework;
+            String subtypeName = isFramework ? IMEDispatcher.getCurrentSubtypeDisplayName() : null;
+            String profileName = profile != null ? profile.getName() : null;
+            return formatLanguageSwitchToast(true, isFramework, subtypeName, profileName,
+                    isChineseUiLocale());
         }
         LogHelper.log(VerboseLevel.WARNING, "IME: executeForIME returned false");
-        return false;
+        return null;
+    }
+
+    public String getNoImeProfileToast() {
+        return formatLanguageSwitchToast(false, false, null, null, isChineseUiLocale());
+    }
+
+    private boolean isChineseUiLocale() {
+        String loc = cfg != null && cfg.localeOverride != null ? cfg.localeOverride.trim() : "";
+        if (!loc.isEmpty()) {
+            return loc.toLowerCase(java.util.Locale.ROOT).startsWith("zh");
+        }
+        return "zh".equalsIgnoreCase(java.util.Locale.getDefault().getLanguage());
+    }
+
+    static String formatLanguageSwitchToast(boolean success, boolean isFramework,
+                                            String subtypeName, String profileName,
+                                            boolean zh) {
+        if (!success) {
+            return zh ? "未匹配到输入法配置" : "No IME profile matched";
+        }
+        if (isFramework && subtypeName != null && !subtypeName.trim().isEmpty()) {
+            return subtypeName.trim();
+        }
+        String suffix = zh ? "已切换语言" : "Language switched";
+        if (profileName != null && !profileName.trim().isEmpty()) {
+            return profileName.trim() + " · " + suffix;
+        }
+        return suffix;
     }
 
     /**
@@ -1796,9 +1837,9 @@ public class HookContext {
             }
         } else if (cfg.languageSwitchBinding == Config.IMEBinding.WIN) {
             LogHelper.log(VerboseLevel.INFO, "Win long → switch language (profile)");
-            boolean ok = triggerIMEProfile();
-            if (cfg.imeToastEnabled && !ok) {
-                KeyInjector.showToast("system_server: No IME profile matched");
+            String label = triggerIMEProfileWithLabel();
+            if (cfg.imeToastEnabled) {
+                KeyInjector.showToast(label != null ? label : getNoImeProfileToast());
             }
         }
     }

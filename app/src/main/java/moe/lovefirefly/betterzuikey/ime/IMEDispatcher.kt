@@ -209,6 +209,46 @@ object IMEDispatcher {
     fun getCurrentIMEPackage(): String? =
         try { getSystemImm()?.currentInputMethodInfo?.packageName?.trim() } catch (t: Throwable) { null }
 
+    /**
+     * 当前激活的 IME 子类型本地化名称（如 `简体中文`、`日本語`、`Alphabet`、`拼音`、`English`）。
+     * 优先用系统 `InputMethodSubtype.getDisplayName`，为空时兜底 `Locale` 显示名或原始 tag。
+     */
+    @JvmStatic
+    fun getCurrentSubtypeDisplayName(): String? {
+        val ims = getInputMethodManagerService() ?: return null
+        val userData = getUserData() ?: return null
+        return try {
+            val subtype = synchronized(ims) { getCurrentSubtype(ims, userData) }
+                ?: return null
+            val sysCtx = getSystemContext()
+            val imi = getSystemImm()?.currentInputMethodInfo
+            if (sysCtx != null && imi != null) {
+                val name = subtype.getDisplayName(
+                    sysCtx, imi.packageName, imi.serviceInfo?.applicationInfo)
+                    ?.toString()?.trim()
+                if (!name.isNullOrEmpty()) return name
+            }
+            val tag = languageTagOf(subtype)?.takeIf { it.isNotBlank() }
+                ?: subtype.locale.takeIf { it.isNotBlank() }
+                ?: return null
+            val locale = java.util.Locale.forLanguageTag(tag.replace('_', '-'))
+            locale.getDisplayName(java.util.Locale.getDefault())
+                .takeIf { it.isNotBlank() && !it.equals(tag, ignoreCase = true) }
+                ?: tag
+        } catch (t: Throwable) {
+            LogHelper.log(VerboseLevel.DEBUG, "IMEDispatcher: getCurrentSubtypeDisplayName failed:", t.message)
+            null
+        }
+    }
+
+    private fun getSystemContext(): Context? = try {
+        val at = Class.forName("android.app.ActivityThread")
+            .getMethod("currentActivityThread").invoke(null)
+        at.javaClass.getMethod("getSystemContext").invoke(at) as? Context
+    } catch (t: Throwable) {
+        null
+    }
+
     // -----------------------------------------------------------------
     // subtype 切换（framework 策略）
     // -----------------------------------------------------------------
