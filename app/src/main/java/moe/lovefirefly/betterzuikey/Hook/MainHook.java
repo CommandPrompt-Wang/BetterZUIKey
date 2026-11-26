@@ -70,6 +70,8 @@ public class MainHook extends XposedModule {
         if (sSystemServerClassLoader == null) sSystemServerClassLoader = IMEDispatcher.systemClassLoader;
         Object kscInstance = ctx != null ? ctx.kscInstance : null;
         Object policyInstance = ctx != null ? ctx.policyInstance : null;
+        Object kgcInstance = ctx != null ? ctx.kgcInstance : null;
+        Object pwmInstance = ctx != null ? ctx.pwmInstance : null;
         LogHelper.log(VerboseLevel.INFO,
                 "[WIN-HOT] onHotReloading ctx=", ctx != null ? "present" : "null",
                 " loader=", mClassLoader != null ? mClassLoader.toString() : "null",
@@ -77,7 +79,7 @@ public class MainHook extends XposedModule {
                 " ksc=", kscInstance != null ? "ok" : "null",
                 " policy=", policyInstance != null ? "ok" : "null");
         param.setSavedInstanceState(new Object[]{
-                sSystemServerClassLoader, kscInstance, policyInstance
+                sSystemServerClassLoader, kscInstance, policyInstance, kgcInstance, pwmInstance
         });
         stopRuntimeTasks();
         LogHelper.log(VerboseLevel.INFO,
@@ -107,11 +109,17 @@ public class MainHook extends XposedModule {
             ClassLoader savedLoader = null;
             Object kscInstance = null;
             Object policyInstance = null;
+            Object kgcInstance = null;
+            Object pwmInstance = null;
             if (savedInstanceState instanceof Object[] && ((Object[]) savedInstanceState).length >= 3) {
                 Object[] saved = (Object[]) savedInstanceState;
                 savedLoader = saved[0] instanceof ClassLoader ? (ClassLoader) saved[0] : null;
                 kscInstance = saved[1];
                 policyInstance = saved[2];
+                if (saved.length >= 5) {
+                    kgcInstance = saved[3];
+                    pwmInstance = saved[4];
+                }
             }
             if (classLoader == null && savedLoader != null) {
                 classLoader = savedLoader;
@@ -128,7 +136,8 @@ public class MainHook extends XposedModule {
                 return;
             }
             unhookOldGeneration(oldHandles);
-            installSystemServer(classLoader, true, kscInstance, policyInstance);
+            installSystemServer(classLoader, true, kscInstance, policyInstance,
+                    kgcInstance, pwmInstance);
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR, "Hot reload installation failed:", t.getMessage());
             setError("Injection error: " + t.toString() + "\n\n" + KeyInjector.stackTraceToString(t));
@@ -136,11 +145,12 @@ public class MainHook extends XposedModule {
     }
 
     private void installSystemServer(ClassLoader classLoader, boolean hotReload) {
-        installSystemServer(classLoader, hotReload, null, null);
+        installSystemServer(classLoader, hotReload, null, null, null, null);
     }
 
     private void installSystemServer(ClassLoader classLoader, boolean hotReload,
-                                     Object kscInstance, Object policyInstance) {
+                                     Object kscInstance, Object policyInstance,
+                                     Object kgcInstance, Object pwmInstance) {
         LogHelper.log(VerboseLevel.INFO,
                 "[WIN-HOT] installSystemServer hotReload=", String.valueOf(hotReload),
                 " alreadyInstalled=", String.valueOf(mSystemServerInstalled));
@@ -168,16 +178,20 @@ public class MainHook extends XposedModule {
             }
 
             prepareRuntime(classLoader);
-            if (ctx != null && (kscInstance != null || policyInstance != null)) {
-                ctx.kscInstance = kscInstance;
-                ctx.policyInstance = policyInstance;
-                LogHelper.log(VerboseLevel.INFO,
-                        "[WIN-HOT] restored runtime instances ksc=",
-                        kscInstance != null ? "ok" : "null",
-                        " policy=", policyInstance != null ? "ok" : "null");
-                if (policyInstance != null) {
-                    installAssistantRunnableHook(policyInstance);
+            if (ctx != null) {
+                if (kscInstance != null || policyInstance != null) {
+                    ctx.kscInstance = kscInstance;
+                    ctx.policyInstance = policyInstance;
+                    LogHelper.log(VerboseLevel.INFO,
+                            "[WIN-HOT] restored runtime instances ksc=",
+                            kscInstance != null ? "ok" : "null",
+                            " policy=", policyInstance != null ? "ok" : "null");
+                    if (policyInstance != null) {
+                        installAssistantRunnableHook(policyInstance);
+                    }
                 }
+                if (kgcInstance != null) ctx.kgcInstance = kgcInstance;
+                if (pwmInstance != null) ctx.pwmInstance = pwmInstance;
             }
             installHooks();
             startRuntimeTasks();
@@ -991,18 +1005,26 @@ public class MainHook extends XposedModule {
                     new HookCompat.HookCallback() {
                         @Override
                         protected void beforeHookedMethod(HookCompat.HookParam param) {
+                            if (ctx.kgcInstance == null && param.thisObject != null) {
+                                ctx.kgcInstance = param.thisObject;
+                            }
                             Object raw = param.args.length > 1 ? param.args[1] : null;
                             if (!(raw instanceof KeyEvent)) return;
                             KeyEvent event = (KeyEvent) raw;
+                            if (ctx.isPassthroughReplayEvent(event)) {
+                                param.setResult(false);
+                                return;
+                            }
                             int keyCode = event.getKeyCode();
                             if (keyCode != KeyEvent.KEYCODE_META_LEFT
                                     && keyCode != KeyEvent.KEYCODE_META_RIGHT) {
                                 return;
                             }
                             ctx.checkConfigChanged();
-                            if (ctx.isMetaIntercepted()) {
+                            if (ctx.cfg != null && ctx.cfg.zuxKeyboardFuncEnabled
+                                    && !MetaTrace.isTraceOnly()) {
                                 param.setResult(false);
-                                MetaTrace.decision("KGC", "pass Meta",
+                                MetaTrace.decision("KGC", "block system Meta",
                                         event.getAction() == KeyEvent.ACTION_DOWN ? "DOWN" : "UP");
                             }
                         }
@@ -1043,23 +1065,28 @@ public class MainHook extends XposedModule {
                     new HookCompat.HookCallback() {
                         @Override
                         protected void beforeHookedMethod(HookCompat.HookParam param) {
+                            if (ctx.pwmInstance == null && param.thisObject != null) {
+                                ctx.pwmInstance = param.thisObject;
+                            }
                             Object raw = param.args.length > 1 ? param.args[1] : null;
                             if (!(raw instanceof KeyEvent)) return;
                             KeyEvent event = (KeyEvent) raw;
+                            if (ctx.isPassthroughReplayEvent(event)) {
+                                param.setResult(false);
+                                return;
+                            }
                             int keyCode = event.getKeyCode();
                             if (keyCode != KeyEvent.KEYCODE_META_LEFT
                                     && keyCode != KeyEvent.KEYCODE_META_RIGHT) {
                                 return;
                             }
                             ctx.checkConfigChanged();
-                            String phase = event.getAction() == KeyEvent.ACTION_DOWN ? "DOWN" : "UP";
-                            if (ctx.isMetaIntercepted()) {
+                            if (ctx.cfg != null && ctx.cfg.zuxKeyboardFuncEnabled
+                                    && !MetaTrace.isTraceOnly()) {
                                 param.setResult(false);
-                                MetaTrace.decision("PWM", "pass Meta", phase,
-                                        " metaState=0x",
-                                        Integer.toHexString(event.getMetaState()));
-                            } else {
-                                MetaTrace.decision("PWM", "consume Meta", phase,
+                                String phase = event.getAction() == KeyEvent.ACTION_DOWN
+                                        ? "DOWN" : "UP";
+                                MetaTrace.decision("PWM", "block system Meta", phase,
                                         " metaState=0x",
                                         Integer.toHexString(event.getMetaState()));
                             }

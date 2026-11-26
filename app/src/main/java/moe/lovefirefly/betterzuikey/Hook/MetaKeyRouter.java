@@ -87,17 +87,10 @@ public class MetaKeyRouter {
             MetaTrace.decision("Router", "BLOCK DOWN → consume");
             return;
         }
-        // IME long-press (500ms) fires on ALL keyboards — ZUI handles voice
-        // natively, not IME switching. Voice timer (2s) only on non-zuiMeta
-        // keyboards; zuiMeta ones rely on our hook of mLaunchAssistantRunnable.
-        // 放行模式绕过了 ZUI 的 Meta 处理，zuiMeta 键盘也必须由模块自己武装，
-        // 否则语音助手的 2s 长按会整个失效。
         if (imeWinActive) {
             armModuleLongPress(true, event);
-        } else if (!zuiMeta || ctx.isMetaIntercepted()) {
-            armModuleLongPress(false, event);
         } else {
-            ctx.armMetaAssistantCallback();
+            armModuleLongPress(false, event);
         }
     }
 
@@ -141,6 +134,13 @@ public class MetaKeyRouter {
 
         MetaTrace.event("Router", event, ctx);
         if (!ctx.metaSession.active) {
+            if (ctx.hasPassthroughState() && !MetaTrace.isTraceOnly()) {
+                boolean emitted = ctx.onPassthroughMetaUp(event);
+                if (emitted) {
+                    param.setResult(true);
+                    return true;
+                }
+            }
             MetaTrace.decision("Router", "UP L0 ignored", "no active session");
             return false;
         }
@@ -154,14 +154,33 @@ public class MetaKeyRouter {
             return false;
         }
         ctx.metaSession.markSideReleased(keyCode);
+        if (ctx.isMetaPassthrough() && !MetaTrace.isTraceOnly()) {
+            boolean emitted = ctx.onPassthroughMetaUp(event);
+            if (ctx.metaSession.leftHeld || ctx.metaSession.rightHeld) {
+                if (emitted) {
+                    ctx.metaSession.winComboUsed = true;
+                }
+                MetaTrace.decision("Router", "UP L0 deferred (passthrough)",
+                        "other physical Win side still held", " kc=", String.valueOf(keyCode));
+                param.setResult(true);
+                return true;
+            }
+            return finishPassthroughUp(param, event, emitted);
+        }
+        if (ctx.hasPassthroughState() && !MetaTrace.isTraceOnly()) {
+            boolean emitted = ctx.onPassthroughMetaUp(event);
+            if (!ctx.metaSession.leftHeld && !ctx.metaSession.rightHeld) {
+                ctx.releasePassthroughOnReset();
+            }
+            if (emitted) {
+                ctx.metaSession.winComboUsed = true;
+            }
+        }
         if (ctx.metaSession.leftHeld || ctx.metaSession.rightHeld) {
             MetaTrace.decision("Router", "UP L0 deferred",
                     "other physical Win side still held", " kc=", String.valueOf(keyCode));
             param.setResult(true);
             return true;
-        }
-        if (ctx.isMetaIntercepted()) {
-            return consumePassthroughUp(param, event);
         }
         ctx.cancelMetaAssistantCallback();
         ctx.metaSession.upHandled = true;
@@ -191,11 +210,9 @@ public class MetaKeyRouter {
             return false;
         }
 
-        boolean consumed = false;
-
         // BLOCK: physical DOWN was consumed at L1; UP must also be consumed.
         if (metaSingle == Config.OverrideMode.BLOCK) {
-            consumed = consumeUp(param, zuiMeta, "BLOCK UP → consume");
+            boolean consumed = consumeUp(param, zuiMeta, "BLOCK UP → consume");
             ctx.fnKeyManager.setConsumeMetaUpForNone();
             ctx.fnKeyManager.stopWinLongPressRepeat();
             ctx.metaSession.clear();
@@ -204,10 +221,22 @@ public class MetaKeyRouter {
 
         // IME long fires at 500ms; shortPress threshold is 2s — must consume before menu branches.
         if (ctx.metaSession.longFired) {
-            consumed = consumeUp(param, zuiMeta, "longFired UP (IME/voice)");
+            boolean consumed = consumeUp(param, zuiMeta, "longFired UP (IME/voice)");
             ctx.fnKeyManager.stopWinLongPressRepeat();
             ctx.metaSession.clear();
             return consumed;
+        }
+
+        if (ctx.isMetaMapped()) {
+            boolean standalone = shortPress
+                    && !ctx.metaSession.fnMapped
+                    && !ctx.metaSession.winComboUsed;
+            ctx.fnKeyManager.cancelWinLongPressTimer();
+            ctx.cancelZuiAssistantTimer();
+            ctx.releaseMappedMetaOutput(standalone);
+            ctx.metaSession.clear();
+            param.setResult(true);
+            return true;
         }
 
         // Fn mapping consumed a key during this Meta press — Win was a modifier,
@@ -215,40 +244,34 @@ public class MetaKeyRouter {
         if (ctx.metaSession.fnMapped || ctx.metaSession.winComboUsed) {
             String reason = ctx.metaSession.fnMapped
                     ? "fnMapped → suppress menu" : "winCombo → suppress menu";
-            consumed = consumeUp(param, zuiMeta, reason);
+            boolean consumed = consumeUp(param, zuiMeta, reason);
             ctx.metaSession.clear();
             return consumed;
         }
 
         if (shortPress && imeWinActive) {
-            consumed = consumeUp(param, zuiMeta, "imeWin short → Start Menu");
+            boolean consumed = consumeUp(param, zuiMeta, "imeWin short → Start Menu");
             dispatchStartMenu();
+            ctx.metaSession.clear();
+            return consumed;
+        }
+
+        if (shortPress && metaSingle == Config.OverrideMode.AOSP) {
+            boolean consumed = consumeUp(param, zuiMeta, "AOSP short → launchAllAppsAction");
+            ctx.triggerAospAllApps(ctx.metaSession.displayId);
             ctx.metaSession.clear();
             return consumed;
         }
 
         if (shortPress && (metaSingle == Config.OverrideMode.FOLLOW_SYSTEM
-                || metaSingle == Config.OverrideMode.AOSP)) {
-            ctx.fnKeyManager.cancelWinLongPressTimer();
-            ctx.cancelZuiAssistantTimer();
-            ctx.metaSession.clear();
-            MetaTrace.decision("Router", "AOSP/FOLLOW_SYSTEM UP → pass to native AOSP/ZUI",
-                    "mode=", metaSingle.name(),
-                    "zuiMeta=", String.valueOf(zuiMeta));
-            return false;
-        }
-
-        if (shortPress && shouldOpenStartMenu(metaSingle)) {
-            consumed = consumeUp(param, zuiMeta, "short → Start Menu");
+                || shouldOpenStartMenu(metaSingle))) {
+            boolean consumed = consumeUp(param, zuiMeta, "short → Start Menu");
             dispatchStartMenu();
             ctx.metaSession.clear();
             return consumed;
         }
 
-        if (shortPress && !zuiMeta && ctx.fnKeyManager.isWinLongPressPending()) {
-            ctx.fnKeyManager.cancelWinLongPressTimer();
-        }
-        MetaTrace.decision("Router", "pass UP L0", "no branch matched");
+        boolean consumed = consumeUp(param, zuiMeta, "UP L0 → consume withheld Meta");
         ctx.metaSession.clear();
         return consumed;
     }
@@ -267,40 +290,23 @@ public class MetaKeyRouter {
         return true;
     }
 
-    /**
-     * 放行 / 映射模式（{@code metaSingle = 关闭 | 映射到…}）的 UP 决策。
-     * <p>
-     * 物理 DOWN 已在 L1 被扣押，所以这里必须消费物理 UP（否则应用会收到一个没有
-     * DOWN 的孤立 UP，修饰键状态就卡住了）。是否把 Win 交给前台应用取决于这一轮
-     * 到底是「单按」还是「组合键」：
-     * <ul>
-     *   <li>独立单击（未长按 / 未被 Fn 映射 / 期间没有别的键按下）→ 按模式决定：
-     *       <b>关闭</b>注入一对合成的 Meta DOWN/UP（等价于把 Win 单击放行给应用）；
-     *       <b>映射到…</b>改为注入配置好的按键 / 组合键（Win 单击被替换掉）；</li>
-     *   <li>Win+字母（{@link HookContext#noteWinComboDuringMetaSession} 已置
-     *       {@code winComboUsed}）/ 长按已触发 / Fn 映射过 → 应用完全看不到 Win，
-     *       组合键对应用保持原子（否则远端桌面会把 Win 当独立按键 → 弹开始菜单）。</li>
-     * </ul>
-     */
-    private boolean consumePassthroughUp(HookCompat.HookParam param, KeyEvent event) {
+    private boolean finishPassthroughUp(HookCompat.HookParam param, KeyEvent event,
+                                        boolean emittedPassthrough) {
         boolean standalone = ctx.metaSession.active
                 && ctx.metaSession.isShortPress()
                 && !ctx.metaSession.longFired
                 && !ctx.metaSession.fnMapped
-                && !ctx.metaSession.winComboUsed;
+                && !ctx.metaSession.winComboUsed
+                && !emittedPassthrough;
         ctx.fnKeyManager.cancelWinLongPressTimer();
         ctx.cancelZuiAssistantTimer();
-        if (ctx.releaseMappedMetaOutput(standalone)) {
-            // PowerToys semantics: the mapped target remains held for the
-            // complete physical Meta press, including long presses and combos.
-        } else if (standalone) {
-            if (!ctx.isMetaMapped()) {
-                MetaTrace.decision("Router", "passthrough UP → inject Meta tap",
-                        " kc=", String.valueOf(event.getKeyCode()));
-                KeyInjector.injectMetaTap(event);
-            }
+        if (standalone) {
+            MetaTrace.decision("Router", "passthrough UP → inject Meta tap",
+                    " kc=", String.valueOf(event.getKeyCode()));
+            KeyInjector.injectMetaTap(event);
         } else {
-            MetaTrace.decision("Router", "passthrough UP → swallow Win",
+            MetaTrace.decision("Router", "passthrough UP → finish",
+                    " emitted=", String.valueOf(emittedPassthrough),
                     " combo=", String.valueOf(ctx.metaSession.winComboUsed),
                     " long=", String.valueOf(ctx.metaSession.longFired),
                     " fn=", String.valueOf(ctx.metaSession.fnMapped));
@@ -369,8 +375,7 @@ public class MetaKeyRouter {
             return;
         }
         Config.OverrideMode mode = getWinLongOverride();
-        if (mode == Config.OverrideMode.ZUI
-                || (ctx.isMetaIntercepted() && mode == Config.OverrideMode.FOLLOW_SYSTEM)) {
+        if (mode == Config.OverrideMode.ZUI || mode == Config.OverrideMode.FOLLOW_SYSTEM) {
             MetaTrace.decision("Router", "module long → voice");
             PassthroughTrace.noteMsg("Router", "voice timer fired → launchVoiceAssistant");
             LogHelper.log(VerboseLevel.INFO, "MetaRouter: module long → voice (2s fired)");
@@ -459,10 +464,7 @@ public class MetaKeyRouter {
     private boolean isWinLongTimerEnabled() {
         if (isWinLongUseCommand()) return true;
         Config.OverrideMode mode = getWinLongOverride();
-        if (mode == Config.OverrideMode.ZUI) return true;
-        // 放行 / 映射模式绕过了 ZUI 自己针对 Meta 的长按处理，「保持默认」必须由模块
-        // 复刻系统默认行为（长按 → 语音助手），否则语音助手会整个消失。
-        return ctx.isMetaIntercepted() && mode == Config.OverrideMode.FOLLOW_SYSTEM;
+        return mode == Config.OverrideMode.ZUI || mode == Config.OverrideMode.FOLLOW_SYSTEM;
     }
 
     private boolean isImeWinActive() {

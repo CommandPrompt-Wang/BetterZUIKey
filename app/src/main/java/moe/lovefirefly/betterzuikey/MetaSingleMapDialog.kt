@@ -56,6 +56,9 @@ object MetaSingleMapDialog {
      */
     /** 录制结果的写入目标：全局卡片，或模板里的一张卡。 */
     interface Store {
+        val allowMeta: Boolean get() = false
+        val defaultDistinguishSide: Boolean get() = true
+
         fun load(): MetaKeyMap
         fun save(map: MetaKeyMap)
 
@@ -123,22 +126,44 @@ object MetaSingleMapDialog {
     ) {
         val view = LayoutInflater.from(context).inflate(R.layout.dialog_meta_single_map, null)
         val field = view.findViewById<TextView>(R.id.tv_meta_map_capture)
+        val swDistinguishSide = view.findViewById<com.google.android.material.materialswitch.MaterialSwitch>(
+            R.id.sw_meta_map_distinguish_side)
+        val labelDistinguishSide = view.findViewById<TextView>(R.id.tv_meta_map_distinguish_side)
         val btnClear = view.findViewById<MaterialButton>(R.id.btn_meta_map_clear)
         val btnCancel = view.findViewById<MaterialButton>(R.id.btn_meta_map_cancel)
         val btnSave = view.findViewById<MaterialButton>(R.id.btn_meta_map_save)
 
-        var captured = store.load()
+        var rawCaptured = store.load()
+        var captured = rawCaptured
         var saved = false
+
+        val initialDistinguishSide = if (rawCaptured.isSet && rawCaptured.hasModifier) {
+            rawCaptured.hasSpecificSide()
+        } else {
+            store.defaultDistinguishSide
+        }
+        swDistinguishSide.isChecked = initialDistinguishSide
+        if (!initialDistinguishSide) {
+            captured = rawCaptured.withoutSideDistinction()
+        }
 
         val dialog = MaterialAlertDialogBuilder(context)
             .setView(view)
             .create()
 
         fun refresh() {
+            captured = if (swDistinguishSide.isChecked) {
+                rawCaptured
+            } else {
+                rawCaptured.withoutSideDistinction()
+            }
             field.text = if (captured.isSet) captured.displayName()
             else context.getString(R.string.dialog_meta_single_map_waiting)
         }
         refresh()
+
+        labelDistinguishSide.setOnClickListener { swDistinguishSide.toggle() }
+        swDistinguishSide.setOnCheckedChangeListener { _, _ -> refresh() }
 
         val handler = Handler(Looper.getMainLooper())
         val longPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
@@ -160,7 +185,7 @@ object MetaSingleMapDialog {
         }
 
         fun record(keyCode: Int, metaState: Int, scanCode: Int) {
-            captured = MetaKeyMap.of(keyCode, metaState, scanCode)
+            rawCaptured = MetaKeyMap.of(keyCode, metaState, scanCode, store.allowMeta)
             refresh()
         }
 
@@ -183,7 +208,7 @@ object MetaSingleMapDialog {
                             if (keyCode == KeyEvent.KEYCODE_ESCAPE) {
                                 dialog.dismiss()             // 长按 Esc = 取消
                             } else {
-                                captured = MetaKeyMap.UNSET  // 长按退格 = 清除（留在窗内）
+                                rawCaptured = MetaKeyMap.UNSET  // 长按退格 = 清除（留在窗内）
                                 refresh()
                             }
                         }
@@ -244,7 +269,7 @@ object MetaSingleMapDialog {
         }
 
         btnClear.setOnClickListener {
-            captured = MetaKeyMap.UNSET
+            rawCaptured = MetaKeyMap.UNSET
             refresh()
         }
         btnCancel.setOnClickListener { dialog.dismiss() }

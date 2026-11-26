@@ -174,6 +174,88 @@ public final class KeyInjector {
         }
     }
 
+    private static volatile java.lang.reflect.Method sGetIdMethod;
+    private static volatile boolean sGetIdLookupDone;
+    private static volatile java.lang.reflect.Method sGetDisplayIdMethod;
+    private static volatile boolean sGetDisplayIdLookupDone;
+    private static volatile java.lang.reflect.Method sSetDisplayIdMethod;
+    private static volatile boolean sSetDisplayIdLookupDone;
+
+    public static int getEventId(KeyEvent ev) {
+        if (ev == null) return 0;
+        try {
+            if (!sGetIdLookupDone) {
+                sGetIdLookupDone = true;
+                sGetIdMethod = InputEvent.class.getMethod("getId");
+            }
+            if (sGetIdMethod != null) {
+                Object id = sGetIdMethod.invoke(ev);
+                if (id instanceof Integer) return (Integer) id;
+            }
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.DEBUG, "getEventId failed:", t.getMessage());
+        }
+        return 0;
+    }
+
+    public static int getDisplayId(KeyEvent ev) {
+        if (ev == null) return 0;
+        try {
+            if (!sGetDisplayIdLookupDone) {
+                sGetDisplayIdLookupDone = true;
+                sGetDisplayIdMethod = InputEvent.class.getMethod("getDisplayId");
+            }
+            if (sGetDisplayIdMethod != null) {
+                Object id = sGetDisplayIdMethod.invoke(ev);
+                if (id instanceof Integer) return Math.max(0, (Integer) id);
+            }
+        } catch (Throwable ignored) {
+        }
+        return 0;
+    }
+
+    public static KeyEvent createReplayKeyEvent(KeyEvent src, boolean stripMeta) {
+        if (src == null) return null;
+        long now = android.os.SystemClock.uptimeMillis();
+        int metaState = src.getMetaState();
+        if (stripMeta) {
+            metaState &= ~KeyEvent.META_META_MASK;
+        }
+        KeyEvent ev = new KeyEvent(now, now, src.getAction(), src.getKeyCode(),
+                src.getRepeatCount(), metaState, src.getDeviceId(),
+                src.getScanCode(), src.getFlags());
+        try {
+            ev.setSource(InputDevice.SOURCE_KEYBOARD);
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.DEBUG, "setSource failed:", t.getMessage());
+        }
+        int displayId = getDisplayId(src);
+        try {
+            if (!sSetDisplayIdLookupDone) {
+                sSetDisplayIdLookupDone = true;
+                sSetDisplayIdMethod = InputEvent.class.getMethod("setDisplayId", int.class);
+            }
+            if (sSetDisplayIdMethod != null) {
+                sSetDisplayIdMethod.invoke(ev, displayId);
+            }
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.DEBUG, "setDisplayId failed:", t.getMessage());
+        }
+        return ev;
+    }
+
+    public static void injectBuiltEvent(KeyEvent ev) {
+        if (ev == null) return;
+        try {
+            Object im = HookCompat.callStaticMethod(
+                    android.hardware.input.InputManager.class, "getInstance");
+            HookCompat.callMethod(im, "injectInputEvent", (InputEvent) ev, 0);
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.ERROR, "injectBuiltEvent failed (keyCode=",
+                    String.valueOf(ev.getKeyCode()), "):", t.getMessage());
+        }
+    }
+
     /** Inject a key DOWN event with explicit scanCode (for ZUI custom keys). */
     public static void injectKeyDown(int keyCode, int metaState, int deviceId, int scanCode) {
         if (keyCode <= 0) return;

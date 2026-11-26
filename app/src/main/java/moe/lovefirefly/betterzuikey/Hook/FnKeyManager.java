@@ -188,6 +188,25 @@ public class FnKeyManager {
         return false;
     }
 
+    private volatile int mPendingFnLockUpKeyCode = 0;
+
+    public boolean isFnLockShortcutMatch(KeyEvent event) {
+        if (event == null) return false;
+        return isFnLockShortcutMatch(event.getKeyCode(), event.getMetaState(), event.getRepeatCount());
+    }
+
+    public boolean isFnLockShortcutMatch(int keyCode, int metaState, int repeatCount) {
+        if (cfg == null || !cfg.fnMasterEnabled) return false;
+        moe.lovefirefly.betterzuikey.MetaKeyMap shortcut =
+                moe.lovefirefly.betterzuikey.MetaKeyMap.parse(cfg.fnLockShortcut);
+        return shortcut.isSet() && shortcut.matches(keyCode, metaState, repeatCount);
+    }
+
+    public boolean isEffectiveFnLockEnabled() {
+        return cfg != null && cfg.fnMasterEnabled && cfg.fnKeyEnabled
+                && moe.lovefirefly.betterzuikey.MetaKeyMap.parse(cfg.fnLockShortcut).isSet();
+    }
+
     // ----------------------------------------------------------------
     //  L0 post-shortcut Fn section (FnLock, Meta UP, Fn mapping, UP injection)
     //  Called AFTER all shortcut checks in L0.
@@ -206,18 +225,27 @@ public class FnKeyManager {
         // Master gate: Fn entirely disabled via FnSettings
         if (!cfg.fnMasterEnabled) return false;
 
-        // -- Win+` → FnLock toggle (pure Win+` only, no Alt/Shift/Ctrl) --
-        if (keyCode == KeyEvent.KEYCODE_GRAVE
-                && KeyInjector.modifiersMatch(event, true, false, false, false) && repeatCount == 0) {
-            param.setResult(true);
-            if (down) {
-                mConsumeNextMetaUp = true;
-                cfg.fnKeyEnabled = !cfg.fnKeyEnabled;
-                configIPC.pushUpdate(cfg);
-                LogHelper.log(VerboseLevel.INFO, "L0: FnLock toggled -> ",
-                        cfg.fnKeyEnabled ? "ON" : "OFF");
-                showToast("Fn " + (cfg.fnKeyEnabled ? "ON" : "OFF"));
+        if (mPendingFnLockUpKeyCode == keyCode) {
+            if (!down) {
+                mPendingFnLockUpKeyCode = 0;
             }
+            param.setResult(true);
+            return true;
+        }
+
+        // -- Configurable FnLock toggle (default: Win+`) --
+        if (down && repeatCount == 0 && isFnLockShortcutMatch(event)) {
+            param.setResult(true);
+            mPendingFnLockUpKeyCode = keyCode;
+            mConsumeNextMetaUp = true;
+            if (mHookCtx != null && mHookCtx.metaSession.active) {
+                mHookCtx.metaSession.fnMapped = true;
+            }
+            cfg.fnKeyEnabled = !cfg.fnKeyEnabled;
+            configIPC.pushUpdate(cfg);
+            LogHelper.log(VerboseLevel.INFO, "L0: FnLock toggled -> ",
+                    cfg.fnKeyEnabled ? "ON" : "OFF");
+            showToast("Fn " + (cfg.fnKeyEnabled ? "ON" : "OFF"));
             return true;
         }
 
@@ -275,8 +303,9 @@ public class FnKeyManager {
         // Fn trigger: Win pressed (Meta) qualifies, regardless of Alt/Shift/Ctrl.
         // This allows Win+Alt+FnKey → Alt+F-key combos to work correctly.
         boolean winPressed = event.isMetaPressed();
+        boolean fnLock = isEffectiveFnLockEnabled();
         // XOR: FnLock ON + Win reverses; FnLock OFF + Win activates
-        boolean fnActive = cfg.fnKeyEnabled ^ winPressed;
+        boolean fnActive = fnLock ^ winPressed;
         int fKey = getFnTarget(event);
 
         // Preserve modifiers other than Meta/Win
@@ -310,7 +339,7 @@ public class FnKeyManager {
         // Only when FnLock is actively suppressing a held Win. Default state
         // (FnLock OFF, no Win) must pass through natively — otherwise the
         // re-injected event loses scanCode and ZUI custom keys break.
-        if (cfg.fnKeyEnabled && winPressed && fKey != 0) {
+        if (fnLock && winPressed && fKey != 0) {
             LogHelper.log(VerboseLevel.INFO, "L0: restore original",
                 " key=", keyCodeToString(keyCode),
                 " normally=", "F" + (fKey - 130),
@@ -325,7 +354,7 @@ public class FnKeyManager {
 
         // Map to F-key (FnLock ON no Win, or FnLock OFF + Win)
         if (fnActive && fKey != 0) {
-            String fLabel = "F" + (fKey - 130);
+            String fLabel = formatFnToast(fKey, passMeta);
             LogHelper.log(VerboseLevel.INFO, "L0: Fn",
                     cfg.fnKeyEnabled ? "(F" + (winPressed ? "->orig)" : ")")
                                      : "(Win->F" + ")",
@@ -350,6 +379,13 @@ public class FnKeyManager {
         }
 
         return false;
+    }
+
+    static String formatFnToast(int fKey, int passMeta) {
+        String formatted = moe.lovefirefly.betterzuikey.MetaKeyMap
+                .of(fKey, passMeta, 0, false, false)
+                .displayName();
+        return formatted.isEmpty() ? ("F" + (fKey - 130)) : formatted;
     }
 
     // ----------------------------------------------------------------

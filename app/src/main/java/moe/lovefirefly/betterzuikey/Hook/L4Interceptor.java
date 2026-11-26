@@ -141,6 +141,11 @@ public class L4Interceptor  {
                         if (MetaTrace.isTraceOnly()) {
                             break;
                         }
+                        if (HookContext.isMetaKeyGestureEvent(kgEvent)) {
+                            MetaTrace.decision("L4", "BLOCK system Meta type=21", override.name());
+                            param.setResult(-1);
+                            return;
+                        }
                         if (override == Config.OverrideMode.BLOCK
                                 || override == Config.OverrideMode.OFF) {
                             MetaTrace.decision("L4", "BLOCK type=21", override.name());

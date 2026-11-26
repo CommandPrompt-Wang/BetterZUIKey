@@ -78,6 +78,50 @@ class FnSettingsActivity : AppCompatActivity() {
         // 点整行切换开关 / 展开下拉
         binding.rowFnEnabled.setOnClickListener { binding.swEnabled.toggle() }
         binding.rowFnToast.setOnClickListener { binding.swFnToast.toggle() }
+
+        fun refreshFnLockShortcut() {
+            Config.normalizeFnLock(cfg)
+            val parsed = MetaKeyMap.parse(cfg.fnLockShortcut)
+            binding.tvFnLockShortcutValue.text = if (parsed.isSet) {
+                parsed.displayName()
+            } else {
+                getString(R.string.fn_lock_shortcut_disabled)
+            }
+            binding.btnResetFnLock.visibility =
+                if (cfg.fnLockShortcut != Config.DEFAULT_FN_LOCK_SHORTCUT) View.VISIBLE else View.GONE
+        }
+        refreshFnLockShortcut()
+
+        val fnLockStore = object : MetaSingleMapDialog.Store {
+            override val allowMeta: Boolean = true
+            override val defaultDistinguishSide: Boolean = false
+            override fun load(): MetaKeyMap = MetaKeyMap.parse(cfg.fnLockShortcut)
+            override fun save(map: MetaKeyMap) {
+                cfg.fnLockShortcut = map.serialize()
+                Config.normalizeFnLock(cfg)
+                cfg.save()
+                Config.syncToSharedPrefs(this@FnSettingsActivity, cfg)
+            }
+            override fun clear() {
+                cfg.fnLockShortcut = ""
+                cfg.fnKeyEnabled = false
+                cfg.save()
+                Config.syncToSharedPrefs(this@FnSettingsActivity, cfg)
+            }
+        }
+        binding.rowFnLockShortcut.setOnClickListener {
+            MetaSingleMapDialog.show(
+                this,
+                fnLockStore,
+                onChanged = { refreshFnLockShortcut() },
+            )
+        }
+        binding.btnResetFnLock.setOnClickListener {
+            cfg.fnLockShortcut = Config.DEFAULT_FN_LOCK_SHORTCUT
+            cfg.save()
+            Config.syncToSharedPrefs(this@FnSettingsActivity, cfg)
+            refreshFnLockShortcut()
+        }
         binding.rowProfile.setOnClickListener {
             if (spinnerOpen) {
                 spinnerOpen = false

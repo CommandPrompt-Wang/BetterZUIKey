@@ -115,8 +115,11 @@ A tap on `Esc` / `Backspace` records that key; long-press them to cancel / clear
 | What you actually did | Foreground app receives | System |
 |-----------------------|-------------------------|--------|
 | Quick tap on Win | The configured key / combo (Win is **replaced**) | Dock does not open |
-| Win + letter (e.g. `Win+E`) | Only the letter, **no** Win | ZUI shortcut handled as usual |
-| Long-press Win | Nothing | Per the "Win long-press" table above |
+| Enabled Win shortcut (e.g. `Win+E`) | Depends on shortcut configuration | Shortcut takes priority over the mapping |
+| Unhandled Win + key | The mapped target and the key | No corresponding shortcut |
+| Long-press Win | Active mapped target held until release | Per the "Win long-press" table above |
+
+If the mapped target has already been emitted, it is released before a priority shortcut; earlier key events cannot be undone.
 
 For example, set it to `Esc` to make a Win tap act as `Esc`, or `Ctrl+C` to make it a copy shortcut. The mapped modifiers are injected as **real key events** in sequence, so continuous operations that require holding Ctrl (Ctrl+drag in a remote desktop) still work.
 
@@ -191,10 +194,10 @@ Simulate Fn key functionality via software, mapping top-row keys to F1~F12.
 #### Trigger Modes:
 
 **🔒 FnLock Mode**
-- Press `` Win + ` `` (backtick above Tab) to toggle Fn lock
+- Press the FnLock toggle shortcut (default `` Win + ` ``, customizable or disableable in Virtual Fn settings) to toggle Fn lock
 - When locked, single-press top-row keys output F1~F12
-- `` Win + ` `` is fully intercepted
-- Press again to unlock
+- The toggle shortcut is fully intercepted without leaking `Win` to apps
+- Press again to unlock; disabling the toggle shortcut automatically resets FnLock to OFF
 
 **⌨️ Temporary Fn Mode**
 - When FnLock is OFF, hold `Win` + top-row key for temporary F1~F12

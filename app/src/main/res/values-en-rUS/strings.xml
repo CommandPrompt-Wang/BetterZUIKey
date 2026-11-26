@@ -93,6 +93,9 @@
     <string name="fn_title">Virtual Fn</string>
     <string name="fn_enabled">Enable</string>
     <string name="fn_toast_debug">Show Toast on key mapping (debug)</string>
+    <string name="fn_lock_shortcut_label">FnLock toggle shortcut</string>
+    <string name="fn_lock_shortcut_disabled">Disabled (FnLock reset to OFF)</string>
+    <string name="fn_lock_shortcut_reset">Reset</string>
     <string name="fn_profile_label">Profile</string>
     <string name="fn_import_profile">Import Profile</string>
     <string name="fn_create_profile">Create Profile</string>
@@ -295,6 +298,7 @@
     <string name="dialog_meta_single_map_clear">Clear</string>
     <string name="dialog_meta_single_map_save">OK</string>
     <string name="dialog_meta_single_map_cancel">Cancel</string>
+    <string name="dialog_meta_single_map_distinguish_side">Distinguish left/right</string>
     <string name="dialog_meta_single_map_help">Press the shortcut. Single keys and combos are supported.</string>
 
     <!-- Ctrl+Enter custom mode labels -->

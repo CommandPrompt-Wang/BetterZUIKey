@@ -92,30 +92,67 @@ data class MetaKeyMap(
      * “re-injected event loses scanCode → ZUI custom keys break”。
      */
     val scanCode: Int = 0,
+    val meta: KeySide = KeySide.NONE,
 ) {
     /** keyCode == 0 表示「未设置」。 */
     val isSet: Boolean get() = keyCode > 0
 
-    val hasModifier: Boolean get() = shift.isOn || ctrl.isOn || alt.isOn
+    val hasModifier: Boolean get() = shift.isOn || ctrl.isOn || alt.isOn || meta.isOn
 
-    /** 序列化成 Config.metaSingleMap。 */
+    /** 序列化成 Config.metaSingleMap / Config.fnLockShortcut。 */
     fun serialize(): String = if (!isSet) "" else buildString {
         append(keyCode)
         append(':').append(shift.token)
         append(':').append(ctrl.token)
         append(':').append(alt.token)
         append(':').append(scanCode)
+        if (meta.isOn) append(':').append(meta.token)
     }
 
     /** 人类可读，如 `Ctrl(L)+Shift(R)+A`、`PageDown`。 */
     fun displayName(): String {
         if (!isSet) return ""
         return buildString {
+            if (meta.isOn) append(modifierName("Win", meta))
             if (ctrl.isOn) append(modifierName("Ctrl", ctrl))
             if (shift.isOn) append(modifierName("Shift", shift))
             if (alt.isOn) append(modifierName("Alt", alt))
             append(keyName(keyCode))
         }
+    }
+
+    fun hasSpecificSide(): Boolean =
+        meta == KeySide.LEFT || meta == KeySide.RIGHT || meta == KeySide.BOTH
+            || ctrl == KeySide.LEFT || ctrl == KeySide.RIGHT || ctrl == KeySide.BOTH
+            || shift == KeySide.LEFT || shift == KeySide.RIGHT || shift == KeySide.BOTH
+            || alt == KeySide.LEFT || alt == KeySide.RIGHT || alt == KeySide.BOTH
+
+    fun withoutSideDistinction(): MetaKeyMap {
+        if (!isSet) return UNSET
+        return copy(
+            shift = if (shift.isOn) KeySide.ANY else KeySide.NONE,
+            ctrl = if (ctrl.isOn) KeySide.ANY else KeySide.NONE,
+            alt = if (alt.isOn) KeySide.ANY else KeySide.NONE,
+            meta = if (meta.isOn) KeySide.ANY else KeySide.NONE,
+        )
+    }
+
+    fun matches(event: KeyEvent?): Boolean {
+        if (event == null) return false
+        return matches(event.keyCode, event.metaState, event.repeatCount)
+    }
+
+    @JvmOverloads
+    fun matches(keyCode: Int, metaState: Int, repeatCount: Int = 0): Boolean {
+        if (!isSet || repeatCount != 0 || this.keyCode != keyCode) return false
+        return matchesSide(meta, metaState, KeyEvent.META_META_ON,
+                KeyEvent.META_META_LEFT_ON, KeyEvent.META_META_RIGHT_ON)
+            && matchesSide(shift, metaState, KeyEvent.META_SHIFT_ON,
+                KeyEvent.META_SHIFT_LEFT_ON, KeyEvent.META_SHIFT_RIGHT_ON)
+            && matchesSide(ctrl, metaState, KeyEvent.META_CTRL_ON,
+                KeyEvent.META_CTRL_LEFT_ON, KeyEvent.META_CTRL_RIGHT_ON)
+            && matchesSide(alt, metaState, KeyEvent.META_ALT_ON,
+                KeyEvent.META_ALT_LEFT_ON, KeyEvent.META_ALT_RIGHT_ON)
     }
 
     /**
@@ -154,6 +191,22 @@ data class MetaKeyMap(
 
     companion object {
         val UNSET = MetaKeyMap(0)
+        @JvmField
+        val DEFAULT_FN_LOCK_SHORTCUT = MetaKeyMap(KeyEvent.KEYCODE_GRAVE, meta = KeySide.ANY)
+
+        private fun matchesSide(
+            side: KeySide,
+            metaState: Int,
+            onBit: Int,
+            leftBit: Int,
+            rightBit: Int,
+        ): Boolean = when (side) {
+            KeySide.NONE -> (metaState and onBit) == 0
+            KeySide.ANY -> (metaState and onBit) != 0
+            KeySide.LEFT -> (metaState and leftBit) != 0 && (metaState and rightBit) == 0
+            KeySide.RIGHT -> (metaState and rightBit) != 0 && (metaState and leftBit) == 0
+            KeySide.BOTH -> (metaState and leftBit) != 0 && (metaState and rightBit) != 0
+        }
 
         private fun appendModifier(
             out: MutableList<Pair<Int, Int>>,
@@ -182,15 +235,23 @@ data class MetaKeyMap(
          * 它自己现在是主键，不再是修饰键。
          */
         @JvmStatic
-        fun of(keyCode: Int, metaState: Int, scanCode: Int = 0): MetaKeyMap {
+        @JvmOverloads
+        fun of(
+            keyCode: Int,
+            metaState: Int,
+            scanCode: Int = 0,
+            allowMeta: Boolean = false,
+            distinguishSide: Boolean = true,
+        ): MetaKeyMap {
             val selfBits = when (keyCode) {
                 KeyEvent.KEYCODE_CTRL_LEFT, KeyEvent.KEYCODE_CTRL_RIGHT -> KeyEvent.META_CTRL_MASK
                 KeyEvent.KEYCODE_SHIFT_LEFT, KeyEvent.KEYCODE_SHIFT_RIGHT -> KeyEvent.META_SHIFT_MASK
                 KeyEvent.KEYCODE_ALT_LEFT, KeyEvent.KEYCODE_ALT_RIGHT -> KeyEvent.META_ALT_MASK
+                KeyEvent.KEYCODE_META_LEFT, KeyEvent.KEYCODE_META_RIGHT -> KeyEvent.META_META_MASK
                 else -> 0
             }
             val meta = metaState and selfBits.inv()
-            return MetaKeyMap(
+            val mapped = MetaKeyMap(
                 keyCode = keyCode,
                 shift = KeySide.of(meta, KeyEvent.META_SHIFT_ON,
                     KeyEvent.META_SHIFT_LEFT_ON, KeyEvent.META_SHIFT_RIGHT_ON),
@@ -199,7 +260,10 @@ data class MetaKeyMap(
                 alt = KeySide.of(meta, KeyEvent.META_ALT_ON,
                     KeyEvent.META_ALT_LEFT_ON, KeyEvent.META_ALT_RIGHT_ON),
                 scanCode = scanCode.coerceAtLeast(0),
+                meta = if (allowMeta) KeySide.of(meta, KeyEvent.META_META_ON,
+                    KeyEvent.META_META_LEFT_ON, KeyEvent.META_META_RIGHT_ON) else KeySide.NONE,
             )
+            return if (distinguishSide) mapped else mapped.withoutSideDistinction()
         }
 
         /** 解析 `serialize()` 的产物；任何异常/残缺一律回落到「未设置」。 */
@@ -218,6 +282,7 @@ data class MetaKeyMap(
                     alt = if (f.size > 3) KeySide.parse(f[3]) else KeySide.NONE,
                     // 第 5 段是 scanCode；老格式只有 4 段，缺省 0
                     scanCode = if (f.size > 4) f[4].trim().toIntOrNull() ?: 0 else 0,
+                    meta = if (f.size > 5) KeySide.parse(f[5]) else KeySide.NONE,
                 )
             } catch (t: Throwable) {
                 UNSET
@@ -279,6 +344,9 @@ data class MetaKeyMap(
             }
             if (keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9) {
                 return (keyCode - KeyEvent.KEYCODE_0).toString()
+            }
+            if (keyCode in KeyEvent.KEYCODE_F1..KeyEvent.KEYCODE_F12) {
+                return "F${keyCode - KeyEvent.KEYCODE_F1 + 1}"
             }
             return try {
                 var n = KeyEvent.keyCodeToString(keyCode)

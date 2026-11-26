@@ -334,8 +334,13 @@ public class Config {
 
     /** 虚拟 Fn 功能总开关（默认开启；FnSettings “启用”控制） */
     public boolean fnMasterEnabled = true;
-    /** FnLock 状态（Win+` 切换；false=需Win激活，true=F键优先） */
+    /** FnLock 状态（由 {@link #fnLockShortcut} 切换；false=需Win激活，true=F键优先） */
     public boolean fnKeyEnabled = false;
+    /** 默认 FnLock 切换快捷键（Meta + `） */
+    public static final String DEFAULT_FN_LOCK_SHORTCUT =
+            MetaKeyMap.DEFAULT_FN_LOCK_SHORTCUT.serialize();
+    /** FnLock 切换快捷键（序列化格式同 MetaKeyMap，空串表示禁用并复位 fnKeyEnabled） */
+    public String fnLockShortcut = DEFAULT_FN_LOCK_SHORTCUT;
     /** 当前使用的键profile key（如 "17ef:6271"），自动检测*/
     public String fnProfileKey = "";
     /** 用户导入的自定义键盘配置 */
@@ -591,6 +596,7 @@ public class Config {
         migrateAppKeyModes(cfg);
         migrateWinLongPressConfig(cfg);
         migrateMetaSingleMap(cfg);
+        normalizeFnLock(cfg);
 
         // State sync is handled at boot by system_server (MainHook).
         // App process does NOT read Settings.System — see ipc-contentprovider.md.
@@ -667,6 +673,26 @@ public class Config {
             LogHelper.log(LogHelper.VerboseLevel.INFO,
                     "Config: migrated winLongPress → override + command flag");
             cfg.save();
+        }
+    }
+
+    /**
+     * 规范化 FnLock 快捷键与开关状态：
+     * <ul>
+     *   <li>旧版配置缺失字段（{@code null}）→ 回退默认 {@link #DEFAULT_FN_LOCK_SHORTCUT}（Win+`）；</li>
+     *   <li>用户显式清空/禁用（{@code ""} 或无效目标）→ 保持禁用并复位 {@code fnKeyEnabled = false}，
+     *       避免关闭切换快捷键后 FnLock 卡死无法切回。</li>
+     * </ul>
+     */
+    public static void normalizeFnLock(Config cfg) {
+        if (cfg == null) return;
+        if (cfg.fnLockShortcut == null) {
+            cfg.fnLockShortcut = DEFAULT_FN_LOCK_SHORTCUT;
+            return;
+        }
+        if (!MetaKeyMap.parse(cfg.fnLockShortcut).isSet()) {
+            cfg.fnLockShortcut = "";
+            cfg.fnKeyEnabled = false;
         }
     }
 
@@ -886,6 +912,7 @@ public class Config {
         // 十一、虚Fn 键
         fnMasterEnabled = true;
         fnKeyEnabled = false;
+        fnLockShortcut = DEFAULT_FN_LOCK_SHORTCUT;
         fnProfileKey = "";
         fnCustomProfiles = new java.util.LinkedHashMap<>();
         fnToastEnabled = true;

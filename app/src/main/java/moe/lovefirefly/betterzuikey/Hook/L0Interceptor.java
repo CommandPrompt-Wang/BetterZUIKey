@@ -65,6 +65,12 @@ public class L0Interceptor  {
         // 模块自己为「映射到…」注入的组合键：整体放行，避免二次消费
         if (ctx.isRemapInjecting(event)) return;
 
+        // 放行模式重放的 Meta / 伴随键：按精确事件 ID 放行，跳过 ZUI L0 与状态机
+        if (ctx.isPassthroughReplayEvent(event)) {
+            param.setResult(false);
+            return;
+        }
+
         // Win 按住期间的 Ctrl/Shift/Alt 必须先走会话扣押逻辑：
         // DOWN 不得落到映射分支；已替按下去的 UP 必须原样放行，不能再被映射分支吞掉。
         if (ctx.isModifierKeyCode(event.getKeyCode())) {
@@ -118,6 +124,11 @@ public class L0Interceptor  {
         if (ctx.cfg == null || !ctx.cfg.zuxKeyboardFuncEnabled)
             return;
 
+        if (!MetaTrace.isTraceOnly() && ctx.handleMetaPassthroughCompanion(event)) {
+            param.setResult(true);
+            return;
+        }
+
         // 返回 true = 这个 Win+键 模块没有特殊处理，已并进映射和弦并消费掉
         if (ctx.noteWinComboDuringMetaSession(event)) {
             param.setResult(true);
@@ -131,7 +142,6 @@ public class L0Interceptor  {
         // Meta key — DOWN at L1; UP at L0 only (never reaches beforeDispatching)
         if (keyCode == KeyEvent.KEYCODE_META_LEFT
                 || keyCode == KeyEvent.KEYCODE_META_RIGHT) {
-            // 放行模式（metaSingle == OFF）注入的合成 Meta 点击：原样放行，不参与扣押
             if (ctx.isSyntheticMetaTap(event)) {
                 param.setResult(false);
                 return;
@@ -140,49 +150,36 @@ public class L0Interceptor  {
             int scanCode = event.getScanCode();
             boolean physical = scanCode != 0;
 
-            // 放行模式（metaSingle == OFF）：跳过 ZUI 对 Meta 的一切处理（含 ROW 键盘
-            // scanCode=787345 时的切语言注入）。但**保留模块自己的记账**，否则
-            // 「Meta 按住 + 又来一个新键 = 组合键」就无从判定：
-            //   DOWN → 开 session（DOWN 由 L1 扣押，应用看不到）
-            //   UP   → routeUpL0 决策：仅当这轮是独立单击时，才注入一对合成的
-            //          Meta DOWN/UP 放行给前台应用；组合键 / 长按 → 应用完全看不到 Win
-            if (ctx.isMetaIntercepted()) {
+            if (MetaTrace.isTraceOnly()) {
                 if (down && repeatCount == 0 && physical) {
                     ctx.metaStartMenuDispatched = false;
                     ctx.metaSuppressStartMenu = false;
                     if (ctx.beginMetaSession(event)) {
-                        MetaTrace.session("L0", "begin (passthrough)", ctx);
+                        MetaTrace.session("L0", "begin (trace-only)", ctx);
                     }
                 } else if (!down && repeatCount == 0 && physical) {
-                    if (new MetaKeyRouter(ctx).routeUpL0(event, param)) {
-                        MetaTrace.hookResult("L0", true);
-                        return;
-                    }
+                    new MetaKeyRouter(ctx).routeUpL0(event, param);
                 }
-                param.setResult(false);   // 重复 DOWN / 无 scanCode：跳过 ZUI、不消费
                 return;
             }
 
-            if (down && repeatCount == 0 && scanCode != 0) {
+            if (down && repeatCount == 0 && physical) {
                 ctx.metaStartMenuDispatched = false;
                 ctx.metaSuppressStartMenu = false;
                 if (ctx.beginMetaSession(event)) {
                     MetaTrace.session("L0", "begin", ctx);
                 }
-            }
-            if (!down && repeatCount == 0 && scanCode != 0) {
+                if (ctx.isMetaPassthrough()) {
+                    ctx.onPassthroughMetaDown(event);
+                }
+            } else if (!down && repeatCount == 0 && physical) {
                 if (new MetaKeyRouter(ctx).routeUpL0(event, param)) {
                     MetaTrace.hookResult("L0", true);
                     return;
                 }
             }
-            if (!down && repeatCount == 0 && ctx.metaSession.active
-                    && ctx.metaSession.keyCode >= 0
-                    && keyCode != ctx.metaSession.keyCode) {
-                MetaTrace.decision("L0", "pass UP (other Meta side)",
-                        "event kc=", String.valueOf(keyCode),
-                        " sess kc=", String.valueOf(ctx.metaSession.keyCode));
-            }
+            param.setResult(false);
+            return;
         }
 
         // Win+Tab — Recents (ZUI L0: launchRecent("wintab"))

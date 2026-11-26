@@ -107,6 +107,11 @@ public class L3Interceptor  {
                         if (MetaTrace.isTraceOnly()) {
                             break;
                         }
+                        if (HookContext.isMetaKeyGestureEvent(kgEvent)) {
+                            MetaTrace.decision("L3", "BLOCK system Meta type=21", metaOverride.name());
+                            param.setResult(null);
+                            return;
+                        }
                         if (metaOverride == Config.OverrideMode.BLOCK
                                 || metaOverride == Config.OverrideMode.OFF) {
                             // BLOCK: 消费；OFF(放行): 不应再出现 type=21（KeyGestureController

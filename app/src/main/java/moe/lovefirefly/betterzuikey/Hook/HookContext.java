@@ -28,6 +28,8 @@ public class HookContext {
     public volatile ConfigResolver resolver;
     public volatile Object kscInstance;
     public volatile Object policyInstance;
+    public volatile Object kgcInstance;
+    public volatile Object pwmInstance;
 
     public boolean usesLegacyInputChain() {
         return PlatformHookProfile.forSdk(android.os.Build.VERSION.SDK_INT)
@@ -222,6 +224,9 @@ public class HookContext {
             }
             flushPendingExtras("new Meta DOWN");
         }
+        if ((!metaSession.active || metaSession.upHandled) && passthroughState.hasActiveOrCaptured()) {
+            releasePassthroughOnReset();
+        }
         return metaSession.begin(event);
     }
 
@@ -358,6 +363,9 @@ public class HookContext {
         this.foregroundTracker = foregroundTracker;
         this.configIPC = configIPC;
         fnKeyManager.setHookContext(this);
+        if (foregroundTracker != null) {
+            foregroundTracker.setOnPackageChanged(this::onForegroundPackageChanged);
+        }
     }
 
     // ----------------------------------------------------------------
@@ -451,18 +459,31 @@ public class HookContext {
 
     /**
      * Whether this is a Meta combination that must take precedence over the
-     * standalone Meta mapping: Fn top-row keys or the pure Win+` FnLock toggle.
+     * standalone Meta mapping.
      */
     public boolean isMetaMappingPriorityCombo(KeyEvent event) {
         if (event == null || event.getAction() != KeyEvent.ACTION_DOWN
                 || event.getRepeatCount() != 0 || !event.isMetaPressed()) {
             return false;
         }
-        if (event.getKeyCode() == KeyEvent.KEYCODE_GRAVE
-                && KeyInjector.modifiersMatch(event, true, false, false, false)) {
-            return true;
+        return (fnKeyManager != null
+                && (fnKeyManager.isFnLockShortcutMatch(event)
+                || fnKeyManager.getFnTarget(event) != 0))
+                || hasConfiguredMetaPriority(event.getKeyCode(), event.getMetaState());
+    }
+
+    boolean hasConfiguredMetaPriority(int keyCode, int metaState) {
+        if ((metaState & KeyEvent.META_META_MASK) == 0
+                || (metaState & (KeyEvent.META_CTRL_MASK | KeyEvent.META_SHIFT_MASK
+                | KeyEvent.META_ALT_MASK)) != 0) {
+            return false;
         }
-        return fnKeyManager.getFnTarget(event) != 0;
+        String id = ShortcutMeta.winComboKeyId(keyCode);
+        if (id == null) return false;
+        String effectiveId = keyCode == KeyEvent.KEYCODE_DPAD_DOWN ? "winDown" : id;
+        Config.SwitchState sw = r(effectiveId, ShortcutMeta.getSwitch(cfg, id));
+        Config.OverrideMode mode = ra(effectiveId, ShortcutMeta.getOverride(cfg, id));
+        return !ShortcutMeta.shouldMergeWinCombo(keyCode, sw, mode);
     }
 
     /** Start the PowerToys-style held output for a mapped standalone Meta key. */
@@ -588,6 +609,8 @@ public class HookContext {
         appKeySession.active = false;
         appKeySession.longFired = false;
         imeChord.reset();
+        releasePassthroughOnReset();
+        passthroughReplayIds.clear();
     }
 
     /** Cancel delayed work owned by this runtime generation before hot reload. */
@@ -630,6 +653,7 @@ public class HookContext {
         newCfg.injected = cfg.injected;
         newCfg.injectError = cfg.injectError;
         cfg = newCfg;
+        Config.normalizeFnLock(cfg);
         MainHook.globalEnabled = cfg.zuxKeyboardFuncEnabled;
         LogHelper.currentLevel = cfg.verboseLevel;
         resolver = new ConfigResolver(cfg);
@@ -645,6 +669,10 @@ public class HookContext {
         }
         // Notify static Config holders so they don't operate on stale references
         moe.lovefirefly.betterzuikey.Region.FeatureHook.updateConfig(cfg);
+        if ((!cfg.zuxKeyboardFuncEnabled || !isMetaPassthrough())
+                && passthroughState.hasActiveOrCaptured()) {
+            releasePassthroughOnReset();
+        }
         LogHelper.log(VerboseLevel.INFO, "Config hot-reloaded, templates=",
             String.valueOf(cfg.templates != null ? cfg.templates.size() : 0));
     }
@@ -1161,19 +1189,10 @@ public class HookContext {
         }
 
         String id = ShortcutMeta.winComboKeyId(keyCode);
-        Config.SwitchState sw = id == null ? null : r(id, ShortcutMeta.getSwitch(cfg, id));
-        Config.OverrideMode mode = id == null ? null : ra(id, ShortcutMeta.getOverride(cfg, id));
-        // 快捷键表里的 Win+X 都是「纯 Win+键」规则（既有分支一律用 modifiersMatch(...,纯Meta...)），
-        // 所以只有没按别的修饰键时它们才真的在跑；按了 Ctrl/Shift/Alt 就没有特殊处理，照样合并。
-        boolean pureMeta = (event.getMetaState()
-                & (KeyEvent.META_CTRL_MASK | KeyEvent.META_SHIFT_MASK | KeyEvent.META_ALT_MASK)) == 0;
-        boolean hasHandling = pureMeta && !ShortcutMeta.shouldMergeWinCombo(keyCode, sw, mode);
-        if (hasHandling) {
+        if (hasConfiguredMetaPriority(keyCode, event.getMetaState())) {
             LogHelper.log(VerboseLevel.INFO, "MetaRouter: Win+key kept (has handling) kc=",
                     String.valueOf(keyCode),
-                    " id=", String.valueOf(id),
-                    " sw=", String.valueOf(sw),
-                    " mode=", String.valueOf(mode));
+                    " id=", String.valueOf(id));
             flushPendingExtras("有特殊处理");
             return false;
         }
@@ -1452,6 +1471,289 @@ public class HookContext {
             LogHelper.log(VerboseLevel.ERROR,
                     "triggerShowAllApps failed:", t.getMessage());
         }
+    }
+
+    public static boolean isMetaKeyGestureEvent(Object kgEvent) {
+        if (kgEvent == null) return false;
+        try {
+            Object raw = kgEvent.getClass().getMethod("getKeycodes").invoke(kgEvent);
+            if (raw instanceof int[]) {
+                for (int kc : (int[]) raw) {
+                    if (kc == KeyEvent.KEYCODE_META_LEFT || kc == KeyEvent.KEYCODE_META_RIGHT) {
+                        return true;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    /** AOSP Start Menu — PhoneWindowManager.launchAllAppsAction() with ZUI fallback. */
+    public void triggerAospAllApps(int displayId) {
+        if (pwmInstance != null) {
+            metaStartMenuDispatched = true;
+            try {
+                pwmInstance.getClass().getMethod("launchAllAppsAction").invoke(pwmInstance);
+                MetaTrace.decision("Policy", "launchAllAppsAction ok");
+                return;
+            } catch (Throwable t) {
+                LogHelper.log(VerboseLevel.DEBUG,
+                        "launchAllAppsAction failed, falling back:", t.getMessage());
+            }
+        }
+        triggerShowAllApps(displayId);
+    }
+
+    // ----------------------------------------------------------------
+    //  Meta passthrough (OFF) state machine & replay ID tracking
+    // ----------------------------------------------------------------
+
+    private static final long PASSTHROUGH_REPLAY_TTL_MS = 5000L;
+    private static final int SHORTCUT_META_MASK = 69635;
+    private final MetaPassthroughState<KeyEvent> passthroughState = new MetaPassthroughState<>();
+    private final java.util.Map<Integer, Long> passthroughReplayIds =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    void registerPassthroughReplayId(int id) {
+        if (id == 0) return;
+        long now = System.nanoTime() / 1_000_000L;
+        passthroughReplayIds.put(id, now);
+        if (passthroughReplayIds.size() > 64) {
+            long cutoff = now - PASSTHROUGH_REPLAY_TTL_MS;
+            passthroughReplayIds.entrySet().removeIf(e -> e.getValue() < cutoff);
+        }
+    }
+
+    public boolean hasPassthroughState() {
+        return passthroughState.hasActiveOrCaptured();
+    }
+
+    public void onForegroundPackageChanged() {
+        if (!isMetaPassthrough() && passthroughState.hasActiveOrCaptured()) {
+            releasePassthroughOnReset();
+        }
+    }
+
+    public boolean isPassthroughReplayEvent(KeyEvent event) {
+        if (event == null) return false;
+        return isPassthroughReplayId(event.getDeviceId(), KeyInjector.getEventId(event));
+    }
+
+    boolean isPassthroughReplayId(int deviceId, int id) {
+        if (deviceId >= 0 || id == 0) return false;
+        Long ts = passthroughReplayIds.get(id);
+        if (ts == null) return false;
+        if ((System.nanoTime() / 1_000_000L) - ts > PASSTHROUGH_REPLAY_TTL_MS) {
+            passthroughReplayIds.remove(id);
+            return false;
+        }
+        return true;
+    }
+
+    private static MetaPassthroughState.Event<KeyEvent> toPassthroughEvent(KeyEvent event) {
+        KeyEvent snapshot = new KeyEvent(event);
+        return new MetaPassthroughState.Event<>(
+                snapshot,
+                snapshot.getDeviceId(),
+                snapshot.getKeyCode(),
+                snapshot.getAction() == KeyEvent.ACTION_DOWN,
+                KeyInjector.isModifierKeyCode(snapshot.getKeyCode()));
+    }
+
+    private void replayPassthroughOutput(java.util.List<MetaPassthroughState.Output<KeyEvent>> output) {
+        if (output == null || output.isEmpty()) return;
+        for (MetaPassthroughState.Output<KeyEvent> out : output) {
+            KeyEvent built = KeyInjector.createReplayKeyEvent(out.event.value, out.stripMeta);
+            if (built == null) continue;
+            registerPassthroughReplayId(KeyInjector.getEventId(built));
+            KeyInjector.injectBuiltEvent(built);
+        }
+    }
+
+    public void onPassthroughMetaDown(KeyEvent event) {
+        if (event == null) return;
+        MetaPassthroughState.Result<KeyEvent> res =
+                passthroughState.metaDown(toPassthroughEvent(event));
+        replayPassthroughOutput(res.output);
+    }
+
+    static boolean shouldProcessPassthroughCompanionDevice(int deviceId) {
+        return deviceId >= 0;
+    }
+
+    public boolean handleMetaPassthroughCompanion(KeyEvent event) {
+        if (event == null || !shouldProcessPassthroughCompanionDevice(event.getDeviceId())) {
+            return false;
+        }
+        return handleMetaPassthroughCompanionEvent(event);
+    }
+
+    boolean handleMetaPassthroughCompanionEvent(KeyEvent event) {
+        if (event == null) return false;
+        int kc = event.getKeyCode();
+        if (kc == KeyEvent.KEYCODE_META_LEFT || kc == KeyEvent.KEYCODE_META_RIGHT) {
+            return false;
+        }
+        if (!passthroughState.hasActiveOrCaptured()) {
+            return false;
+        }
+        boolean firstDown = event.getAction() == KeyEvent.ACTION_DOWN
+                && event.getRepeatCount() == 0;
+        boolean priority = firstDown && isMetaPassthroughPriorityCombo(event);
+        MetaPassthroughState.Result<KeyEvent> res =
+                passthroughState.companion(toPassthroughEvent(event), priority);
+        replayPassthroughOutput(res.output);
+        if (!res.consumed && priority) {
+            if (fnKeyManager != null && (fnKeyManager.getFnTarget(event) != 0
+                    || fnKeyManager.isFnLockShortcutMatch(event))) {
+                metaSession.fnMapped = true;
+            } else {
+                metaSession.winComboUsed = true;
+            }
+        }
+        return res.consumed;
+    }
+
+    /**
+     * @return true if Meta output was already emitted (or modifiers flushed)
+     *         so the caller must NOT inject a standalone Meta tap.
+     */
+    public boolean onPassthroughMetaUp(KeyEvent event) {
+        if (event == null) return false;
+        boolean wasActive = passthroughState.isOutputActive();
+        MetaPassthroughState.Result<KeyEvent> res =
+                passthroughState.metaUp(toPassthroughEvent(event));
+        replayPassthroughOutput(res.output);
+        return wasActive || !res.output.isEmpty();
+    }
+
+    public void releasePassthroughOnReset() {
+        MetaPassthroughState.ResetResult<KeyEvent> rr = passthroughState.reset();
+        if (!rr.wasOutputActive) return;
+        for (MetaPassthroughState.Event<KeyEvent> ev : rr.heldCompanions) {
+            injectSyntheticUpFromSnapshot(ev.value, false);
+        }
+        for (MetaPassthroughState.Event<KeyEvent> ev : rr.heldMetas) {
+            injectSyntheticUpFromSnapshot(ev.value, true);
+        }
+    }
+
+    private void injectSyntheticUpFromSnapshot(KeyEvent downEvent, boolean stripMeta) {
+        if (downEvent == null) return;
+        int metaState = downEvent.getMetaState();
+        if (stripMeta) metaState &= ~KeyEvent.META_META_MASK;
+        long now = SystemClock.uptimeMillis();
+        KeyEvent up = new KeyEvent(now, now, KeyEvent.ACTION_UP, downEvent.getKeyCode(),
+                0, metaState, downEvent.getDeviceId(), downEvent.getScanCode(),
+                downEvent.getFlags());
+        KeyEvent built = KeyInjector.createReplayKeyEvent(up, stripMeta);
+        if (built == null) return;
+        registerPassthroughReplayId(KeyInjector.getEventId(built));
+        KeyInjector.injectBuiltEvent(built);
+    }
+
+    boolean isMetaPassthroughPriorityCombo(KeyEvent event) {
+        if (event == null) return false;
+        boolean fn = fnKeyManager != null && (fnKeyManager.getFnTarget(event) != 0
+                || fnKeyManager.isFnLockShortcutMatch(event));
+        if (isMetaPassthroughPriorityCombo(event.getKeyCode(), event.getAction(),
+                event.getRepeatCount(), event.getMetaState(),
+                event.isMetaPressed(), fn)) {
+            return true;
+        }
+        if (event.getAction() == KeyEvent.ACTION_DOWN
+                && event.getRepeatCount() == 0
+                && event.isMetaPressed()) {
+            int kc = event.getKeyCode();
+            if ((event.getMetaState() & (KeyEvent.META_CTRL_MASK | KeyEvent.META_SHIFT_MASK
+                    | KeyEvent.META_ALT_MASK)) == 0 && ShortcutMeta.winComboKeyId(kc) != null) {
+                return false;
+            }
+            return isDynamicSystemShortcut(event);
+        }
+        return false;
+    }
+
+    boolean isMetaPassthroughPriorityCombo(int kc, int action, int repeatCount,
+                                           int metaState, boolean isMetaPressed,
+                                           boolean hasFnTarget) {
+        if (action != KeyEvent.ACTION_DOWN || repeatCount != 0 || !isMetaPressed) {
+            return false;
+        }
+        if (hasFnTarget) {
+            return true;
+        }
+        if ((metaState & (KeyEvent.META_CTRL_MASK | KeyEvent.META_SHIFT_MASK
+                | KeyEvent.META_ALT_MASK)) == 0) {
+            String id = ShortcutMeta.winComboKeyId(kc);
+            if (id != null) {
+                String effectiveId = kc == KeyEvent.KEYCODE_DPAD_DOWN ? "winDown" : id;
+                Config.SwitchState sw = r(effectiveId, ShortcutMeta.getSwitch(cfg, id));
+                Config.OverrideMode mode = ra(effectiveId, ShortcutMeta.getOverride(cfg, id));
+                return !ShortcutMeta.shouldMergeWinCombo(kc, sw, mode);
+            }
+        }
+        return false;
+    }
+
+    private volatile boolean kgcLookupAttempted = false;
+
+    private Object resolveKgcInstance() {
+        if (kgcInstance != null) return kgcInstance;
+        if (kgcLookupAttempted) return null;
+        kgcLookupAttempted = true;
+        try {
+            Object ims = Class.forName("android.os.ServiceManager")
+                    .getMethod("getService", String.class)
+                    .invoke(null, "input");
+            if (ims != null) {
+                Object kgc = HookCompat.callMethod(ims, "getKeyGestureController");
+                if (kgc != null) kgcInstance = kgc;
+            }
+        } catch (Throwable ignored) {
+        }
+        return kgcInstance;
+    }
+
+    /** Side-effect-free lookup in KeyGestureController's gesture/bookmark/service tables. */
+    boolean isDynamicSystemShortcut(KeyEvent event) {
+        Object kgc = resolveKgcInstance();
+        if (kgc == null || event == null) return false;
+        try {
+            Object igm = HookCompat.getObjectField(kgc, "mInputGestureManager");
+            if (igm != null) {
+                Object sys = HookCompat.callMethod(igm, "getSystemShortcutForKeyEvent", event);
+                if (sys != null) return true;
+                Object userIdObj = HookCompat.getObjectField(kgc, "mCurrentUserId");
+                int userId = userIdObj instanceof Integer ? (Integer) userIdObj : 0;
+                Object custom = HookCompat.callMethod(
+                        igm, "getCustomGestureForKeyEvent", userId, event);
+                if (custom != null) return true;
+            }
+            Object alsm = HookCompat.getObjectField(kgc, "mAppLaunchShortcutManager");
+            if (alsm != null) {
+                int kc = event.getKeyCode();
+                int ms = event.getMetaState() & SHORTCUT_META_MASK;
+                Object bookmarks = HookCompat.getObjectField(alsm, "mBookmarks");
+                if (bookmarks instanceof java.util.Map && kc != 0) {
+                    Class<?> igdClass = Class.forName(
+                            "android.hardware.input.InputGestureData",
+                            false, kgc.getClass().getClassLoader());
+                    Object trigger = igdClass.getMethod("createKeyTrigger", int.class, int.class)
+                            .invoke(null, kc, ms);
+                    if (((java.util.Map<?, ?>) bookmarks).get(trigger) != null) return true;
+                }
+                Object services = HookCompat.getObjectField(alsm, "mShortcutKeyServices");
+                if (services != null && ms != 0) {
+                    long lookupKey = (((long) ms) << 32) | (kc & 0xffffffffL);
+                    if (HookCompat.callMethod(services, "get", lookupKey) != null) return true;
+                }
+            }
+        } catch (Throwable t) {
+            LogHelper.log(VerboseLevel.DEBUG, "isDynamicSystemShortcut skipped:", t.getMessage());
+        }
+        return false;
     }
 
     /** Invoke the ZUI touchpad action with the signature used by the active SDK. */

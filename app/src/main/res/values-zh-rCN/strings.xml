@@ -131,6 +131,9 @@
     <string name="fn_title">虚拟Fn</string>
     <string name="fn_enabled">启用</string>
     <string name="fn_toast_debug">触发映射时弹出 Toast（调试）</string>
+    <string name="fn_lock_shortcut_label">FnLock 切换快捷键</string>
+    <string name="fn_lock_shortcut_disabled">已禁用（已恢复默认锁定状态）</string>
+    <string name="fn_lock_shortcut_reset">恢复默认</string>
     <string name="fn_profile_label">配置文件</string>
     <string name="fn_import_profile">导入配置文件</string>
     <string name="fn_create_profile">制作配置文件</string>
@@ -299,6 +302,7 @@
     <string name="dialog_meta_single_map_clear">清除</string>
     <string name="dialog_meta_single_map_save">确定</string>
     <string name="dialog_meta_single_map_cancel">取消</string>
+    <string name="dialog_meta_single_map_distinguish_side">区分左右</string>
     <string name="dialog_meta_single_map_help">请按下快捷键。支持单键和组合键</string>
 
     <!-- Ctrl+Enter 自定义模式标签 -->

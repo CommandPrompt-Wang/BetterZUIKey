@@ -14,9 +14,14 @@ public class ForegroundTracker {
     private volatile String mForegroundPkg = null;
     private ConfigResolver mResolver;
     private XposedModule mModule;
+    private Runnable mOnPackageChanged;
 
     public ForegroundTracker(ConfigResolver resolver) {
         this.mResolver = resolver;
+    }
+
+    public void setOnPackageChanged(Runnable callback) {
+        this.mOnPackageChanged = callback;
     }
 
     public void install(XposedModule module, ClassLoader classLoader) {
@@ -43,6 +48,7 @@ public class ForegroundTracker {
                                         "Foreground changed: ", mForegroundPkg, " → ", pkg);
                                     mForegroundPkg = pkg;
                                     if (mResolver != null) mResolver.setForegroundPackage(pkg);
+                                    if (mOnPackageChanged != null) mOnPackageChanged.run();
                                 }
                             } catch (Exception e) {
                                 LogHelper.log(VerboseLevel.DEBUG,
