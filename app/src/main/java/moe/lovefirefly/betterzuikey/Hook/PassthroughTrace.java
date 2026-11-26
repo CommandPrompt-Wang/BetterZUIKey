@@ -14,7 +14,7 @@ import static moe.lovefirefly.betterzuikey.Utils.LogHelper.VerboseLevel;
 public final class PassthroughTrace {
 
     /** Master switch for passthrough layer tracing. */
-    public static final boolean ENABLED = true;
+    public static final boolean ENABLED = false;
 
     private PassthroughTrace() {}
 

@@ -29,7 +29,7 @@ public class MetaKeyRouter {
                 && keyCode != KeyEvent.KEYCODE_META_RIGHT) {
             return;
         }
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "[WIN-HOT] routeDownL1 kc=", String.valueOf(keyCode),
                 " action=", String.valueOf(event.getAction()),
                 " repeat=", String.valueOf(event.getRepeatCount()),
@@ -57,7 +57,7 @@ public class MetaKeyRouter {
         Config.OverrideMode metaSingle = ctx.ra("metaSingle", ctx.cfg.overrideMetaSingle);
         boolean zuiMeta = scanCode == HookContext.ZUI_META_SCAN_CODE;
         boolean imeWinActive = isImeWinActive();
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "[WIN-HOT] routeUpL0 decision mode=", metaSingle.name(),
                 " shortCandidate=", String.valueOf(ctx.metaSession.isShortPress()),
                 " policy=", ctx.policyInstance != null ? "ok" : "null",
@@ -105,7 +105,7 @@ public class MetaKeyRouter {
                 && keyCode != KeyEvent.KEYCODE_META_RIGHT) {
             return false;
         }
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "[WIN-HOT] routeUpL0 kc=", String.valueOf(keyCode),
                 " active=", String.valueOf(ctx.metaSession.active),
                 " upHandled=", String.valueOf(ctx.metaSession.upHandled),
@@ -190,7 +190,7 @@ public class MetaKeyRouter {
         ctx.finishWinExtrasOnMetaUp();
 
         boolean shortPress = ctx.metaSession.isShortPress();
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "[WIN-HOT] normal UP branch short=", String.valueOf(shortPress),
                 " mode=", metaSingle.name(),
                 " zuiMeta=", String.valueOf(zuiMeta),

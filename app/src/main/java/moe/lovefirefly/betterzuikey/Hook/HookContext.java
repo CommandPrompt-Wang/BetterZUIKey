@@ -1470,7 +1470,7 @@ public class HookContext {
 
     /** ZUI Start Menu — version-specific Policy bridge. */
     public void triggerShowAllApps(int displayId) {
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "[WIN-HOT] triggerShowAllApps displayId=", String.valueOf(displayId),
                 " policy=", policyInstance != null ? "ok" : "null",
                 " legacy=", String.valueOf(usesLegacyInputChain()));
@@ -1482,7 +1482,7 @@ public class HookContext {
                 Object recoveredPolicy = HookCompat.getObjectField(kscInstance, "mPolicy");
                 if (recoveredPolicy != null) {
                     policyInstance = recoveredPolicy;
-                    LogHelper.log(VerboseLevel.INFO,
+                    LogHelper.log(VerboseLevel.DEBUG,
                             "[WIN-HOT] recovered policy from kscInstance mPolicy");
                 }
             } catch (Throwable t) {

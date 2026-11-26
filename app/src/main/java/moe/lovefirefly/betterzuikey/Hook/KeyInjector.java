@@ -25,8 +25,9 @@ public final class KeyInjector {
     //  Debug / diagnostics
     // ----------------------------------------------------------------
 
-    /** Write a debug value to SystemProperties (no-op on failure). Read via: adb shell getprop */
+    /** Write a debug value to SystemProperties (no-op unless DEBUG log level). Read via: adb shell getprop */
     public static void debugProp(String key, String value) {
+        if (LogHelper.currentLevel.ordinal() < VerboseLevel.DEBUG.ordinal()) return;
         try {
             Class.forName("android.os.SystemProperties")
                     .getMethod("set", String.class, String.class)
@@ -264,7 +265,7 @@ public final class KeyInjector {
             KeyEvent ev = new KeyEvent(now, now, KeyEvent.ACTION_DOWN, keyCode,
                     0, metaState, deviceId, scanCode, 0);
             markAsKeyboard(ev);
-            LogHelper.log(VerboseLevel.INFO, "INJECT",
+            LogHelper.log(VerboseLevel.DEBUG, "INJECT",
                     " DOWN kc=", String.valueOf(keyCode),
                     " meta=0x", Integer.toHexString(metaState),
                     " dev=", String.valueOf(deviceId),
@@ -417,7 +418,7 @@ public final class KeyInjector {
             pressed.add(m);
         }
 
-        LogHelper.log(VerboseLevel.INFO, "INJECT combo: kc=", String.valueOf(keyCode),
+        LogHelper.log(VerboseLevel.DEBUG, "INJECT combo: kc=", String.valueOf(keyCode),
                 triggerKeyCode > 0 ? " +trigger=" + triggerKeyCode : "",
                 " extras=", String.valueOf(extras == null ? 0 : extras.size()),
                 " ctrl=", String.valueOf(map.getCtrl()),
@@ -503,7 +504,7 @@ public final class KeyInjector {
             KeyEvent ev = new KeyEvent(now, now, KeyEvent.ACTION_UP, keyCode,
                     0, metaState, deviceId, scanCode, 0);
             markAsKeyboard(ev);
-            LogHelper.log(VerboseLevel.INFO, "INJECT",
+            LogHelper.log(VerboseLevel.DEBUG, "INJECT",
                     " UP   kc=", String.valueOf(keyCode),
                     " meta=0x", Integer.toHexString(metaState),
                     " dev=", String.valueOf(deviceId),

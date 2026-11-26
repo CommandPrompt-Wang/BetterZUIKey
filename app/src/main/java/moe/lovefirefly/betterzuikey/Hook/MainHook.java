@@ -72,7 +72,7 @@ public class MainHook extends XposedModule {
         Object policyInstance = ctx != null ? ctx.policyInstance : null;
         Object kgcInstance = ctx != null ? ctx.kgcInstance : null;
         Object pwmInstance = ctx != null ? ctx.pwmInstance : null;
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "[WIN-HOT] onHotReloading ctx=", ctx != null ? "present" : "null",
                 " loader=", mClassLoader != null ? mClassLoader.toString() : "null",
                 " installed=", String.valueOf(mSystemServerInstalled),
@@ -82,7 +82,7 @@ public class MainHook extends XposedModule {
                 sSystemServerClassLoader, kscInstance, policyInstance, kgcInstance, pwmInstance
         });
         stopRuntimeTasks();
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "API 102 hot reload: old generation stopped",
                 " [WIN-HOT] afterStop installed=", String.valueOf(mSystemServerInstalled));
         return true;
@@ -95,13 +95,13 @@ public class MainHook extends XposedModule {
      */
     @Override
     public void onHotReloaded(XposedModuleInterface.HotReloadedParam param) {
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "[WIN-HOT] onHotReloaded isSystemServer=", String.valueOf(param.isSystemServer()));
         if (!param.isSystemServer()) return;
         try {
             java.util.List<io.github.libxposed.api.XposedInterface.HookHandle> oldHandles =
                     param.getOldHookHandles();
-            LogHelper.log(VerboseLevel.INFO,
+            LogHelper.log(VerboseLevel.DEBUG,
                     "[WIN-HOT] oldHookHandles=", String.valueOf(
                             oldHandles != null ? oldHandles.size() : -1));
             ClassLoader classLoader = findTargetClassLoader(oldHandles);
@@ -123,7 +123,7 @@ public class MainHook extends XposedModule {
             }
             if (classLoader == null && savedLoader != null) {
                 classLoader = savedLoader;
-                LogHelper.log(VerboseLevel.INFO,
+                LogHelper.log(VerboseLevel.DEBUG,
                         "[WIN-HOT] recovered loader from saved instance state");
             }
             if (classLoader == null) classLoader = sSystemServerClassLoader;
@@ -151,7 +151,7 @@ public class MainHook extends XposedModule {
     private void installSystemServer(ClassLoader classLoader, boolean hotReload,
                                      Object kscInstance, Object policyInstance,
                                      Object kgcInstance, Object pwmInstance) {
-        LogHelper.log(VerboseLevel.INFO,
+        LogHelper.log(VerboseLevel.DEBUG,
                 "[WIN-HOT] installSystemServer hotReload=", String.valueOf(hotReload),
                 " alreadyInstalled=", String.valueOf(mSystemServerInstalled));
         if (mSystemServerInstalled) return;
@@ -182,7 +182,7 @@ public class MainHook extends XposedModule {
                 if (kscInstance != null || policyInstance != null) {
                     ctx.kscInstance = kscInstance;
                     ctx.policyInstance = policyInstance;
-                    LogHelper.log(VerboseLevel.INFO,
+                    LogHelper.log(VerboseLevel.DEBUG,
                             "[WIN-HOT] restored runtime instances ksc=",
                             kscInstance != null ? "ok" : "null",
                             " policy=", policyInstance != null ? "ok" : "null");
