@@ -1033,6 +1033,21 @@ public class MainHook extends XposedModule {
             LogHelper.log(VerboseLevel.INFO,
                     "KeyGestureController Meta hook installed: ",
                     platformProfile.keyGestureMetaMethod());
+            if (platformProfile.sdk == 37) {
+                hookCheckedMethod(
+                        this, kgc, "interceptShortcutsBeforeKeyCapture",
+                        new HookCompat.HookCallback() {
+                            @Override
+                            protected void beforeHookedMethod(HookCompat.HookParam param) {
+                                Object raw = param.args.length > 1 ? param.args[1] : null;
+                                if (raw instanceof KeyEvent
+                                        && ctx.isPassthroughReplayEvent((KeyEvent) raw)) {
+                                    param.setResult(false);
+                                }
+                            }
+                        },
+                        IBinder.class, KeyEvent.class);
+            }
         } catch (Throwable t) {
             LogHelper.log(VerboseLevel.ERROR,
                     "KeyGestureController hook failed:", t.getMessage());
